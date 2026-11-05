@@ -142,4 +142,5 @@ feature branches after initialization. Describe the change and its validation in
 each pull request. Keep the two README versions equivalent.
 
 Do not commit local databases, credentials, environment files, generated assets,
-or virtual environments. Do not add an open-source license until the owner selects one.
+or virtual environments. Preserve the project's [MIT License](../LICENSE) and any
+applicable third-party notices.

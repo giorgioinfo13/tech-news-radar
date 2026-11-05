@@ -50,5 +50,7 @@ request. Keep both README versions equivalent when you change their content.
 
 ## License
 
-An open-source license is not selected yet. Public repository visibility alone
-does not grant a license to use or redistribute its contents.
+The project is available under the [MIT License](LICENSE).
+You can use, modify, and redistribute it, including for commercial purposes,
+provided you retain the copyright and license notices. The software comes without warranties.
+Third-party dependencies retain their respective licenses.

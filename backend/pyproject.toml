@@ -1,6 +1,7 @@
 [project]
 name = "tech-news-radar-backend"
 version = "0.1.0"
+license = "MIT"
 description = "Local API for Tech News Radar"
 requires-python = ">=3.13,<3.14"
 dependencies = [

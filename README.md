@@ -50,5 +50,7 @@ pull request. Le due versioni del README devono mantenere gli stessi contenuti.
 
 ## Licenza
 
-Non è ancora stata scelta una licenza open source. La visibilità pubblica del
-repository, da sola, non concede una licenza d'uso o redistribuzione.
+Il progetto è distribuito con [licenza MIT](LICENSE).
+Puoi usarlo, modificarlo e ridistribuirlo, anche per scopi commerciali,
+conservando l'avviso di copyright e la licenza. Il software è fornito senza garanzie.
+Le dipendenze di terze parti mantengono le rispettive licenze.

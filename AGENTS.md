@@ -28,7 +28,8 @@ See [architecture](docs/architecture.md) for the intended scope.
 - Keep development servers on loopback. Public deployment and authentication need a separate task.
 - Treat feed URLs and content as untrusted. Never render unsanitized external HTML.
 - Add dependencies only for current requirements. Keep dependency definitions and locks consistent.
-- Do not add a license, publish the repository, or change collaborators without explicit authorization.
+- The project uses the MIT License. Preserve copyright and license notices.
+- Do not change the license, publish the repository, or change collaborators without explicit authorization.
 
 ## Repository investigation
 
