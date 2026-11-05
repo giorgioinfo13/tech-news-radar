@@ -39,21 +39,48 @@ GUIDs can be null. Different sources can reference the same article. URL normali
 and GUID-first matching belong to the future collector, not the database models.
 
 Deleting a category sets its sources' category to null and preserves their articles.
-Deleting a source cascades to its articles and collection history. The future API
-and UI must expose this deletion behavior clearly.
+Deleting a source cascades to its articles and collection history. The API documents
+this behavior. The future UI must require confirmation before deletion.
 
 Collection runs use `running`, `success`, `not_modified`, or `error`. A completed run
 requires a finish time at or after its start. Counts must be nonnegative, and added
 articles cannot exceed seen articles. These constraints do not implement a scheduler
 or recover interrupted runs; the collection service will handle those behaviors.
 
-SQL constraints enforce identity, references, and basic data consistency. HTTP URL
-validation, text limits, and feed access protections belong to the future API and
-collector. The database models do not download or validate feed URLs.
+SQL constraints enforce identity, references, and basic data consistency. The API
+validates HTTP URL syntax and text limits. Feed access protections belong to the
+future collector. The database models do not download or validate feed URLs.
+
+## REST API
+
+FastAPI creates one engine per application lifespan and disposes it at shutdown.
+Each request uses a separate SQLAlchemy session. Write endpoints commit explicitly.
+Session cleanup rolls back unfinished transactions. Startup does not connect to
+the database or apply migrations. The health endpoint remains independent of storage.
+This uses FastAPI's [lifespan](https://fastapi.tiangolo.com/advanced/events/) and
+[dependency cleanup](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/) patterns.
+
+Pydantic schemas define public fields separately from database models. Routes handle
+category/source changes, article queries, read status, and collection history.
+Shared helpers cover sessions, bounded pagination, missing records, and constraint conflicts.
+No additional service layer or repository abstraction is needed for these operations.
+
+Article lists sort by publication time, or acquisition time when publication time
+is absent. Descending IDs break ties. Search matches literal substrings in titles
+and descriptions. SQLite case handling is primarily ASCII, without linguistic or
+semantic search. Offset pagination can shift when articles arrive between requests.
+Large feeds may eventually need indexed search or cursor pagination.
+
+Source URLs accept HTTP/HTTPS, exclude embedded credentials and fragments, and use
+Pydantic URL normalization. The API does not check feed availability or destination
+addresses. No outbound requests occur. The collector must add DNS, redirect, and
+private-network checks before it fetches user-supplied URLs.
+
+Changing a feed URL clears its cache validators and current diagnostics. Existing
+articles and collection history remain attached to the source. Disabling a source
+preserves its articles. No collection runs are created by these API operations.
 
 ## Planned MVP
-
-Add Pydantic schemas and management endpoints on top of the persistence layer.
 
 Separate HTTP download, RSS/Atom parsing, normalization, and persistence through
 small modules and functions. Use `httpx` and `feedparser`. Deduplicate within each
@@ -82,8 +109,8 @@ article links before display. Do not fetch full articles or run feed content as 
 5. Scheduling, end-to-end validation, CI, and final MVP documentation.
 6. Optional integrations, one separately approved task at a time.
 
-Phase 1 and the database foundation of phase 2 are implemented. Management APIs
-are the next separately approved step. Add libraries and directories when their
+Phases 1 and 2 are implemented. RSS collection and manual refresh are the next
+separately approved step. Add libraries and directories when their
 phase needs them. shadcn/ui, routing, and server-state utilities can enter
 with the interactive frontend. No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.

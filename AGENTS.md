@@ -11,9 +11,9 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 - `README.md` and `README.en.md`: equivalent Italian and English introductions.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
-The current implementation provides a scaffold, a health endpoint, and the SQLite
-schema with an initial Alembic migration. Management APIs, RSS collection, source
-management UI, and the dashboard belong to later tasks.
+The current implementation provides a scaffold, a health endpoint, the SQLite
+schema, and REST APIs for categories, sources, articles, and collection history.
+RSS collection, source management UI, and the dashboard belong to later tasks.
 See [architecture](docs/architecture.md) for the intended scope.
 
 ## Working conventions
@@ -82,7 +82,7 @@ news services. Use fixtures and mocked HTTP for future collection tests.
 
 ## Git workflow
 
-- Use `main` as the primary branch. After the initial commit, prefer short-lived `feat/...` or `fix/...` branches.
+- Work directly on `main` for now, as requested by the owner. Create other branches only when requested.
 - Do not create commits or push without explicit authorization for that action.
 - Do not force-push or overwrite history.
 - Before stopping, report completed scope, checks, deviations, Git status, and a proposed commit message.

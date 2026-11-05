@@ -28,9 +28,10 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 ## Stato
 
 Il progetto è nella fase iniziale di sviluppo. Il repository contiene la base
-React e FastAPI, un endpoint di health check, lo schema SQLite e la prima migrazione
-del database. Le API di gestione, la raccolta delle notizie e le pagine operative
-sono ancora da implementare. L'applicazione non è ancora un aggregatore utilizzabile.
+React e FastAPI, lo schema SQLite con migrazioni e le API per gestire categorie e
+fonti, consultare e filtrare articoli e modificarne lo stato letto/non letto.
+La raccolta delle notizie e le pagine operative sono ancora da implementare.
+L'applicazione non è ancora un aggregatore utilizzabile.
 
 ## Tecnologie
 

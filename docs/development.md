@@ -80,7 +80,57 @@ cd backend
 - OpenAPI schema: <http://127.0.0.1:8000/openapi.json>.
 
 The health endpoint reports process availability, not database readiness.
-The database schema is available, but management endpoints are not implemented yet.
+Apply migrations before you use the management endpoints. A missing schema causes
+database requests to fail, even when the health check succeeds.
+
+## Use the REST API
+
+Use `/docs` to inspect request schemas and try the endpoints against your local database.
+These operations change persistent data. Authentication is not implemented.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `GET`, `POST` | `/api/categories` | List or create categories |
+| `PATCH`, `DELETE` | `/api/categories/{id}` | Edit or delete a category |
+| `GET`, `POST` | `/api/sources` | List or create source configurations |
+| `PATCH`, `DELETE` | `/api/sources/{id}` | Edit or delete a source |
+| `GET` | `/api/sources/{id}/runs` | List a source's collection history |
+| `GET` | `/api/articles` | List, filter, and search articles |
+| `PATCH` | `/api/articles/{id}` | Set read/unread status |
+
+All list endpoints return `items`, `total`, `limit`, and `offset`. The default limit
+is 50, with a maximum of 100. Offset starts at zero. Total counts all matching items,
+before pagination. Categories sort by `sort_order` then ID. Sources sort by name then ID.
+Articles sort newest first, using acquisition time when publication time is unknown.
+Collection history sorts by start time. Descending IDs break article and history ties.
+
+Source filters are `category_id` and `enabled`. Article filters are `source_id`,
+`category_id`, `is_read`, and `q`. Filters combine. Search checks titles and descriptions
+for a literal substring, with SQLite's case handling. `%` and `_` are literal characters.
+An empty or whitespace-only search applies no text filter. Categories in article responses
+reflect the source's current category. Disabled sources' existing articles remain visible.
+
+Create a category with `{"name":"Custom","slug":"custom","sort_order":0}`.
+Slugs use lowercase ASCII letters, digits, and single hyphens between groups.
+Create a source with `{"name":"Example","feed_url":"https://example.org/feed.xml"}`.
+This is a placeholder URL, not a verified feed. Optional source fields are `category_id`,
+`enabled` (default `true`), and `refresh_interval_minutes` (default 60, range 1–10080).
+The interval is stored for the future scheduler and has no operational effect yet.
+
+PATCH changes only supplied fields. An empty category/source PATCH preserves all values.
+Use `{"category_id":null}` to remove a source's category. Other editable fields cannot
+be null. Set article read status with `{"is_read":true}` or `{"is_read":false}`.
+Unknown input fields are rejected. Diagnostic fields and timestamps are read-only.
+Validation failures return `422`, missing records return `404`, and uniqueness conflicts
+return `409`. A nonexistent category in a source request returns `404`.
+Creation returns `201`, updates return `200`, and deletion returns `204` without a body.
+
+Deleting a category leaves its sources uncategorized and preserves articles.
+Deleting a source permanently deletes its articles and collection history.
+Changing a source URL preserves that history but clears cache validators and current errors.
+URLs must use HTTP/HTTPS without credentials or fragments. Saving a URL does not
+verify that it provides a feed. RSS collection and manual refresh are not available yet.
+Article and history lists remain empty until the future collector imports data.
 
 ## Run the frontend
 
@@ -176,9 +226,9 @@ packages accept a patched version, then rerun the checks and `npm audit`.
 
 ## Contribution workflow
 
-Keep changes small and scoped. Use `main` as the primary branch and short-lived
-feature branches after initialization. Describe the change and its validation in
-each pull request. Keep the two README versions equivalent.
+Keep changes small and scoped. Current maintainer work uses `main` directly.
+External contributors can submit pull requests from their forks. Describe the change
+and its validation in each pull request. Keep the two README versions equivalent.
 
 Do not commit local databases, credentials, environment files, generated assets,
 or virtual environments. Preserve the project's [MIT License](../LICENSE) and any
