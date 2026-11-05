@@ -27,12 +27,13 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 
 ## Stato
 
-Il progetto è nella fase iniziale di sviluppo. Il repository contiene la base
-React e FastAPI, lo schema SQLite con migrazioni e le API per gestire categorie e
-fonti, consultare e filtrare articoli e modificarne lo stato letto/non letto.
-Il backend raccoglie feed RSS/Atom tramite refresh manuale, con deduplicazione e
-cronologia degli esiti. Dashboard, pagine di gestione e aggiornamenti automatici
-sono ancora da implementare. Per ora le operazioni sono disponibili tramite API.
+Il progetto è in sviluppo. L'interfaccia responsive permette di consultare e cercare
+notizie, filtrare per fonte e categoria e gestire lo stato letto/non letto.
+Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiornamenti
+manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite.
+Gli aggiornamenti automatici sono ancora da implementare. Non sono presenti fonti
+preconfigurate: il primo passo è aggiungere un feed e aggiornarlo. L'interfaccia
+è attualmente in italiano.
 
 ## Tecnologie
 

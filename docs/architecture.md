@@ -11,7 +11,7 @@ FastAPI backend. Simplicity and maintainability take priority over scale.
 - `GET /api/health` reports process health only. It does not check storage or sources.
 - FastAPI exposes `/docs` and `/openapi.json` by default.
 - Environment settings come from the root `.env` file or process environment.
-- The frontend contains a static introduction, not a news dashboard.
+- The frontend provides news, source management, and category management views.
 
 ## Database foundation
 
@@ -141,12 +141,34 @@ Use APScheduler in the backend lifecycle. Manual and scheduled refreshes must
 share the collector's overlap protection, request limits, and retry behavior.
 Collection stops when the backend stops or the computer sleeps.
 
-The dashboard will support chronological articles, source/category filters,
-basic text search, and read/unread status. A separate page will manage sources,
-categories, refresh actions, and collection errors. Render descriptions as plain text.
+## Frontend
 
-Keep article links restricted to HTTP/HTTPS in the future UI. Do not fetch full
-articles or run feed content as code.
+The Italian interface has three hash-based views: `#news`, `#sources`, and `#categories`.
+React state controls forms and filters. A small fetch client and query hook handle
+API calls, abort obsolete requests, and retain data during refresh. No router or
+server-state library is required at this size. Native form controls and `<dialog>`
+provide accessible interactions without an additional component library.
+
+The dashboard queries 20 articles per page. Search is submitted explicitly, and
+filter changes reset pagination. Source/category catalogs load all API pages so
+selectors do not silently omit entries beyond the first 100. Those small catalogs
+stay in memory. Filtering large catalogs can be added if they grow substantially.
+
+Source management supports create/edit/delete, category assignment, enable/disable,
+manual refresh, last-check/error display, and paginated collection history.
+Category management supports names, slugs, order, and deletion. Native confirmation
+dialogs explain deletion effects and restore focus on cancellation.
+
+Titles, descriptions, source errors, and history render as text. Article links
+accept only HTTP/HTTPS without credentials and open with `noopener noreferrer`.
+Opening an original article does not automatically mark it read. Read state changes
+only through the explicit control. The frontend does not fetch feed URLs directly.
+
+Filters and unsaved forms are local to the current view and reset on navigation.
+There is no offline cache, polling, dark mode, or UI language switch yet.
+API errors provide retry guidance, including the refresh cooldown from `Retry-After`.
+Vitest and Testing Library cover behavior with mocked HTTP. Browser checks cover
+responsive layout and native dialog behavior separately from jsdom tests.
 
 ## Development phases
 
@@ -157,11 +179,10 @@ articles or run feed content as code.
 5. Scheduling, end-to-end validation, CI, and final MVP documentation.
 6. Optional integrations, one separately approved task at a time.
 
-Phases 1–3 are implemented, except for the optional verified source catalog.
-The interactive frontend is the next separately approved step.
-Add libraries and directories when their
-phase needs them. shadcn/ui, routing, and server-state utilities can enter
-with the interactive frontend. No paid API, LLM, Docker, distributed queue, or
+Phases 1–4 are implemented, except for the optional verified source catalog.
+Scheduling, integration validation, and CI are the next separately approved phase.
+Add libraries and directories when their phase needs them.
+No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.
 
 Before server deployment, design authentication, HTTPS, backups, and process

@@ -1,25 +1,98 @@
+import { useEffect, useState } from 'react'
+import { type Category, type Source } from './api'
+import { QueryState } from './components'
+import { Dashboard } from './pages/Dashboard'
+import { Sources } from './pages/Sources'
+import { Categories } from './pages/Categories'
+import { useQuery } from './useQuery'
+
+function currentPage() {
+  return ['sources', 'categories'].includes(location.hash.slice(1))
+    ? location.hash.slice(1)
+    : 'news'
+}
+
 export default function App() {
+  const [page, setPage] = useState(currentPage)
+  const categories = useQuery<Category>('/categories', true)
+  const sources = useQuery<Source>('/sources', true)
+  useEffect(() => {
+    const navigate = () => {
+      if (location.hash !== '#main-content') setPage(currentPage())
+    }
+    window.addEventListener('hashchange', navigate)
+    return () => window.removeEventListener('hashchange', navigate)
+  }, [])
+  const reloadCatalog = () => {
+    categories.reload()
+    sources.reload()
+  }
+  const ready = categories.data && sources.data
+  const pages = [
+    { id: 'news', label: 'Notizie', icon: '◫' },
+    { id: 'sources', label: 'Fonti', icon: '◉' },
+    { id: 'categories', label: 'Categorie', icon: '▦' },
+  ]
   return (
-    <main className="mx-auto flex min-h-svh max-w-4xl flex-col justify-center px-6 py-16 sm:px-12">
-      <div className="mb-8 flex items-center gap-3 text-sm font-semibold tracking-wide text-teal-800">
-        <span aria-hidden="true" className="h-3 w-3 rounded-full bg-teal-700" />
-        TECH NEWS RADAR
-      </div>
-      <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-6xl">
-        Your news.<br />Your sources.
-      </h1>
-      <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">
-        A personal space for technology, AI, software development, and economics.
-        Built around the sources you choose.
-      </p>
-      <section aria-labelledby="status-title" className="mt-12 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
-        <h2 id="status-title" className="text-base font-semibold text-slate-900">A foundation for what comes next</h2>
-        <p className="mt-2 max-w-xl leading-relaxed text-slate-600">
-          This project is in early development. News collection, your reading list,
-          and source management will arrive in future updates.
-        </p>
-      </section>
-      <p className="mt-8 text-sm text-slate-500">Simple by design. Made for curious readers.</p>
-    </main>
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Vai al contenuto
+      </a>
+      <aside className="sidebar">
+        <a href="#news" className="brand">
+          <span className="radar-logo" aria-hidden="true">
+            ◎
+          </span>
+          <span>
+            Tech News<span className="brand-sub">RADAR</span>
+          </span>
+        </a>
+        <p className="nav-caption">IL TUO SPAZIO</p>
+        <nav aria-label="Navigazione principale">
+          {pages.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              aria-current={page === item.id ? 'page' : undefined}
+            >
+              <span aria-hidden="true">{item.icon}</span>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="sidebar-note">
+          <span className="status-dot" />
+          Un radar, le tue fonti.<p>Le notizie che scegli, in un unico posto.</p>
+        </div>
+      </aside>
+      <main id="main-content" tabIndex={-1}>
+        <div className="topbar">
+          <span>TECNOLOGIA · IDEE · RICERCA</span>
+          <span className="local-badge">Spazio personale</span>
+        </div>
+        <QueryState
+          loading={(categories.loading || sources.loading) && !ready}
+          error={categories.error || sources.error}
+          retry={reloadCatalog}
+        />
+        {categories.data && sources.data && (
+          <>
+            {page === 'news' && (
+              <Dashboard categories={categories.data.items} sources={sources.data.items} />
+            )}
+            {page === 'sources' && (
+              <Sources
+                sources={sources.data.items}
+                categories={categories.data.items}
+                onChange={sources.reload}
+              />
+            )}
+            {page === 'categories' && (
+              <Categories categories={categories.data.items} onChange={reloadCatalog} />
+            )}
+          </>
+        )}
+      </main>
+    </div>
   )
 }

@@ -173,8 +173,8 @@ Malformed XML, DTDs, entities, excessive nesting, and oversized feeds are reject
 An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
-No sources are preinstalled. Automatic scheduling and the source management UI remain
-future tasks. This phase does not require a new database migration.
+No sources are preinstalled. Automatic scheduling remains a future task.
+The frontend uses these endpoints and does not require a new database migration.
 
 ## Run the frontend
 
@@ -185,7 +185,7 @@ cd frontend
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173>. The current page introduces the project.
+Open <http://127.0.0.1:5173>. Both servers and an initialized database are required.
 Vite forwards `/api` requests to the backend, so
 <http://127.0.0.1:5173/api/health> returns the same health response.
 Stop each server with `Ctrl+C`.
@@ -193,6 +193,32 @@ Stop each server with `Ctrl+C`.
 Both servers bind to loopback. Keep them local: authentication is not implemented.
 If a configured port is occupied, stop the conflicting process or choose a new
 port explicitly. If you change the backend port, update `TNR_API_TARGET` too.
+
+### Use the interface
+
+The interface is currently in Italian. Category names are editable data and retain
+their configured language. The initial category names are in English.
+
+1. Open **Fonti**, then **Aggiungi fonte**.
+2. Enter a name and a valid RSS/Atom URL. Select an optional category.
+3. Select **Salva fonte**, then **Aggiorna** on the source card.
+4. Open **Notizie** to browse the collected articles.
+
+**Notizie** combines source, category, read-status, and text filters. Submit text
+search with **Cerca** or Enter. **Azzera filtri** clears all filters.
+Article titles open the original page in a new tab. The read-status button stores
+your choice independently of opening the article. Missing publication dates are
+shown explicitly, with the acquisition time.
+
+**Fonti** supports source edits, category assignment, pause/reactivation, manual
+refresh, and collection history. The last error stays visible until a successful
+refresh clears it. A cooldown response displays the remaining wait time.
+**Categorie** supports names, identifiers, and display order. Both deletion dialogs
+explain which data is removed. Canceling a dialog does not change stored data.
+
+The layout supports desktop and mobile widths. Labels, keyboard focus indicators,
+loading/empty/error states, and retry controls are included. Unsaved forms and
+filters reset when you leave a view. Automatic refresh and offline access are not available.
 
 ## Configuration
 
@@ -227,11 +253,16 @@ Frontend, from `frontend/`:
 
 ```sh
 npm run lint
+npm test
+npm run format:check
 npm run build
 ```
 
-The build includes `npm run typecheck`. Frontend behavior tests will accompany
-interactive features. The static introduction has no snapshot test suite.
+The build includes `npm run typecheck`. Frontend tests use Vitest, Testing Library,
+and jsdom with mocked HTTP. Run `npm run test:watch` for interactive test development.
+Run `npm run format` to format frontend source files. jsdom is pinned to a version
+compatible with the supported Node 24 environment. Browser checks are still needed
+for responsive layout, native dialog focus, and other behavior jsdom does not reproduce.
 Backend tests use an in-process HTTP client and temporary SQLite databases initialized
 through Alembic. They require no external news services and do not change the local
 development database. Migration tests also check schema/model consistency and repeated upgrades.

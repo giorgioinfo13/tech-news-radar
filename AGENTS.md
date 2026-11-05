@@ -12,8 +12,8 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
 The current implementation provides a scaffold, a health endpoint, the SQLite
-schema, REST APIs, and RSS/Atom collection through manual source refresh.
-Scheduling, source management UI, and the dashboard belong to later tasks.
+schema, REST APIs, RSS/Atom collection, and a responsive Italian dashboard with
+source/category management and manual refresh. Scheduling belongs to a later task.
 See [architecture](docs/architecture.md) for the intended scope.
 
 ## Working conventions
@@ -75,8 +75,8 @@ Source revision and adoption limits are in [skill provenance](docs/agent-skills.
 Use the commands in [the development guide](docs/development.md).
 Backend checks are pytest, Ruff lint, and Ruff format checks. Database tests must
 apply real Alembic migrations to temporary SQLite files. Frontend checks are
-ESLint, TypeScript, and a production build. Add behavioral frontend tests when
-interactive features arrive, rather than snapshot tests for static placeholder text.
+ESLint, TypeScript, Vitest/Testing Library, Prettier, and a production build.
+Test user-visible behavior with mocked HTTP, not implementation details or snapshots.
 
 Run focused checks for the change. Report actual results and any checks not run.
 Do not infer passing tests from source inspection. Keep tests independent of live

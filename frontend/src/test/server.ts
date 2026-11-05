@@ -1,0 +1,158 @@
+import { vi } from 'vitest'
+import type { Article, Category, CollectionRun, Source } from '../api'
+
+export const category: Category = {
+  id: 1,
+  name: 'Intelligenza artificiale',
+  slug: 'ai',
+  sort_order: 0,
+}
+export const source: Source = {
+  id: 1,
+  name: 'Example News',
+  feed_url: 'https://example.org/feed',
+  category_id: 1,
+  category,
+  enabled: true,
+  refresh_interval_minutes: 60,
+  last_checked_at: null,
+  last_success_at: null,
+  last_error: null,
+  consecutive_failures: 0,
+  created_at: '2026-01-01T00:00:00Z',
+}
+export const article: Article = {
+  id: 1,
+  source_id: 1,
+  source: { id: 1, name: source.name, category },
+  title: 'Una nuova idea per la ricerca',
+  description: 'Una descrizione breve e utile.',
+  url: 'https://example.org/article',
+  published_at: '2026-01-01T12:00:00Z',
+  fetched_at: '2026-01-02T00:00:00Z',
+  is_read: false,
+}
+
+export function mockServer() {
+  const state = {
+    categories: [structuredClone(category)],
+    sources: [structuredClone(source)],
+    articles: [structuredClone(article)],
+    runs: [] as CollectionRun[],
+    failRefresh: 0,
+    failRead: false,
+  }
+  const calls: { path: string; method: string; body: Record<string, unknown> }[] = []
+  function response(body: unknown, status = 200, headers: Record<string, string> = {}) {
+    return new Response(status === 204 ? null : JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    })
+  }
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost')
+    const path = url.pathname.replace('/api', '')
+    const method = init?.method ?? 'GET'
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
+    calls.push({ path: url.pathname + url.search, method, body })
+    const id = Number(path.split('/')[2])
+    if (method === 'GET') {
+      let items: unknown[]
+      if (path === '/categories') items = state.categories
+      else if (path === '/sources') items = state.sources
+      else if (path.endsWith('/runs')) items = state.runs.filter((run) => run.source_id === id)
+      else if (path === '/articles') {
+        items = state.articles.filter(
+          (item) =>
+            (!url.searchParams.has('source_id') ||
+              item.source_id === Number(url.searchParams.get('source_id'))) &&
+            (!url.searchParams.has('category_id') ||
+              item.source.category?.id === Number(url.searchParams.get('category_id'))) &&
+            (!url.searchParams.has('is_read') ||
+              item.is_read === (url.searchParams.get('is_read') === 'true')) &&
+            (!url.searchParams.get('q') ||
+              item.title.toLowerCase().includes(url.searchParams.get('q')!.toLowerCase())),
+        )
+      } else return response({}, 404)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const limit = Number(url.searchParams.get('limit') ?? 50)
+      return response({
+        items: items.slice(offset, offset + limit),
+        total: items.length,
+        limit,
+        offset,
+      })
+    }
+    if (path.endsWith('/refresh')) {
+      if (state.failRefresh === 429) return response({}, 429, { 'Retry-After': '42' })
+      const run: CollectionRun = {
+        id: state.runs.length + 1,
+        source_id: id,
+        started_at: '2026-01-03T00:00:00Z',
+        finished_at: '2026-01-03T00:00:01Z',
+        status: state.failRefresh ? 'error' : 'success',
+        articles_seen: 3,
+        articles_added: state.failRefresh ? 0 : 2,
+        error_message: state.failRefresh ? 'Feed request timed out' : null,
+      }
+      state.runs.unshift(run)
+      Object.assign(
+        state.sources.find((item) => item.id === id)!,
+        { last_checked_at: run.finished_at, last_error: run.error_message },
+      )
+      return response(run, state.failRefresh || 200)
+    }
+    if (path.startsWith('/articles/') && method === 'PATCH') {
+      if (state.failRead) return response({}, 500)
+      const item = state.articles.find((item) => item.id === id)!
+      Object.assign(item, body)
+      return response(item)
+    }
+    if (path.startsWith('/sources')) {
+      if (method === 'POST') {
+        const item = {
+          ...source,
+          ...body,
+          id: Math.max(0, ...state.sources.map((item) => item.id)) + 1,
+        } as Source
+        item.category =
+          state.categories.find((category) => category.id === item.category_id) ?? null
+        state.sources.push(item)
+        return response(item, 201)
+      }
+      if (method === 'PATCH') {
+        const item = state.sources.find((item) => item.id === id)!
+        Object.assign(item, body)
+        item.category =
+          state.categories.find((category) => category.id === item.category_id) ?? null
+        return response(item)
+      }
+      if (method === 'DELETE') {
+        state.sources = state.sources.filter((item) => item.id !== id)
+        return response(null, 204)
+      }
+    }
+    if (path.startsWith('/categories')) {
+      if (method === 'POST') {
+        const item = {
+          ...body,
+          id: Math.max(0, ...state.categories.map((item) => item.id)) + 1,
+        } as Category
+        state.categories.push(item)
+        return response(item, 201)
+      }
+      if (method === 'PATCH') {
+        const item = state.categories.find((item) => item.id === id)!
+        Object.assign(item, body)
+        return response(item)
+      }
+      if (method === 'DELETE') {
+        state.categories = state.categories.filter((item) => item.id !== id)
+        return response(null, 204)
+      }
+    }
+    return response({}, 404)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return { state, calls, fetchMock, response }
+}

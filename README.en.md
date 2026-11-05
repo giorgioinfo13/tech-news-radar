@@ -27,12 +27,12 @@ dependencies. Core features will not require paid services or AI models.
 
 ## Status
 
-The project is in early development. The repository contains the React and
-FastAPI foundation, the SQLite schema with migrations, and APIs for categories,
-sources, article queries, and read/unread status.
-The backend collects RSS/Atom feeds through manual refresh, with deduplication and
-collection history. The dashboard, management pages, and automatic updates are not
-implemented yet. For now, operations are available through the API.
+The project is in development. The responsive interface supports article search,
+source/category filters, and read/unread status.
+The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
+manually, and inspect collection results. The backend handles deduplication and SQLite storage.
+Automatic updates are not implemented yet. No sources are preconfigured: start
+by adding a feed and refreshing it. The interface is currently in Italian.
 
 ## Technologies
 
