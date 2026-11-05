@@ -31,6 +31,41 @@ npm ci
 Use Python 3.13 when you create the virtual environment. The backend dependency
 range intentionally matches that version until other Python versions are tested.
 
+## Initialize the database
+
+From the repository root, apply the migrations:
+
+```sh
+cd backend
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+.venv/bin/alembic check
+```
+
+With the default configuration, this creates `backend/data/news.db` and eight
+editable categories. No sources or articles are imported. The expected revision is
+`0001 (head)`, with no pending schema changes.
+
+Run `alembic upgrade head` after updates that add migrations. Repeating it on an
+up-to-date database preserves category edits and existing data. The API does not
+create tables or apply migrations at startup. The database directory is ignored by Git.
+
+`TNR_DATABASE_URL` controls the database location. Relative SQLite paths resolve
+from `backend/`, even if the command runs from another directory. Absolute SQLite
+paths are supported. SQLite URI mode (`uri=true`) is not supported.
+
+For a command from the repository root, specify the config explicitly:
+
+```sh
+backend/.venv/bin/alembic -c backend/alembic.ini current
+```
+
+Schema changes need a new revision. From `backend/`, run
+`.venv/bin/alembic revision --autogenerate -m "describe the schema change"`, then
+review the generated operations and add migration tests. Do not rewrite shared revisions.
+The initial migration's downgrade removes all application tables and data; use it
+only with a disposable database. Tests exercise this path in temporary directories.
+
 ## Run the backend
 
 In one terminal, start from the repository root:
@@ -44,7 +79,8 @@ cd backend
 - API documentation: <http://127.0.0.1:8000/docs>.
 - OpenAPI schema: <http://127.0.0.1:8000/openapi.json>.
 
-The health endpoint reports process availability. No database exists yet.
+The health endpoint reports process availability, not database readiness.
+The database schema is available, but management endpoints are not implemented yet.
 
 ## Run the frontend
 
@@ -73,6 +109,7 @@ file. Restart the development servers after configuration changes.
 | --- | --- | --- |
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
+| `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
 | `TNR_API_TARGET` | `http://127.0.0.1:8000` | Backend target for the Vite development proxy |
 
 Process environment variables override `.env`. Do not store secrets in `VITE_*`
@@ -98,7 +135,9 @@ npm run build
 
 The build includes `npm run typecheck`. Frontend behavior tests will accompany
 interactive features. The static introduction has no snapshot test suite.
-Backend tests use an in-process HTTP client and require no external news services.
+Backend tests use an in-process HTTP client and temporary SQLite databases initialized
+through Alembic. They require no external news services and do not change the local
+development database. Migration tests also check schema/model consistency and repeated upgrades.
 
 To inspect the frontend build, run `npm run preview` from `frontend/`.
 Open <http://127.0.0.1:4173>. This previews static assets only; it does not provide

@@ -15,3 +15,4 @@ class Settings(BaseSettings):
 
     app_name: str = "Tech News Radar"
     docs_enabled: bool = True
+    database_url: str = "sqlite:///data/news.db"

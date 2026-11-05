@@ -13,16 +13,47 @@ FastAPI backend. Simplicity and maintainability take priority over scale.
 - Environment settings come from the root `.env` file or process environment.
 - The frontend contains a static introduction, not a news dashboard.
 
-## Planned MVP
+## Database foundation
 
-Use SQLite with synchronous SQLAlchemy sessions and Pydantic API schemas.
-Add Alembic with the first database schema so later updates preserve user data.
-Use portable types and queries. PostgreSQL remains a possible future migration,
-not a current dependency or a guaranteed drop-in replacement.
+SQLite uses synchronous SQLAlchemy sessions. Alembic revision `0001` creates the
+schema and eight editable categories. Schema changes are explicit migration commands,
+not startup side effects. No default sources are inserted yet.
+
+The engine enables foreign keys on every SQLite connection and uses Python's modern
+transaction mode with a five-second lock timeout. Keep transactions short and use
+one backend worker. Models expose timezone-aware UTC timestamps. SQL stores UTC
+without timezone metadata; naive Python datetime inputs are rejected.
+
+The schema uses portable SQL types and constraints. PostgreSQL remains a possible
+future migration, not a current dependency or a tested replacement. Driver setup,
+URL/index limits, and migration behavior need validation before a switch.
 
 The initial entities are `Category`, `Source`, `Article`, and `CollectionRun`.
-Each source has one category. Articles inherit that category. Preserve the
-original URL and publication date separately from acquisition time and deduplication keys.
+Each source has at most one category. Articles inherit that category. A null
+category means uncategorized. Category names and slugs, and source feed URLs, are unique.
+
+Articles preserve the original URL and publication date separately from acquisition
+time. Missing publication dates stay null. Composite unique constraints on
+`(source_id, guid)` and `(source_id, url)` reject exact duplicates within a source.
+GUIDs can be null. Different sources can reference the same article. URL normalization
+and GUID-first matching belong to the future collector, not the database models.
+
+Deleting a category sets its sources' category to null and preserves their articles.
+Deleting a source cascades to its articles and collection history. The future API
+and UI must expose this deletion behavior clearly.
+
+Collection runs use `running`, `success`, `not_modified`, or `error`. A completed run
+requires a finish time at or after its start. Counts must be nonnegative, and added
+articles cannot exceed seen articles. These constraints do not implement a scheduler
+or recover interrupted runs; the collection service will handle those behaviors.
+
+SQL constraints enforce identity, references, and basic data consistency. HTTP URL
+validation, text limits, and feed access protections belong to the future API and
+collector. The database models do not download or validate feed URLs.
+
+## Planned MVP
+
+Add Pydantic schemas and management endpoints on top of the persistence layer.
 
 Separate HTTP download, RSS/Atom parsing, normalization, and persistence through
 small modules and functions. Use `httpx` and `feedparser`. Deduplicate within each
@@ -51,8 +82,9 @@ article links before display. Do not fetch full articles or run feed content as 
 5. Scheduling, end-to-end validation, CI, and final MVP documentation.
 6. Optional integrations, one separately approved task at a time.
 
-Only phase 1 belongs to the initial scaffold. Add libraries and directories when
-their phase needs them. shadcn/ui, routing, and server-state utilities can enter
+Phase 1 and the database foundation of phase 2 are implemented. Management APIs
+are the next separately approved step. Add libraries and directories when their
+phase needs them. shadcn/ui, routing, and server-state utilities can enter
 with the interactive frontend. No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.
 

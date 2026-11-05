@@ -28,15 +28,15 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 ## Stato
 
 Il progetto è nella fase iniziale di sviluppo. Il repository contiene la base
-React e FastAPI, un endpoint di health check e gli strumenti di sviluppo.
-La raccolta delle notizie, il database e le pagine di gestione sono ancora da
-implementare. L'applicazione non è ancora un aggregatore utilizzabile.
+React e FastAPI, un endpoint di health check, lo schema SQLite e la prima migrazione
+del database. Le API di gestione, la raccolta delle notizie e le pagine operative
+sono ancora da implementare. L'applicazione non è ancora un aggregatore utilizzabile.
 
 ## Tecnologie
 
 - **Interfaccia:** React, TypeScript, Vite e Tailwind CSS.
 - **Backend:** Python e FastAPI.
-- **Persistenza prevista:** SQLite con SQLAlchemy e migrazioni Alembic.
+- **Persistenza:** SQLite con SQLAlchemy e migrazioni Alembic.
 - **Raccolta prevista:** feedparser, httpx e APScheduler.
 
 ## Sviluppo

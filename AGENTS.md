@@ -6,13 +6,14 @@ Tech News Radar is a personal news reader for technology, AI, software developme
 and economics. Keep it simple, readable, and suitable for future collaboration.
 
 - `frontend/`: React, TypeScript, Vite, and Tailwind CSS.
-- `backend/`: FastAPI, configuration, and backend tests.
+- `backend/`: FastAPI, configuration, SQLAlchemy models, Alembic migrations, and backend tests.
 - `docs/`: local development instructions and architecture decisions.
 - `README.md` and `README.en.md`: equivalent Italian and English introductions.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
-The current phase provides a scaffold and a health endpoint. SQLite persistence,
-RSS collection, source management, and the dashboard belong to later phases.
+The current implementation provides a scaffold, a health endpoint, and the SQLite
+schema with an initial Alembic migration. Management APIs, RSS collection, source
+management UI, and the dashboard belong to later tasks.
 See [architecture](docs/architecture.md) for the intended scope.
 
 ## Working conventions
@@ -28,6 +29,9 @@ See [architecture](docs/architecture.md) for the intended scope.
 - Keep development servers on loopback. Public deployment and authentication need a separate task.
 - Treat feed URLs and content as untrusted. Never render unsanitized external HTML.
 - Add dependencies only for current requirements. Keep dependency definitions and locks consistent.
+- Change database schemas through Alembic revisions. Do not run `create_all()` or migrations at API startup.
+- After a migration is committed and shared, add a new revision instead of rewriting it.
+- Use timezone-aware datetimes with the models. Database timestamps store UTC.
 - The project uses the MIT License. Preserve copyright and license notices.
 - Do not change the license, publish the repository, or change collaborators without explicit authorization.
 
@@ -67,7 +71,8 @@ Source revision and adoption limits are in [skill provenance](docs/agent-skills.
 ## Verification
 
 Use the commands in [the development guide](docs/development.md).
-Backend checks are pytest, Ruff lint, and Ruff format checks. Frontend checks are
+Backend checks are pytest, Ruff lint, and Ruff format checks. Database tests must
+apply real Alembic migrations to temporary SQLite files. Frontend checks are
 ESLint, TypeScript, and a production build. Add behavioral frontend tests when
 interactive features arrive, rather than snapshot tests for static placeholder text.
 

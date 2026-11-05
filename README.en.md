@@ -28,15 +28,15 @@ dependencies. Core features will not require paid services or AI models.
 ## Status
 
 The project is in early development. The repository contains the React and
-FastAPI foundation, a health check endpoint, and development tools.
-News collection, the database, and management pages are not implemented yet.
+FastAPI foundation, a health check endpoint, the SQLite schema, and the first
+database migration. Management APIs, news collection, and functional pages are not implemented yet.
 The application is not yet a usable news aggregator.
 
 ## Technologies
 
 - **Interface:** React, TypeScript, Vite, and Tailwind CSS.
 - **Backend:** Python and FastAPI.
-- **Planned persistence:** SQLite with SQLAlchemy and Alembic migrations.
+- **Persistence:** SQLite with SQLAlchemy and Alembic migrations.
 - **Planned collection:** feedparser, httpx, and APScheduler.
 
 ## Development
