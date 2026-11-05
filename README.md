@@ -27,7 +27,7 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 
 ## Stato
 
-Il progetto è in sviluppo. L'interfaccia responsive permette di consultare e cercare
+Il progetto è in sviluppo. L'interfaccia editoriale responsive permette di consultare e cercare
 notizie, filtrare per fonte e categoria e gestire lo stato letto/non letto.
 Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiornamenti
 manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite.
@@ -87,4 +87,4 @@ pull request. Le due versioni del README devono mantenere gli stessi contenuti.
 Il progetto è distribuito con [licenza MIT](LICENSE).
 Puoi usarlo, modificarlo e ridistribuirlo, anche per scopi commerciali,
 conservando l'avviso di copyright e la licenza. Il software è fornito senza garanzie.
-Le dipendenze di terze parti mantengono le rispettive licenze.
+Le risorse di terze parti, incluse skill e font locali, mantengono le rispettive licenze.

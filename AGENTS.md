@@ -67,6 +67,12 @@ automatic discovery depends on the agent. They do not override user instructions
 - [implementation-review](.agents/skills/implementation-review/SKILL.md): review a specified diff or implementation.
 - [security-review](.agents/skills/security-review/SKILL.md): review concrete security boundaries, especially external feeds.
 - [ste-documentation](.agents/skills/ste-documentation/SKILL.md): English technical documentation, without claiming certified compliance.
+- [frontend-design](.agents/skills/frontend-design/SKILL.md): visual direction and implementation, following the selected editorial design.
+- `web-design-guidelines`: optional local UI review skill in `.agents/skills/web-design-guidelines/`; excluded from Git. Installation details are in the provenance document.
+
+For UI work, preserve Italian sentence case and the existing API behavior. Review
+guidelines are a checklist, not authorization to add libraries, URL state, new
+business behavior, or unrelated features. Keep the fonts local and preserve their licenses.
 
 Source revision and adoption limits are in [skill provenance](docs/agent-skills.md).
 

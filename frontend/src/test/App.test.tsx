@@ -151,7 +151,7 @@ describe('source management', () => {
     const { state } = mockServer()
     const user = userEvent.setup()
     open('sources')
-    await user.click(await screen.findByRole('button', { name: '+ Aggiungi fonte' }))
+    await user.click(await screen.findByRole('button', { name: 'Aggiungi fonte' }))
     await user.type(screen.getByLabelText('Nome della fonte'), 'Nuovo feed')
     await user.type(screen.getByLabelText('URL del feed'), 'https://news.example/rss')
     await user.selectOptions(screen.getByLabelText('Categoria'), '1')
@@ -165,6 +165,7 @@ describe('source management', () => {
     await user.click(screen.getByRole('button', { name: 'Salva fonte' }))
     await screen.findByRole('heading', { name: 'Rinominato' })
     expect(state.sources[1].category_id).toBeNull()
+    await user.click(screen.getByLabelText('Dettagli e azioni Rinominato'))
     await user.click(screen.getByRole('button', { name: 'Disattiva Rinominato' }))
     expect(await screen.findByRole('button', { name: 'Aggiorna Rinominato' })).toBeDisabled()
     await waitFor(() => expect(state.sources[1].enabled).toBe(false))
@@ -174,7 +175,8 @@ describe('source management', () => {
     const { calls } = mockServer()
     const user = userEvent.setup()
     open('sources')
-    await user.click(await screen.findByRole('button', { name: 'Elimina Example News' }))
+    await user.click(await screen.findByLabelText('Dettagli e azioni Example News'))
+    await user.click(screen.getByRole('button', { name: 'Elimina Example News' }))
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('anche tutti gli articoli e la cronologia')
     await user.click(within(dialog).getByRole('button', { name: 'Annulla' }))
@@ -191,6 +193,7 @@ describe('source management', () => {
     open('sources')
     await user.click(await screen.findByRole('button', { name: 'Aggiorna Example News' }))
     expect(await screen.findByText('Example News: 2 nuovi articoli raccolti.')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('Dettagli e azioni Example News'))
     await user.click(screen.getByRole('button', { name: 'Cronologia Example News' }))
     expect(await screen.findByText('Completato')).toBeInTheDocument()
     state.failRefresh = 502
@@ -222,7 +225,7 @@ describe('source management', () => {
     const { calls } = mockServer()
     const user = userEvent.setup()
     open('sources')
-    await user.click(await screen.findByRole('button', { name: '+ Aggiungi fonte' }))
+    await user.click(await screen.findByRole('button', { name: 'Aggiungi fonte' }))
     await user.type(screen.getByLabelText('Nome della fonte'), 'Unsafe')
     await user.type(screen.getByLabelText('URL del feed'), 'ftp://example.org/file')
     await user.click(screen.getByRole('button', { name: 'Salva fonte' }))
@@ -235,18 +238,18 @@ describe('categories and navigation', () => {
   it('keeps the current view when skipping to the main content', async () => {
     mockServer()
     open('sources')
-    await screen.findByRole('heading', { name: 'Le fonti, scelte da te.' })
+    await screen.findByRole('heading', { name: 'Fonti' })
     act(() => {
       location.hash = '#main-content'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
-    expect(screen.getByRole('heading', { name: 'Le fonti, scelte da te.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Fonti' })).toBeInTheDocument()
   })
   it('creates and edits a category, then explains deletion semantics', async () => {
     const { state } = mockServer()
     const user = userEvent.setup()
     open('categories')
-    await user.click(await screen.findByRole('button', { name: '+ Aggiungi categoria' }))
+    await user.click(await screen.findByRole('button', { name: 'Aggiungi categoria' }))
     await user.type(screen.getByLabelText('Nome della categoria'), 'Ricerca')
     await user.type(screen.getByLabelText('Identificativo'), 'ricerca')
     await user.click(screen.getByRole('button', { name: 'Salva categoria' }))
@@ -279,16 +282,62 @@ describe('categories and navigation', () => {
       location.hash = '#sources'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
-    expect(
-      await screen.findByRole('heading', { name: 'Le fonti, scelte da te.' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Fonti' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Fonti' })).toHaveAttribute('aria-current', 'page')
     act(() => {
       location.hash = ''
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
+    expect(await screen.findByRole('heading', { name: 'Notizie' })).toBeInTheDocument()
+  })
+})
+
+describe('editorial interface', () => {
+  it('keeps filters when the compact filter panel is closed and reopened', async () => {
+    const { calls } = mockServer()
+    const user = userEvent.setup()
+    open('news')
+    await screen.findByRole('link', { name: /Una nuova idea/ })
+    const toggle = screen.getByRole('button', { name: /Filtri/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.selectOptions(screen.getByLabelText('Fonte'), '1')
+    await waitFor(() => expect(calls.at(-1)?.path).toContain('source_id=1'))
+    expect(toggle).toHaveTextContent('1 attivo')
+    const requests = calls.length
+    await user.click(toggle)
+    await user.click(toggle)
+    expect(screen.getByLabelText('Fonte')).toHaveValue('1')
+    expect(calls).toHaveLength(requests)
+  })
+
+  it('places editing and history beside the selected source', async () => {
+    const { state } = mockServer()
+    state.sources.push({
+      ...source,
+      id: 2,
+      name: 'Second source',
+      feed_url: 'https://second.example/rss',
+    })
+    const user = userEvent.setup()
+    open('sources')
+    const title = await screen.findByRole('heading', { name: 'Second source' })
+    const card = title.closest('article')!
+    await user.click(screen.getByRole('button', { name: 'Modifica Second source' }))
+    expect(within(card).getByLabelText('Nome della fonte')).toHaveValue('Second source')
+    expect(within(card).getByRole('region', { name: 'Modifica Second source' })).toHaveFocus()
+    await user.click(within(card).getByRole('button', { name: 'Annulla' }))
+    expect(screen.getByRole('button', { name: 'Modifica Second source' })).toHaveFocus()
+    await user.click(screen.getByLabelText('Dettagli e azioni Second source'))
+    await user.click(screen.getByRole('button', { name: 'Cronologia Second source' }))
     expect(
-      await screen.findByRole('heading', { name: 'Uno sguardo sulle notizie.' }),
+      await within(card).findByRole('region', { name: 'Cronologia · Second source' }),
     ).toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: 'Chiudi cronologia' }))
+    expect(screen.getByRole('button', { name: 'Cronologia Second source' })).toHaveFocus()
+    expect(
+      within(card).queryByRole('region', { name: 'Cronologia · Second source' }),
+    ).not.toBeInTheDocument()
   })
 })

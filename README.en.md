@@ -27,7 +27,7 @@ dependencies. Core features will not require paid services or AI models.
 
 ## Status
 
-The project is in development. The responsive interface supports article search,
+The project is in development. The responsive editorial interface supports article search,
 source/category filters, and read/unread status.
 The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
 manually, and inspect collection results. The backend handles deduplication and SQLite storage.
@@ -87,4 +87,4 @@ request. Keep both README versions equivalent when you change their content.
 The project is available under the [MIT License](LICENSE).
 You can use, modify, and redistribute it, including for commercial purposes,
 provided you retain the copyright and license notices. The software comes without warranties.
-Third-party dependencies retain their respective licenses.
+Third-party resources, including skills and local fonts, retain their respective licenses.

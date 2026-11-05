@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Sources } from './pages/Sources'
 import { Categories } from './pages/Categories'
 import { useQuery } from './useQuery'
+import { Icon } from './Icon'
 
 function currentPage() {
   return ['sources', 'categories'].includes(location.hash.slice(1))
@@ -29,25 +30,24 @@ export default function App() {
   }
   const ready = categories.data && sources.data
   const pages = [
-    { id: 'news', label: 'Notizie', icon: '◫' },
-    { id: 'sources', label: 'Fonti', icon: '◉' },
-    { id: 'categories', label: 'Categorie', icon: '▦' },
-  ]
+    { id: 'news', label: 'Notizie', icon: 'news' },
+    { id: 'sources', label: 'Fonti', icon: 'sources' },
+    { id: 'categories', label: 'Categorie', icon: 'categories' },
+  ] as const
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         Vai al contenuto
       </a>
       <aside className="sidebar">
-        <a href="#news" className="brand">
+        <a href="#news" className="brand" translate="no">
           <span className="radar-logo" aria-hidden="true">
-            ◎
+            <Icon name="radar" />
           </span>
           <span>
-            Tech News<span className="brand-sub">RADAR</span>
+            Tech News<span className="brand-sub">Radar</span>
           </span>
         </a>
-        <p className="nav-caption">IL TUO SPAZIO</p>
         <nav aria-label="Navigazione principale">
           {pages.map((item) => (
             <a
@@ -55,21 +55,17 @@ export default function App() {
               href={`#${item.id}`}
               aria-current={page === item.id ? 'page' : undefined}
             >
-              <span aria-hidden="true">{item.icon}</span>
+              <Icon name={item.icon} />
               {item.label}
             </a>
           ))}
         </nav>
         <div className="sidebar-note">
-          <span className="status-dot" />
-          Un radar, le tue fonti.<p>Le notizie che scegli, in un unico posto.</p>
+          <p>Il tuo spazio di lettura.</p>
+          <a href="#sources">Scegli le fonti da seguire</a>
         </div>
       </aside>
       <main id="main-content" tabIndex={-1}>
-        <div className="topbar">
-          <span>TECNOLOGIA · IDEE · RICERCA</span>
-          <span className="local-badge">Spazio personale</span>
-        </div>
         <QueryState
           loading={(categories.loading || sources.loading) && !ready}
           error={categories.error || sources.error}

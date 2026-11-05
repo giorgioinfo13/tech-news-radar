@@ -28,3 +28,26 @@ contributors and is not initialized by this scaffold.
 
 The documentation uses the general STE writing guidance. The official FAQ returned
 HTTP 403 during setup. No full ASD-STE100 dictionary or compliance audit was performed.
+
+## Frontend design skills
+
+The owner authorized these project-local installations on 2026-11-05:
+
+| Skill | Source revision | Distribution |
+| --- | --- | --- |
+| `frontend-design` | [anthropics/skills](https://github.com/anthropics/skills/tree/ca45fc496a3436251f191354091d557da31c15b5/skills/frontend-design), `ca45fc496a3436251f191354091d557da31c15b5` | Included unchanged with its Apache 2.0 `LICENSE.txt` |
+| `web-design-guidelines` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills/tree/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62/skills/web-design-guidelines), `1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62` | Local only, excluded from Git because no explicit license was found in the skill or repository root |
+
+The Codex skill installer copied only these directories into `.agents/skills/`.
+No global skill installation, npm dependency, or automatic synchronization was added.
+The skill files were read directly for this task. Discovery is available on the next
+Codex turn. A clone contains the Anthropic skill but not the optional Vercel copy.
+
+The owner's proposed `npx skills add` commands are an alternative installer, not a
+runtime requirement. Use the specific `--skill` and `-a codex` selectors, without
+`--global`, for a project installation. Review upstream licensing before redistributing
+the Vercel skill. Its review fetches current guidance from the URL in its `SKILL.md`.
+
+The design reference is the approved editorial direction: cool neutral surfaces,
+blue actions, Source Serif 4 article titles, and Source Sans 3 controls. Vercel's
+review checklist does not override Italian copy, scope, or application behavior.

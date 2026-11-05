@@ -1,3 +1,4 @@
+import { usePanelFocus } from '../usePanelFocus'
 import { useState, type FormEvent } from 'react'
 import {
   errorMessage,
@@ -9,6 +10,7 @@ import {
 } from '../api'
 import { ConfirmDialog, Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
+import { Icon } from '../Icon'
 
 type SourceInput = Pick<Source, 'name' | 'feed_url' | 'category_id' | 'enabled'>
 
@@ -25,6 +27,7 @@ function SourceEditor({
   onSave: (input: SourceInput) => void
   onCancel: () => void
 }) {
+  const panelRef = usePanelFocus()
   const [name, setName] = useState(source?.name ?? '')
   const [url, setUrl] = useState(source?.feed_url ?? '')
   const [category, setCategory] = useState(source?.category_id?.toString() ?? '')
@@ -58,7 +61,12 @@ function SourceEditor({
     })
   }
   return (
-    <section className="editor-panel" aria-labelledby="source-editor-title">
+    <section
+      ref={panelRef}
+      tabIndex={-1}
+      className="editor-panel"
+      aria-labelledby="source-editor-title"
+    >
       <h2 id="source-editor-title">{source ? `Modifica ${source.name}` : 'Aggiungi una fonte'}</h2>
       <p className="muted">
         Incolla l’indirizzo di un feed RSS o Atom. Potrai raccogliere gli articoli con Aggiorna.
@@ -68,7 +76,8 @@ function SourceEditor({
           <label>
             Nome della fonte
             <input
-              autoFocus
+              name="source-name"
+              autoComplete="off"
               required
               maxLength={200}
               value={name}
@@ -78,7 +87,11 @@ function SourceEditor({
           </label>
           <label>
             Categoria
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <select
+              name="category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            >
               <option value="">Senza categoria</option>
               {categories.map((item) => (
                 <option value={item.id} key={item.id}>
@@ -91,6 +104,9 @@ function SourceEditor({
             URL del feed
             <input
               type="url"
+              name="feed-url"
+              autoComplete="off"
+              spellCheck={false}
               required
               maxLength={2048}
               value={url}
@@ -101,6 +117,7 @@ function SourceEditor({
           <label className="checkbox-label full-width">
             <input
               type="checkbox"
+              name="enabled"
               checked={enabled}
               onChange={(event) => setEnabled(event.target.checked)}
             />
@@ -132,6 +149,7 @@ function SourceEditor({
 }
 
 function History({ source, onClose }: { source: Source; onClose: () => void }) {
+  const panelRef = usePanelFocus()
   const [offset, setOffset] = useState(0)
   const runs = useQuery<CollectionRun>(`/sources/${source.id}/runs?limit=10&offset=${offset}`)
   const labels = {
@@ -141,7 +159,13 @@ function History({ source, onClose }: { source: Source; onClose: () => void }) {
     error: 'Non riuscito',
   }
   return (
-    <section className="history-panel" aria-labelledby="history-title">
+    <section
+      ref={panelRef}
+      tabIndex={-1}
+      id={`source-history-${source.id}`}
+      className="history-panel"
+      aria-labelledby="history-title"
+    >
       <div className="section-heading">
         <h2 id="history-title">Cronologia · {source.name}</h2>
         <button onClick={onClose}>Chiudi cronologia</button>
@@ -227,13 +251,33 @@ export function Sources({
       setHistoryRevision((value) => value + 1)
     }
   }
+  const editorPanel = editor && (
+    <SourceEditor
+      key={editor === 'new' ? 'new' : editor.id}
+      source={editor === 'new' ? undefined : editor}
+      categories={categories}
+      busy={busy}
+      onCancel={() => setEditor(null)}
+      onSave={(input) =>
+        void action(
+          () =>
+            mutate(
+              editor === 'new' ? '/sources' : `/sources/${editor.id}`,
+              editor === 'new' ? 'POST' : 'PATCH',
+              input,
+            ),
+          'Fonte salvata.',
+          () => setEditor(null),
+        )
+      }
+    />
+  )
   return (
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">LE TUE CONNESSIONI</p>
-          <h1>Le fonti, scelte da te.</h1>
-          <p>Aggiungi feed, organizza le letture e raccogli nuovi articoli.</p>
+          <h1>Fonti</h1>
+          <p>Scegli cosa seguire. Al resto pensa il tuo radar.</p>
         </div>
         <button
           className="primary"
@@ -244,7 +288,7 @@ export function Sources({
             setMessage('')
           }}
         >
-          + Aggiungi fonte
+          Aggiungi fonte
         </button>
       </header>
       {message && <Notice>{message}</Notice>}
@@ -252,27 +296,7 @@ export function Sources({
       {refreshing !== null && (
         <Notice>Aggiornamento in corso… Può richiedere qualche secondo.</Notice>
       )}
-      {editor && (
-        <SourceEditor
-          key={editor === 'new' ? 'new' : editor.id}
-          source={editor === 'new' ? undefined : editor}
-          categories={categories}
-          busy={busy}
-          onCancel={() => setEditor(null)}
-          onSave={(input) =>
-            void action(
-              () =>
-                mutate(
-                  editor === 'new' ? '/sources' : `/sources/${editor.id}`,
-                  editor === 'new' ? 'POST' : 'PATCH',
-                  input,
-                ),
-              'Fonte salvata.',
-              () => setEditor(null),
-            )
-          }
-        />
-      )}
+      {editor === 'new' && editorPanel}
       <div className="section-heading">
         <h2>
           Le tue fonti <span>{sources.length}</span>
@@ -295,80 +319,101 @@ export function Sources({
                       {source.enabled ? 'Attiva' : 'In pausa'}
                     </span>
                   </div>
-                  <p className="feed-url">{source.feed_url}</p>
+                  <p className="source-overview">{source.category?.name ?? 'Senza categoria'}</p>
                 </div>
-                <span className="category-tag">{source.category?.name ?? 'Senza categoria'}</span>
-              </div>
-              <div className="source-dates">
-                <span>
-                  Ultimo controllo <strong>{formatDate(source.last_checked_at)}</strong>
-                </span>
-                <span>
-                  Ultimo esito positivo <strong>{formatDate(source.last_success_at)}</strong>
-                </span>
+                <div className="source-actions">
+                  <button
+                    className="primary-soft"
+                    disabled={busy || !source.enabled}
+                    aria-label={`Aggiorna ${source.name}`}
+                    onClick={() => void refresh(source)}
+                  >
+                    <Icon name="refresh" />{' '}
+                    {refreshing === source.id ? 'Aggiornamento…' : 'Aggiorna'}
+                  </button>
+                  <button
+                    disabled={busy}
+                    aria-label={`Modifica ${source.name}`}
+                    onClick={() => {
+                      setEditor(source)
+                      setError('')
+                      setMessage('')
+                    }}
+                  >
+                    Modifica
+                  </button>
+                </div>
               </div>
               {source.last_error && (
                 <p className="source-error">
                   Ultimo aggiornamento non riuscito: {source.last_error}
                 </p>
               )}
-              <div className="source-actions">
-                <button
-                  className="primary-soft"
-                  disabled={busy || !source.enabled}
-                  aria-label={`Aggiorna ${source.name}`}
-                  onClick={() => void refresh(source)}
-                >
-                  {refreshing === source.id ? 'Aggiornamento…' : '↻ Aggiorna'}
-                </button>
-                <button
-                  disabled={busy}
-                  aria-label={`Modifica ${source.name}`}
-                  onClick={() => {
-                    setEditor(source)
-                    setError('')
-                    setMessage('')
+              <details className="source-details">
+                <summary aria-label={`Dettagli e azioni ${source.name}`}>Dettagli e azioni</summary>
+                <div className="source-detail-content">
+                  <p className="feed-url">{source.feed_url}</p>
+                  <div className="source-dates">
+                    <span>
+                      Ultimo controllo <strong>{formatDate(source.last_checked_at)}</strong>
+                    </span>
+                    <span>
+                      Ultimo esito positivo <strong>{formatDate(source.last_success_at)}</strong>
+                    </span>
+                  </div>
+                  <div className="source-actions">
+                    <button
+                      disabled={busy}
+                      aria-label={`${source.enabled ? 'Disattiva' : 'Attiva'} ${source.name}`}
+                      onClick={() =>
+                        void action(
+                          () =>
+                            mutate(`/sources/${source.id}`, 'PATCH', { enabled: !source.enabled }),
+                          source.enabled ? 'Fonte messa in pausa.' : 'Fonte attivata.',
+                        )
+                      }
+                    >
+                      {source.enabled ? 'Metti in pausa' : 'Attiva'}
+                    </button>
+                    <button
+                      id={`history-trigger-${source.id}`}
+                      aria-label={`Cronologia ${source.name}`}
+                      aria-expanded={history?.id === source.id}
+                      aria-controls={
+                        history?.id === source.id ? `source-history-${source.id}` : undefined
+                      }
+                      onClick={() => setHistory(source)}
+                    >
+                      Cronologia
+                    </button>
+                    <button
+                      className="text-danger"
+                      disabled={busy}
+                      aria-label={`Elimina ${source.name}`}
+                      onClick={() => {
+                        setDeleting(source)
+                        setError('')
+                      }}
+                    >
+                      Elimina
+                    </button>
+                  </div>
+                </div>
+              </details>
+              {editor !== 'new' && editor?.id === source.id && editorPanel}
+              {history?.id === source.id && (
+                <History
+                  key={`${history.id}:${historyRevision}`}
+                  source={history}
+                  onClose={() => {
+                    setHistory(null)
+                    document.getElementById(`history-trigger-${source.id}`)?.focus()
                   }}
-                >
-                  Modifica
-                </button>
-                <button
-                  disabled={busy}
-                  aria-label={`${source.enabled ? 'Disattiva' : 'Attiva'} ${source.name}`}
-                  onClick={() =>
-                    void action(
-                      () => mutate(`/sources/${source.id}`, 'PATCH', { enabled: !source.enabled }),
-                      source.enabled ? 'Fonte messa in pausa.' : 'Fonte attivata.',
-                    )
-                  }
-                >
-                  {source.enabled ? 'Metti in pausa' : 'Attiva'}
-                </button>
-                <button aria-label={`Cronologia ${source.name}`} onClick={() => setHistory(source)}>
-                  Cronologia
-                </button>
-                <button
-                  className="text-danger"
-                  disabled={busy}
-                  aria-label={`Elimina ${source.name}`}
-                  onClick={() => {
-                    setDeleting(source)
-                    setError('')
-                  }}
-                >
-                  Elimina
-                </button>
-              </div>
+                />
+              )}
             </article>
           ))}
         </div>
-      )}
-      {history && (
-        <History
-          key={`${history.id}:${historyRevision}`}
-          source={history}
-          onClose={() => setHistory(null)}
-        />
       )}
       {deleting && (
         <ConfirmDialog

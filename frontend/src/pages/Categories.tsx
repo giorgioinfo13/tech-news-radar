@@ -1,3 +1,4 @@
+import { usePanelFocus } from '../usePanelFocus'
 import { useState, type FormEvent } from 'react'
 import { errorMessage, mutate, type Category } from '../api'
 import { ConfirmDialog, Empty, Notice } from '../components'
@@ -13,6 +14,7 @@ function CategoryEditor({
   onSave: (input: Omit<Category, 'id'>) => void
   onCancel: () => void
 }) {
+  const panelRef = usePanelFocus()
   const [name, setName] = useState(category?.name ?? '')
   const [slug, setSlug] = useState(category?.slug ?? '')
   const [order, setOrder] = useState(category?.sort_order ?? 0)
@@ -26,7 +28,12 @@ function CategoryEditor({
     onSave({ name: name.trim(), slug: slug.trim(), sort_order: order })
   }
   return (
-    <section className="editor-panel" aria-labelledby="category-editor-title">
+    <section
+      ref={panelRef}
+      tabIndex={-1}
+      className="editor-panel"
+      aria-labelledby="category-editor-title"
+    >
       <h2 id="category-editor-title">
         {category ? 'Modifica categoria' : 'Aggiungi una categoria'}
       </h2>
@@ -35,7 +42,8 @@ function CategoryEditor({
           <label>
             Nome della categoria
             <input
-              autoFocus
+              name="category-name"
+              autoComplete="off"
               required
               maxLength={120}
               value={name}
@@ -48,6 +56,9 @@ function CategoryEditor({
               <input
                 required
                 maxLength={120}
+                name="slug"
+                autoComplete="off"
+                spellCheck={false}
                 pattern="[a-z0-9]+(-[a-z0-9]+)*"
                 aria-describedby="slug-hint"
                 value={slug}
@@ -63,6 +74,8 @@ function CategoryEditor({
               Ordine
               <input
                 type="number"
+                name="sort-order"
+                autoComplete="off"
                 required
                 min={-2147483648}
                 max={2147483647}
@@ -126,8 +139,7 @@ export function Categories({
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">METTI ORDINE ALLE IDEE</p>
-          <h1>Ogni interesse, il suo posto.</h1>
+          <h1>Categorie</h1>
           <p>Organizza le fonti per argomento e ritrova le notizie più facilmente.</p>
         </div>
         <button
@@ -138,7 +150,7 @@ export function Categories({
             setError('')
           }}
         >
-          + Aggiungi categoria
+          Aggiungi categoria
         </button>
       </header>
       {message && <Notice>{message}</Notice>}
@@ -177,9 +189,6 @@ export function Categories({
         <div className="category-list">
           {categories.map((category) => (
             <article key={category.id} className="category-card">
-              <div className="category-symbol" aria-hidden="true">
-                ▦
-              </div>
               <div className="category-info">
                 <h3>{category.name}</h3>
                 <p>

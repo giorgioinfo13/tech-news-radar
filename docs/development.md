@@ -232,6 +232,8 @@ their configured language. The initial category names are in English.
 
 **Notizie** combines source, category, read-status, and text filters. Submit text
 search with **Cerca** or Enter. **Azzera filtri** clears all filters.
+On mobile, **Filtri** expands the source, category, and read-status controls.
+Its count shows active filters. Closing the panel preserves their values.
 Article titles open the original page in a new tab. The read-status button stores
 your choice independently of opening the article. Missing publication dates are
 shown explicitly, with the acquisition time.
@@ -239,12 +241,20 @@ shown explicitly, with the acquisition time.
 **Fonti** supports source edits, category assignment, pause/reactivation, manual
 refresh, and collection history. The last error stays visible until a successful
 refresh clears it. A cooldown response displays the remaining wait time.
+Use **Dettagli e azioni** to inspect feed URLs, check times, pause/reactivation,
+history, and deletion. Editing and history appear beside the selected source.
 **Categorie** supports names, identifiers, and display order. Both deletion dialogs
 explain which data is removed. Canceling a dialog does not change stored data.
 
 The layout supports desktop and mobile widths. Labels, keyboard focus indicators,
 loading/empty/error states, and retry controls are included. Unsaved forms and
 filters reset when you leave a view. Automatic refresh and offline access are not available.
+
+The editorial interface uses local Source Serif 4 and Source Sans 3 font files.
+Their versions, hashes, and SIL Open Font Licenses are in `frontend/public/fonts/`.
+No external font service or UI component library is required. Shared color and
+spacing styles are in `frontend/src/styles.css`, with local SVG icons in `Icon.tsx`.
+Browser checks cover layout at 320, 390, and 1440 pixels. This is not a full accessibility certification.
 
 ## Configuration
 

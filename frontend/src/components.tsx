@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { Icon } from './Icon'
 
 export function Notice({ children, error = false }: { children: ReactNode; error?: boolean }) {
   return (
@@ -39,7 +40,7 @@ export function Empty({ title, children }: { title: string; children: ReactNode 
   return (
     <div className="empty">
       <span className="empty-mark" aria-hidden="true">
-        ◎
+        <Icon name="radar" />
       </span>
       <h2>{title}</h2>
       <p>{children}</p>

@@ -42,3 +42,6 @@ backend/data/
 .idea/
 .vscode/
 *.swp
+
+# Local review skill: no explicit upstream license at the recorded revision.
+.agents/skills/web-design-guidelines/
