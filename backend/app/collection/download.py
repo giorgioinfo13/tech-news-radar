@@ -3,6 +3,7 @@
 import ipaddress
 import socket
 import time
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -112,7 +113,7 @@ class FeedDownloader:
                     "Host": url.netloc.decode("ascii"),
                     "User-Agent": "TechNewsRadar/0.1",
                     "Accept": "application/atom+xml, application/rss+xml, application/xml",
-                    # Reject unsolicited compression instead of risking unbounded decompression.
+                    # Prefer identity, but handle servers that always send gzip with strict limits.
                     "Accept-Encoding": "identity",
                     **conditional,
                 }
@@ -148,13 +149,12 @@ class FeedDownloader:
                             )
                         if response.status_code != 200:
                             raise FeedError(f"Feed server returned HTTP {response.status_code}")
-                        if (
-                            response.headers.get("content-encoding", "identity").lower()
-                            != "identity"
-                        ):
-                            raise FeedError(
-                                "Feed server ignored the request for uncompressed content"
-                            )
+                        encoding = response.headers.get("content-encoding", "identity").lower()
+                        if encoding not in {"identity", "gzip"}:
+                            raise FeedError("Feed uses an unsupported content encoding")
+                        decoder = (
+                            zlib.decompressobj(16 + zlib.MAX_WBITS) if encoding == "gzip" else None
+                        )
                         length = response.headers.get("content-length")
                         if (
                             length
@@ -163,12 +163,29 @@ class FeedDownloader:
                         ):
                             raise FeedError("Feed exceeds the download size limit")
                         body = bytearray()
-                        for chunk in response.iter_raw():
+                        received = 0
+                        for chunk in response.iter_raw(chunk_size=65536):
                             if time.monotonic() >= deadline:
                                 raise FeedError("Feed download exceeded its time budget")
-                            if len(body) + len(chunk) > self.settings.feed_max_bytes:
+                            received += len(chunk)
+                            if received > self.settings.feed_max_bytes:
                                 raise FeedError("Feed exceeds the download size limit")
+                            if decoder is not None:
+                                try:
+                                    chunk = decoder.decompress(
+                                        chunk, self.settings.feed_max_bytes - len(body) + 1
+                                    )
+                                except zlib.error as exc:
+                                    raise FeedError("Feed contains invalid gzip data") from exc
+                                if decoder.unused_data:
+                                    raise FeedError(
+                                        "Feed contains trailing or concatenated gzip data"
+                                    )
+                            if len(body) + len(chunk) > self.settings.feed_max_bytes:
+                                raise FeedError("Feed exceeds the decoded size limit")
                             body.extend(chunk)
+                        if decoder is not None and not decoder.eof:
+                            raise FeedError("Feed contains incomplete gzip data")
                         return Download(
                             bytes(body),
                             str(url),

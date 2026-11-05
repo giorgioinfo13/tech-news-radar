@@ -31,8 +31,40 @@ The project is in development. The responsive interface supports article search,
 source/category filters, and read/unread status.
 The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
 manually, and inspect collection results. The backend handles deduplication and SQLite storage.
-Automatic updates are not implemented yet. No sources are preconfigured: start
-by adding a feed and refreshing it. The interface is currently in Italian.
+Automatic updates are not implemented yet. Add feeds through the interface or
+import the [starter catalog of 11 verified sources](docs/sources.md).
+The interface is currently in Italian.
+
+## Local preview
+
+Complete the [initial setup](docs/development.md#setup) and apply the migrations.
+Start the backend and frontend in two terminals from the repository root:
+
+```sh
+# Terminal 1
+cd backend
+.venv/bin/python -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+```sh
+# Terminal 2
+cd frontend
+npm run dev
+```
+
+In a third terminal, import the sources and collect the first articles:
+
+```sh
+cd backend
+.venv/bin/python -m app.catalog --refresh
+```
+
+Open [Tech News Radar locally](http://127.0.0.1:5173). The catalog includes antirez,
+OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
+MacRumors, TechCrunch, and Wired Italia. All sources remain editable.
+Repeated imports preserve settings for sources with the same URL.
+Use **Fonti → Aggiorna** for subsequent updates.
+Stop each server with `Ctrl+C` in its terminal.
 
 ## Technologies
 

@@ -31,9 +31,40 @@ Il progetto è in sviluppo. L'interfaccia responsive permette di consultare e ce
 notizie, filtrare per fonte e categoria e gestire lo stato letto/non letto.
 Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiornamenti
 manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite.
-Gli aggiornamenti automatici sono ancora da implementare. Non sono presenti fonti
-preconfigurate: il primo passo è aggiungere un feed e aggiornarlo. L'interfaccia
-è attualmente in italiano.
+Gli aggiornamenti automatici sono ancora da implementare. Puoi aggiungere i feed
+dall'interfaccia oppure importare il [catalogo iniziale di 11 fonti verificate](docs/sources.md).
+L'interfaccia è attualmente in italiano.
+
+## Prova locale
+
+Dopo il [setup iniziale](docs/development.md#setup) e le migrazioni, avvia backend e
+frontend in due terminali, dalla cartella del progetto:
+
+```sh
+# Terminale 1
+cd backend
+.venv/bin/python -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+```sh
+# Terminale 2
+cd frontend
+npm run dev
+```
+
+In un terzo terminale importa le fonti e raccogli i primi articoli:
+
+```sh
+cd backend
+.venv/bin/python -m app.catalog --refresh
+```
+
+Apri [Tech News Radar in locale](http://127.0.0.1:5173). Il catalogo include antirez,
+OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
+MacRumors, TechCrunch e Wired Italia. Tutte le fonti restano modificabili.
+L'importazione ripetuta conserva le impostazioni delle fonti con lo stesso URL.
+Gli aggiornamenti successivi si avviano da **Fonti → Aggiorna**.
+Ferma i server con `Ctrl+C` nei rispettivi terminali.
 
 ## Tecnologie
 

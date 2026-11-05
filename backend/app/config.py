@@ -19,4 +19,4 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///data/news.db"
     feed_timeout_seconds: float = Field(default=10, gt=0, le=60)
     feed_max_bytes: int = Field(default=2_000_000, ge=1024, le=10_000_000)
-    feed_max_entries: int = Field(default=1000, ge=1, le=10000)
+    feed_max_entries: int = Field(default=5000, ge=1, le=10000)

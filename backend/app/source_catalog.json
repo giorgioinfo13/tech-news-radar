@@ -1,0 +1,13 @@
+[
+  {"name": "OpenAI", "feed_url": "https://openai.com/news/rss.xml", "category_slug": "artificial-intelligence"},
+  {"name": "Google DeepMind", "feed_url": "https://deepmind.google/blog/rss.xml", "category_slug": "artificial-intelligence"},
+  {"name": "Hugging Face", "feed_url": "https://huggingface.co/blog/feed.xml", "category_slug": "open-models"},
+  {"name": "Mistral AI", "feed_url": "https://mistral.ai/news/rss", "category_slug": "open-models"},
+  {"name": "Salvatore Sanfilippo (antirez)", "feed_url": "https://antirez.com/rss", "category_slug": "software-engineering"},
+  {"name": "Simon Willison", "feed_url": "https://simonwillison.net/atom/everything/", "category_slug": "ai-agents"},
+  {"name": "Hacker News", "feed_url": "https://news.ycombinator.com/rss", "category_slug": "software-engineering"},
+  {"name": "arXiv — Artificial Intelligence", "feed_url": "https://rss.arxiv.org/rss/cs.AI", "category_slug": "research"},
+  {"name": "MacRumors", "feed_url": "https://feeds.macrumors.com/MacRumors-All", "category_slug": "technology-companies"},
+  {"name": "TechCrunch", "feed_url": "https://techcrunch.com/feed/", "category_slug": "technology-companies"},
+  {"name": "Wired Italia", "feed_url": "https://www.wired.it/feed/rss", "category_slug": "international-tech"}
+]

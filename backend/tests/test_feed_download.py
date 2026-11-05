@@ -1,3 +1,4 @@
+import gzip
 import socket
 
 import httpx
@@ -157,7 +158,7 @@ def test_redirect_loop_is_bounded():
         (lambda: httpx.Response(304), "unexpected HTTP 304"),
         (lambda: httpx.Response(200, headers={"content-length": "5000"}), "size limit"),
         (lambda: httpx.Response(200, stream=httpx.ByteStream(b"x" * 1025)), "size limit"),
-        (lambda: httpx.Response(200, headers={"content-encoding": "gzip"}), "uncompressed"),
+        (lambda: httpx.Response(200, headers={"content-encoding": "br"}), "unsupported"),
     ],
 )
 def test_http_failures_and_size_limits(response, message):
@@ -219,4 +220,33 @@ def test_body_stream_deadline(monkeypatch):
     with pytest.raises(FeedError, match="time budget"):
         downloader(lambda request: httpx.Response(200, stream=httpx.ByteStream(b"<rss/>"))).fetch(
             "https://example.org", None, None
+        )
+
+
+def gzip_response(body):
+    return httpx.Response(200, headers={"content-encoding": "gzip"}, stream=httpx.ByteStream(body))
+
+
+def test_gzip_content_at_decoded_limit():
+    body = b"x" * 1024
+    result = downloader(
+        lambda request: gzip_response(gzip.compress(body)), feed_max_bytes=1024
+    ).fetch("https://example.org/feed", None, None)
+    assert result.body == body
+
+
+@pytest.mark.parametrize(
+    "body, message",
+    [
+        (gzip.compress(b"x" * 1_000_000), "decoded size limit"),
+        (gzip.compress(b"hello")[:-1], "incomplete gzip"),
+        (b"not gzip", "invalid gzip"),
+        (gzip.compress(b"hello") + b"trailing", "trailing"),
+        (gzip.compress(b"hello") + gzip.compress(b"world"), "concatenated"),
+    ],
+)
+def test_invalid_or_excessive_gzip_is_rejected(body, message):
+    with pytest.raises(FeedError, match=message):
+        downloader(lambda request: gzip_response(body), feed_max_bytes=1024).fetch(
+            "https://example.org/feed", None, None
         )

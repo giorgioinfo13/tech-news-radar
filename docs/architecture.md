@@ -106,8 +106,10 @@ Only the first validated DNS address is attempted. DNS timing follows the OS res
 HTTP operations default to a 10-second timeout. A 30-second elapsed-time budget is
 checked between download operations. It does not interrupt an active OS DNS call
 or socket operation. Downloads are streamed and limited to 2 MB by default.
-The client requests uncompressed content and rejects unsolicited compression.
-Feeds that require compression, authentication, private networks, or nonstandard ports
+The client requests uncompressed content but also accepts gzip with bounded decompression.
+The same size limit applies separately to transferred and decoded bytes. Invalid,
+truncated, trailing, or concatenated gzip streams are rejected. Other encodings,
+authentication, private networks, and nonstandard ports
 are not supported in this version.
 
 ETag and Last-Modified support conditional requests. A `304` preserves articles and
@@ -179,8 +181,10 @@ responsive layout and native dialog behavior separately from jsdom tests.
 5. Scheduling, end-to-end validation, CI, and final MVP documentation.
 6. Optional integrations, one separately approved task at a time.
 
-Phases 1–4 are implemented, except for the optional verified source catalog.
-Scheduling, integration validation, and CI are the next separately approved phase.
+Phases 1–4 include an optional verified source catalog and a local prototype.
+The catalog CLI uses the running REST API, including its collector lock and cooldown.
+It does not create a second collector, change the schema, or import sources at startup.
+Scheduling, broader end-to-end validation, and CI are the next separately approved phase.
 Add libraries and directories when their phase needs them.
 No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.

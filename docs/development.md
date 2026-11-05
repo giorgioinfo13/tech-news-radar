@@ -168,12 +168,14 @@ during collection. Creating sources and reading articles remain available.
 
 Only public HTTP/HTTPS destinations on ports 80/443 are supported. The collector checks
 DNS answers and redirects, verifies TLS certificates, and ignores environment proxies.
-It requests uncompressed content. Servers that still send compressed bodies are rejected.
+It requests uncompressed content and also accepts gzip within the same decoded-size limit.
+Other compression formats and concatenated gzip streams are rejected.
 Malformed XML, DTDs, entities, excessive nesting, and oversized feeds are rejected.
 An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
-No sources are preinstalled. Automatic scheduling remains a future task.
+Sources are not installed automatically. The optional catalog command below imports verified feeds.
+Automatic scheduling remains a future task.
 The frontend uses these endpoints and does not require a new database migration.
 
 ## Run the frontend
@@ -195,6 +197,30 @@ If a configured port is occupied, stop the conflicting process or choose a new
 port explicitly. If you change the backend port, update `TNR_API_TARGET` too.
 
 ### Use the interface
+
+For a populated prototype, keep both servers running and open a third terminal.
+From the repository root:
+
+```sh
+cd backend
+.venv/bin/python -m app.catalog --refresh
+```
+
+This imports the [verified catalog](sources.md) and refreshes its enabled sources sequentially.
+Omit `--refresh` to import only source configurations. Use `--api-url http://127.0.0.1:18000`
+if the backend uses a different port. The command accepts only local HTTP API origins.
+It does not use `TNR_API_TARGET`, which configures Vite separately.
+
+Repeated imports match exact normalized feed URLs and preserve existing source settings.
+Disabled sources stay disabled. Missing categories are not recreated, and new sources
+use no category when the catalog slug is absent. Renamed category labels remain unchanged.
+Changing a source URL breaks the catalog match. A later import can add the original URL again.
+Deleted catalog sources are added again when you explicitly rerun the command.
+
+Import operations persist individually. If import stops, fix the reported problem and rerun it.
+Refresh failures do not stop other feeds. A failed refresh gives exit code 1 and remains visible in **Fonti**.
+Cooldowns also count as failed attempts. Wait before retrying. Unrelated sources are not refreshed.
+The command does not start a scheduler or download full article pages.
 
 The interface is currently in Italian. Category names are editable data and retain
 their configured language. The initial category names are in English.
@@ -231,12 +257,15 @@ file. Restart the development servers after configuration changes.
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
 | `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |
-| `TNR_FEED_MAX_BYTES` | `2000000` | Download limit, range 1024–10000000 bytes |
-| `TNR_FEED_MAX_ENTRIES` | `1000` | Entries per feed, range 1–10000 |
+| `TNR_FEED_MAX_BYTES` | `2000000` | Transfer and decoded-body limits, range 1024–10000000 bytes each |
+| `TNR_FEED_MAX_ENTRIES` | `5000` | Entries per feed, range 1–10000 |
 | `TNR_API_TARGET` | `http://127.0.0.1:8000` | Backend target for the Vite development proxy |
 
 Process environment variables override `.env`. Do not store secrets in `VITE_*`
 variables: Vite can include them in browser assets. Keep `.env` out of Git.
+
+If an older `.env` sets `TNR_FEED_MAX_ENTRIES=1000`, change it to `5000` for the starter catalog.
+OpenAI's feed exceeded 1,000 entries during verification. Restart the backend after this change.
 
 ## Checks
 
