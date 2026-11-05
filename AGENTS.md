@@ -12,8 +12,8 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
 The current implementation provides a scaffold, a health endpoint, the SQLite
-schema, and REST APIs for categories, sources, articles, and collection history.
-RSS collection, source management UI, and the dashboard belong to later tasks.
+schema, REST APIs, and RSS/Atom collection through manual source refresh.
+Scheduling, source management UI, and the dashboard belong to later tasks.
 See [architecture](docs/architecture.md) for the intended scope.
 
 ## Working conventions
@@ -28,6 +28,8 @@ See [architecture](docs/architecture.md) for the intended scope.
 - Use environment configuration where needed. Never put secrets in `VITE_*` variables.
 - Keep development servers on loopback. Public deployment and authentication need a separate task.
 - Treat feed URLs and content as untrusted. Never render unsanitized external HTML.
+- Use one backend worker. The collector and source changes share an in-process lock.
+- Keep HTTP fetches in the guarded downloader. Pass only downloaded bytes to feedparser.
 - Add dependencies only for current requirements. Keep dependency definitions and locks consistent.
 - Change database schemas through Alembic revisions. Do not run `create_all()` or migrations at API startup.
 - After a migration is committed and shared, add a new revision instead of rewriting it.

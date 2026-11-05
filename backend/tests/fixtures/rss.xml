@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Example news</title><link>https://example.org/</link><description>Test feed</description>
+  <item><guid isPermaLink="false">first</guid><title>First &amp; useful</title>
+    <link>https://example.org/first?original=1#section</link>
+    <pubDate>Thu, 01 Jan 2026 10:00:00 +0200</pubDate>
+    <description><![CDATA[<p>Hello <b>world</b>.</p><script>evil()</script><p>Next line.</p>]]></description>
+  </item>
+  <item><title>No date</title><link>/second</link></item>
+  <item><title>Unsafe link</title><link>javascript:alert(1)</link></item>
+</channel></rss>

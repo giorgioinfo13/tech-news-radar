@@ -35,8 +35,8 @@ category means uncategorized. Category names and slugs, and source feed URLs, ar
 Articles preserve the original URL and publication date separately from acquisition
 time. Missing publication dates stay null. Composite unique constraints on
 `(source_id, guid)` and `(source_id, url)` reject exact duplicates within a source.
-GUIDs can be null. Different sources can reference the same article. URL normalization
-and GUID-first matching belong to the future collector, not the database models.
+GUIDs can be null. Different sources can reference the same article. The collector
+adds conservative URL matching on top of these database constraints.
 
 Deleting a category sets its sources' category to null and preserves their articles.
 Deleting a source cascades to its articles and collection history. The API documents
@@ -44,12 +44,12 @@ this behavior. The future UI must require confirmation before deletion.
 
 Collection runs use `running`, `success`, `not_modified`, or `error`. A completed run
 requires a finish time at or after its start. Counts must be nonnegative, and added
-articles cannot exceed seen articles. These constraints do not implement a scheduler
-or recover interrupted runs; the collection service will handle those behaviors.
+articles cannot exceed seen articles. The collector closes interrupted runs when
+that source is next refreshed. No scheduler is implemented yet.
 
 SQL constraints enforce identity, references, and basic data consistency. The API
-validates HTTP URL syntax and text limits. Feed access protections belong to the
-future collector. The database models do not download or validate feed URLs.
+validates HTTP URL syntax and text limits. The downloader validates feed destinations.
+The database models do not download or validate feed URLs.
 
 ## REST API
 
@@ -63,7 +63,7 @@ This uses FastAPI's [lifespan](https://fastapi.tiangolo.com/advanced/events/) an
 Pydantic schemas define public fields separately from database models. Routes handle
 category/source changes, article queries, read status, and collection history.
 Shared helpers cover sessions, bounded pagination, missing records, and constraint conflicts.
-No additional service layer or repository abstraction is needed for these operations.
+The collection service handles the separate download, parsing, and persistence workflow.
 
 Article lists sort by publication time, or acquisition time when publication time
 is absent. Descending IDs break ties. Search matches literal substrings in titles
@@ -72,33 +72,81 @@ semantic search. Offset pagination can shift when articles arrive between reques
 Large feeds may eventually need indexed search or cursor pagination.
 
 Source URLs accept HTTP/HTTPS, exclude embedded credentials and fragments, and use
-Pydantic URL normalization. The API does not check feed availability or destination
-addresses. No outbound requests occur. The collector must add DNS, redirect, and
-private-network checks before it fetches user-supplied URLs.
+Pydantic URL normalization. Saving a source does not check feed availability or
+destination addresses. Only the manual refresh endpoint makes outbound requests.
 
 Changing a feed URL clears its cache validators and current diagnostics. Existing
 articles and collection history remain attached to the source. Disabling a source
 preserves its articles. No collection runs are created by these API operations.
 
+## Manual collection
+
+`POST /api/sources/{id}/refresh` waits for the collection result. It writes a
+`running` record, closes the transaction, downloads and parses the feed, then commits
+new articles and the final outcome together. A failure rolls back article inserts
+and records an error in a separate transaction. Storage outages can prevent that
+last write. Interrupted runs are closed on the next refresh of the same source.
+
+An application-wide lock rejects concurrent refreshes and source PATCH/DELETE requests.
+It does not hold a database transaction during network access. Run exactly one backend
+process/worker against the database. The lock does not coordinate separate processes
+or external database edits. A future scheduler must use the same collector entry point.
+
+Refreshes have a 30-second cooldown after success. After consecutive failures, the
+cooldown doubles from 60 seconds to a maximum of one hour. Rejected refreshes do not
+create runs. Source intervals remain settings for the future scheduler.
+
+The downloader uses HTTPX, public IP checks, and at most three redirects. Each hop
+connects to an already validated IP, with the original Host header and TLS hostname.
+This uses HTTPX's documented [SNI extension](https://www.python-httpx.org/advanced/extensions/#sni_hostname).
+Mixed public/private DNS answers, special IP ranges, nonstandard ports, and HTTPS
+downgrades are rejected. Environment proxies and credentials are not used.
+Only the first validated DNS address is attempted. DNS timing follows the OS resolver.
+
+HTTP operations default to a 10-second timeout. A 30-second elapsed-time budget is
+checked between download operations. It does not interrupt an active OS DNS call
+or socket operation. Downloads are streamed and limited to 2 MB by default.
+The client requests uncompressed content and rejects unsolicited compression.
+Feeds that require compression, authentication, private networks, or nonstandard ports
+are not supported in this version.
+
+ETag and Last-Modified support conditional requests. A `304` preserves articles and
+records `not_modified`. Cache headers change only after successful collection.
+Validators are not forwarded across redirects or saved from redirected responses.
+Configure the final feed URL to benefit from conditional requests.
+
+Before feedparser runs, defusedxml rejects malformed XML, DTDs, entities, and excessive
+nesting. See [defusedxml's controls](https://pypi.org/project/defusedxml/).
+The parser receives bytes, never a URL or path. Up to 1,000 entries are accepted by
+default. Titles and descriptions become plain text, capped at 1,000 and 4,000 characters.
+Entries without a usable title or HTTP/HTTPS link are skipped. Missing or invalid
+publication dates remain null. Atom update dates do not replace publication dates.
+The original resolved article URL is stored and is never fetched by the backend.
+
+Deduplication checks GUID first, then URL within a source. URL comparison normalizes
+host/scheme/default ports and removes fragments, while preserving query parameters.
+Existing articles and their read status are not overwritten. The collector loads
+that source's stored GUIDs and URLs into memory. This is suitable for a small local
+reader but may need indexed identity columns if article volume grows substantially.
+Cross-source story clustering is outside the MVP.
+
+Run counts include all entries seen and newly inserted articles. The difference also
+includes duplicates and skipped entries. An entirely unusable nonempty feed is an error.
+Collection history, source diagnostics, and logs identify failures without raw response
+bodies or request URLs. There is no automatic history retention policy yet.
+
 ## Planned MVP
 
-Separate HTTP download, RSS/Atom parsing, normalization, and persistence through
-small modules and functions. Use `httpx` and `feedparser`. Deduplicate within each
-source using GUID and URL, with database constraints. Cross-source story clustering
-is outside the MVP.
-
 Use APScheduler in the backend lifecycle. Manual and scheduled refreshes must
-share overlap protection. Use one backend worker, request timeouts, response-size
-limits, conditional HTTP requests, and backoff. Record recent collection outcomes.
+share the collector's overlap protection, request limits, and retry behavior.
 Collection stops when the backend stops or the computer sleeps.
 
 The dashboard will support chronological articles, source/category filters,
 basic text search, and read/unread status. A separate page will manage sources,
 categories, refresh actions, and collection errors. Render descriptions as plain text.
 
-Validate feed destinations, DNS results, and redirect targets before requests.
-Reject private-network destinations and unsafe URL schemes. Validate original
-article links before display. Do not fetch full articles or run feed content as code.
+Keep article links restricted to HTTP/HTTPS in the future UI. Do not fetch full
+articles or run feed content as code.
 
 ## Development phases
 
@@ -109,8 +157,9 @@ article links before display. Do not fetch full articles or run feed content as 
 5. Scheduling, end-to-end validation, CI, and final MVP documentation.
 6. Optional integrations, one separately approved task at a time.
 
-Phases 1 and 2 are implemented. RSS collection and manual refresh are the next
-separately approved step. Add libraries and directories when their
+Phases 1–3 are implemented, except for the optional verified source catalog.
+The interactive frontend is the next separately approved step.
+Add libraries and directories when their
 phase needs them. shadcn/ui, routing, and server-state utilities can enter
 with the interactive frontend. No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.

@@ -94,6 +94,7 @@ These operations change persistent data. Authentication is not implemented.
 | `PATCH`, `DELETE` | `/api/categories/{id}` | Edit or delete a category |
 | `GET`, `POST` | `/api/sources` | List or create source configurations |
 | `PATCH`, `DELETE` | `/api/sources/{id}` | Edit or delete a source |
+| `POST` | `/api/sources/{id}/refresh` | Collect an enabled source and return the result |
 | `GET` | `/api/sources/{id}/runs` | List a source's collection history |
 | `GET` | `/api/articles` | List, filter, and search articles |
 | `PATCH` | `/api/articles/{id}` | Set read/unread status |
@@ -129,8 +130,51 @@ Deleting a category leaves its sources uncategorized and preserves articles.
 Deleting a source permanently deletes its articles and collection history.
 Changing a source URL preserves that history but clears cache validators and current errors.
 URLs must use HTTP/HTTPS without credentials or fragments. Saving a URL does not
-verify that it provides a feed. RSS collection and manual refresh are not available yet.
-Article and history lists remain empty until the future collector imports data.
+verify that it provides a feed. Use manual refresh to collect its articles.
+
+## Refresh a feed
+
+Start the backend with one worker, as shown above. Do not run another backend process
+against the same database. Update the virtual environment after dependency changes:
+
+```sh
+backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt
+```
+
+From `/docs`, create a source with a known RSS/Atom URL. Copy its returned `id`.
+Call `POST /api/sources/{id}/refresh` without a request body. The request waits for completion.
+Use `GET /api/articles?source_id={id}` to inspect imported articles.
+Use `GET /api/sources/{id}/runs` to inspect collection history.
+
+| HTTP result | Meaning |
+| --- | --- |
+| `200`, status `success` | Feed parsed and new articles saved |
+| `200`, status `not_modified` | Conditional request returned `304`; existing articles preserved |
+| `502`, status `error` | Collection failed; body contains the stored run and a safe error message |
+| `404` | Source does not exist |
+| `409` | Source is disabled, or another refresh/source change holds the collection lock |
+| `429` | Cooldown active; `Retry-After` gives the remaining seconds |
+
+Successful runs return `articles_seen` and `articles_added`. Their difference includes
+duplicates and skipped invalid entries. Existing articles and read status are preserved.
+Errors appear in both the run history and the source's `last_error` field.
+After a failure, `last_success_at` retains the previous successful check time.
+If the process stops during collection, its run stays `running` until that source is refreshed again.
+
+Wait at least 30 seconds between successful refreshes of the same source. Failure
+cooldowns start at 60 seconds and double up to one hour. Refresh does not wait or queue
+another job when the collector is busy. Source edits and deletions also return `409`
+during collection. Creating sources and reading articles remain available.
+
+Only public HTTP/HTTPS destinations on ports 80/443 are supported. The collector checks
+DNS answers and redirects, verifies TLS certificates, and ignores environment proxies.
+It requests uncompressed content. Servers that still send compressed bodies are rejected.
+Malformed XML, DTDs, entities, excessive nesting, and oversized feeds are rejected.
+An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
+See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
+
+No sources are preinstalled. Automatic scheduling and the source management UI remain
+future tasks. This phase does not require a new database migration.
 
 ## Run the frontend
 
@@ -160,6 +204,9 @@ file. Restart the development servers after configuration changes.
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
+| `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |
+| `TNR_FEED_MAX_BYTES` | `2000000` | Download limit, range 1024–10000000 bytes |
+| `TNR_FEED_MAX_ENTRIES` | `1000` | Entries per feed, range 1–10000 |
 | `TNR_API_TARGET` | `http://127.0.0.1:8000` | Backend target for the Vite development proxy |
 
 Process environment variables override `.env`. Do not store secrets in `VITE_*`

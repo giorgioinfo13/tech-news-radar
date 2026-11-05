@@ -385,7 +385,6 @@ async def test_empty_collections_and_no_collection_side_effects(client: AsyncCli
     source = await add_source(client)
     assert (await client.get(f"/api/sources/{source['id']}/runs")).json()["total"] == 0
     assert (await client.get("/api/articles")).json()["total"] == 0
-    assert (await client.post(f"/api/sources/{source['id']}/refresh")).status_code == 404
 
 
 @pytest.mark.parametrize("resource_id", [0, -1, 2**63])

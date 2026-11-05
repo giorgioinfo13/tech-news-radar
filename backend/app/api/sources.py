@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.api.dependencies import (
+    CollectorDep,
     FilterId,
     PaginationDep,
     ResourceId,
@@ -10,7 +11,10 @@ from app.api.dependencies import (
     commit_or_conflict,
     get_or_404,
     paginate,
+    reject_refresh,
+    source_write_guard,
 )
+from app.collection.service import RefreshRejected
 from app.models import Category, CollectionRun, Source
 from app.schemas import CollectionRunRead, Page, SourceCreate, SourceRead, SourceUpdate
 
@@ -44,7 +48,7 @@ def create_source(data: SourceCreate, session: SessionDep):
     return source
 
 
-@router.patch("/{source_id}", response_model=SourceRead)
+@router.patch("/{source_id}", response_model=SourceRead, dependencies=[Depends(source_write_guard)])
 def update_source(source_id: ResourceId, data: SourceUpdate, session: SessionDep):
     source = get_or_404(session, Source, source_id)
     if data.category_id is not None:
@@ -64,7 +68,7 @@ def update_source(source_id: ResourceId, data: SourceUpdate, session: SessionDep
     return source
 
 
-@router.delete("/{source_id}", status_code=204)
+@router.delete("/{source_id}", status_code=204, dependencies=[Depends(source_write_guard)])
 def delete_source(source_id: ResourceId, session: SessionDep) -> Response:
     """Permanently delete the source, all its articles, and its collection history."""
     session.delete(get_or_404(session, Source, source_id))
@@ -81,3 +85,27 @@ def list_collection_runs(source_id: ResourceId, session: SessionDep, pagination:
         .order_by(CollectionRun.started_at.desc(), CollectionRun.id.desc())
     )
     return paginate(session, statement, pagination)
+
+
+@router.post(
+    "/{source_id}/refresh",
+    response_model=CollectionRunRead,
+    responses={
+        404: {"description": "Source not found"},
+        409: {"description": "Source disabled or collection/source change in progress"},
+        429: {"description": "Refresh cooldown; see Retry-After"},
+        502: {
+            "model": CollectionRunRead,
+            "description": "Collection failed; result stored in history",
+        },
+    },
+)
+def refresh_source(source_id: ResourceId, collector: CollectorDep, response: Response):
+    """Refresh one enabled source and wait for its result. No background task is queued."""
+    try:
+        run = collector.refresh(source_id)
+    except RefreshRejected as exc:
+        raise reject_refresh(exc) from exc
+    if run.status == "error":
+        response.status_code = 502
+    return run

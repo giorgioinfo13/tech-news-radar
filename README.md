@@ -30,15 +30,16 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 Il progetto è nella fase iniziale di sviluppo. Il repository contiene la base
 React e FastAPI, lo schema SQLite con migrazioni e le API per gestire categorie e
 fonti, consultare e filtrare articoli e modificarne lo stato letto/non letto.
-La raccolta delle notizie e le pagine operative sono ancora da implementare.
-L'applicazione non è ancora un aggregatore utilizzabile.
+Il backend raccoglie feed RSS/Atom tramite refresh manuale, con deduplicazione e
+cronologia degli esiti. Dashboard, pagine di gestione e aggiornamenti automatici
+sono ancora da implementare. Per ora le operazioni sono disponibili tramite API.
 
 ## Tecnologie
 
 - **Interfaccia:** React, TypeScript, Vite e Tailwind CSS.
 - **Backend:** Python e FastAPI.
 - **Persistenza:** SQLite con SQLAlchemy e migrazioni Alembic.
-- **Raccolta prevista:** feedparser, httpx e APScheduler.
+- **Raccolta:** feedparser, httpx e defusedxml. APScheduler è previsto per gli aggiornamenti automatici.
 
 ## Sviluppo
 

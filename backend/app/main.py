@@ -9,6 +9,7 @@ from app.api.articles import router as articles_router
 from app.api.categories import router as categories_router
 from app.api.health import router as health_router
 from app.api.sources import router as sources_router
+from app.collection.service import Collector
 from app.config import Settings
 from app.db import create_database_engine
 
@@ -20,6 +21,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_database_engine(config.database_url)
         app.state.database_engine = engine
+        app.state.collector = Collector(engine, config)
         try:
             yield
         finally:

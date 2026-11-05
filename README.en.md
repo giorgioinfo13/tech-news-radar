@@ -30,15 +30,16 @@ dependencies. Core features will not require paid services or AI models.
 The project is in early development. The repository contains the React and
 FastAPI foundation, the SQLite schema with migrations, and APIs for categories,
 sources, article queries, and read/unread status.
-News collection and functional pages are not implemented yet.
-The application is not yet a usable news aggregator.
+The backend collects RSS/Atom feeds through manual refresh, with deduplication and
+collection history. The dashboard, management pages, and automatic updates are not
+implemented yet. For now, operations are available through the API.
 
 ## Technologies
 
 - **Interface:** React, TypeScript, Vite, and Tailwind CSS.
 - **Backend:** Python and FastAPI.
 - **Persistence:** SQLite with SQLAlchemy and Alembic migrations.
-- **Planned collection:** feedparser, httpx, and APScheduler.
+- **Collection:** feedparser, httpx, and defusedxml. APScheduler is planned for automatic updates.
 
 ## Development
 

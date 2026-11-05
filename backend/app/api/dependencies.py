@@ -8,6 +8,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.collection.service import Collector, RefreshRejected
 from app.db import Base
 
 
@@ -18,6 +19,28 @@ def get_session(request: Request) -> Iterator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
+
+
+def get_collector(request: Request) -> Collector:
+    return request.app.state.collector
+
+
+CollectorDep = Annotated[Collector, Depends(get_collector)]
+
+
+def reject_refresh(exc: RefreshRejected) -> HTTPException:
+    headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
+    return HTTPException(status_code=exc.status_code, detail=exc.detail, headers=headers)
+
+
+def source_write_guard(collector: CollectorDep) -> Iterator[None]:
+    try:
+        with collector.exclusive():
+            yield
+    except RefreshRejected as exc:
+        raise reject_refresh(exc) from exc
+
+
 ResourceId = Annotated[int, Path(gt=0, le=9223372036854775807)]
 FilterId = Annotated[int | None, Query(gt=0, le=9223372036854775807)]
 
