@@ -1,0 +1,2 @@
+# Only needed when regenerating dependency locks.
+pip-tools==7.6.2
