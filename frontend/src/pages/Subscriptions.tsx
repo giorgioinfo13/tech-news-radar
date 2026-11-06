@@ -87,7 +87,7 @@ export function Subscriptions({
           <p>
             {initial
               ? 'Ti proponiamo le fonti del catalogo. Scegli quelle che vuoi nel tuo radar.'
-              : 'Segui ciò che ti interessa. Le tue scelte non cambiano quelle degli altri.'}
+              : 'Segui ciò che ti interessa.'}
           </p>
         </div>
       </header>
@@ -154,7 +154,7 @@ export function Subscriptions({
                       aria-label={`${followed.has(source.id) ? 'Non seguire più' : 'Segui'} ${source.name}`}
                       onClick={() => void toggle(source)}
                     >
-                      {followed.has(source.id) ? 'Seguita' : 'Segui'}
+                      {followed.has(source.id) ? 'Non seguire più' : 'Segui'}
                     </button>
                   </div>
                 </>
