@@ -36,7 +36,7 @@ Every response and read-state filter uses the current user's state, including fu
 An `article_read_states` row means read. A missing row means unread.
 Marking an article unread deletes only the current user's state row.
 Unfollowing a source leaves article read states intact. Following it again restores the same personal reading history.
-New readers receive no subscriptions or copied read states. Their source selection belongs to the later onboarding step.
+New readers receive no subscriptions or copied read states. The frontend proposes enabled catalog sources and saves only confirmed choices.
 Creating or importing a catalog source does not subscribe other users or the administrator automatically.
 
 Disabling a source stops collection globally but preserves existing articles, subscriptions, and read states.
@@ -77,23 +77,26 @@ Back up the local database before upgrading existing data. Do not apply migratio
 Downgrading to `0002` is destructive: it discards profiles and subscriptions, and restores only the reserved owner's flags to articles.
 Use downgrade tests only on disposable databases.
 
-## Local testing before authentication
+## Local testing without cloud accounts
 
 The backend denies data requests unless Supabase authentication or local identity is configured. Health and optional API documentation remain available.
 For local development, set this value in the private root `.env` after migration:
 
 ```dotenv
 TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
+VITE_LOCAL_MODE=true
 ```
 
-Restart the backend on `127.0.0.1`. All local requests then use this one application profile.
+Omit Supabase settings and restart both servers on `127.0.0.1`. All local requests then use this one application profile.
+The frontend local mode is disabled in production builds.
 This setting is a development identity adapter, not a password or login mechanism.
 It rejects non-loopback clients and bearer tokens. It never reads user-selection headers or query parameters.
 A public proxy can make remote requests appear local, so never enable this adapter on Render or behind a public proxy.
 Do not run multiple backend instances to simulate different users against the same database.
 
-The frontend is unchanged in this step. Login, account switching, role-aware controls, and source-selection onboarding are not available yet.
-For subscription tests, use the local `/docs` interface:
+The frontend offers personal source selection, read states, and role-aware controls.
+Google login and session management require the [Supabase configuration](authentication.md).
+For direct subscription tests, use the local `/docs` interface:
 
 1. Call `GET /api/me` to inspect the selected profile.
 2. Call `GET /api/sources` to inspect the shared catalog.
@@ -115,7 +118,7 @@ No test impersonation header or endpoint exists in the application.
 Checks cover personal isolation, administrative denials, inactive users, shared cooldowns, concurrent idempotence, and migration preservation.
 Existing downloader, collector, scheduler, search, and pagination tests remain part of the suite.
 
-Validation on 2026-11-06:
+Historical model-step validation on 2026-11-06:
 
 - SQLite 3.53.4: 242 tests passed; two PostgreSQL-only tests skipped.
 - PostgreSQL 17.11 in an isolated local container: all 244 tests passed.
@@ -124,7 +127,8 @@ Validation on 2026-11-06:
 - No frontend files changed, so frontend checks were not run. No personal or hosted database was migrated.
 
 Supabase JWT verification and operator approval are now implemented in the backend.
-Frontend Google login, browser sessions, cloud configuration, and public access remain separate steps.
+Frontend Google login, browser sessions, and personal source selection are also implemented.
+Cloud configuration and public access remain separate steps. Current validation is recorded in [authentication](authentication.md#verification).
 Use the Supabase mode instead of the local adapter before enabling external access.
 Authorization must continue to use the application's role and active status, not user-editable metadata.
 See [Supabase user metadata guidance](https://supabase.com/docs/guides/database/postgres/row-level-security).

@@ -17,8 +17,9 @@ fonti e le categorie; ogni lettore sceglie quali fonti seguire e mantiene il
 proprio stato di lettura.
 
 **Il progetto è in sviluppo.** La raccolta delle notizie e l’interfaccia di lettura
-sono disponibili in locale. Il login Google nell’interfaccia e la pubblicazione
-online sono ancora da completare.
+sono disponibili in locale. L’interfaccia include il login Google e la scelta
+delle fonti personali; la configurazione dei servizi online e la pubblicazione
+sono ancora da completare.
 
 Per installazione e dettagli tecnici, consulta la [guida di sviluppo](docs/development.md)
 e le [note di architettura](docs/architecture.md).

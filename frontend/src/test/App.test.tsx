@@ -5,7 +5,7 @@ import App from '../App'
 import { article, category, mockServer, source } from './server'
 
 function open(page: string) {
-  history.replaceState(null, '', `#${page}`)
+  history.replaceState(null, '', `#${page === 'sources' ? 'catalog' : page}`)
   return render(<App />)
 }
 
@@ -101,6 +101,7 @@ describe('news dashboard', () => {
     open('news')
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossibile contattare')
     await user.click(screen.getByRole('button', { name: 'Riprova' }))
+    await user.click(await screen.findByRole('button', { name: 'Non ora' }))
     expect(
       await screen.findByRole('heading', { name: 'Il tuo radar parte da una fonte' }),
     ).toBeInTheDocument()
@@ -238,12 +239,12 @@ describe('categories and navigation', () => {
   it('keeps the current view when skipping to the main content', async () => {
     mockServer()
     open('sources')
-    await screen.findByRole('heading', { name: 'Fonti' })
+    await screen.findByRole('heading', { name: 'Catalogo' })
     act(() => {
       location.hash = '#main-content'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
-    expect(screen.getByRole('heading', { name: 'Fonti' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Catalogo' })).toBeInTheDocument()
   })
   it('creates and edits a category, then explains deletion semantics', async () => {
     const { state } = mockServer()
@@ -279,11 +280,11 @@ describe('categories and navigation', () => {
     expect(await screen.findByRole('option', { name: 'Categoria 101' })).toBeInTheDocument()
     expect(calls.some((call) => call.path === '/api/categories?limit=100&offset=100')).toBe(true)
     act(() => {
-      location.hash = '#sources'
+      location.hash = '#catalog'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
-    expect(await screen.findByRole('heading', { name: 'Fonti' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Fonti' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'Catalogo' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Catalogo' })).toHaveAttribute('aria-current', 'page')
     act(() => {
       location.hash = ''
       window.dispatchEvent(new HashChangeEvent('hashchange'))

@@ -6,7 +6,7 @@ Changing the database URL does not transfer existing data. Keep the local SQLite
 
 Database support includes the [multiuser data model and backend permissions](multiuser.md).
 The backend supports [Supabase token verification and access approval](authentication.md).
-Frontend login, cloud configuration, deployment, and data transfer require separate work.
+Frontend login is implemented. Cloud configuration, deployment, and data transfer require separate work.
 Keep the backend on loopback with one process and one worker. The collector lock is process-local on both databases.
 
 ## Connection configuration
@@ -94,7 +94,7 @@ RLS is not the access boundary in this step. No per-user policies exist yet.
 Owners and roles with `BYPASSRLS` can bypass RLS. SQL connections do not acquire end-user authorization from Supabase Auth automatically.
 FastAPI verifies Supabase tokens and checks approved, active profiles and application roles.
 Its alternative local identity adapter is not authentication.
-Frontend login and authorized cloud configuration remain necessary before public deployment.
+Real Google login validation and authorized cloud configuration remain necessary before public deployment.
 
 See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-your-api) and
 [PostgreSQL row security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).

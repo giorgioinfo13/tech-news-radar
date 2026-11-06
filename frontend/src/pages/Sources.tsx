@@ -276,8 +276,8 @@ export function Sources({
     <>
       <header className="page-header">
         <div>
-          <h1>Fonti</h1>
-          <p>Scegli cosa seguire. Al resto pensa il tuo radar.</p>
+          <h1>Catalogo</h1>
+          <p>Gestisci le fonti condivise da tutti i lettori.</p>
         </div>
         <button
           className="primary"
@@ -299,7 +299,7 @@ export function Sources({
       {editor === 'new' && editorPanel}
       <div className="section-heading">
         <h2>
-          Le tue fonti <span>{sources.length}</span>
+          Fonti condivise <span>{sources.length}</span>
         </h2>
         <span className="muted">Aggiornamenti manuali</span>
       </div>

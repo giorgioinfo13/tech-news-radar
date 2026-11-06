@@ -1,8 +1,8 @@
-# Backend authentication and access approval
+# Authentication and access approval
 
 The backend verifies Supabase access tokens and accepts only explicitly approved application users.
-The frontend login, Google provider setup, browser sessions, and deployment remain separate steps.
-This change does not configure cloud accounts or authorize a public deployment.
+The frontend provides Google sign-in, browser session recovery, logout, and personal source selection.
+Google provider setup and deployment still require separate authorization. Installing the code does not configure cloud accounts.
 
 ## Identity and permission boundary
 
@@ -30,13 +30,20 @@ No foreign key to the remote `auth.users` table is required.
 
 ## Configuration
 
-Set the project origin in the private root `.env` or backend environment:
+Set these values in the private root `.env` for local integration testing, after cloud setup is authorized:
 
 ```dotenv
 TNR_SUPABASE_URL=https://PROJECT_REF.supabase.co
+VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 ```
 
-Remove `TNR_LOCAL_USER_ID` when you enable Supabase authentication.
+Both URLs must identify the same project. Only the `VITE_*` values enter the browser build.
+Use the project's public publishable key, never a secret key, service-role key, or database password.
+The frontend accepts `sb_publishable_` keys; legacy JWT API keys are not supported by this configuration.
+The backend needs only `TNR_SUPABASE_URL` to verify tokens. Restart Vite after environment changes; rebuild production assets after changes.
+
+Remove `TNR_LOCAL_USER_ID` and `VITE_LOCAL_MODE` when you enable Supabase authentication.
 Setting both causes a configuration error. Failed bearer authentication never falls back to a local administrator.
 Keep `TNR_LOCAL_USER_ID` only for loopback development without Supabase.
 When neither setting exists, data endpoints return `401`.
@@ -70,7 +77,7 @@ Downgrading to `0003` removes identity links and blocks Supabase access, but pre
 
 This version uses operator approval by Supabase user UUID. It does not send invitation emails.
 The person first authenticates with Google through Supabase, then waits for your approval before accessing application data.
-This workflow becomes available to users after the frontend login step.
+Until approval, the frontend shows **Accesso riservato**. After approval, the person can select **Verifica di nuovo** without signing in again.
 A Supabase account alone does not mean that the person is an approved application user.
 
 Before provisioning, inspect the correct Supabase project's user record in its authenticated dashboard.
@@ -125,35 +132,71 @@ Activation preserves the previous role and personal data. It does not provision 
 Recovery from an incorrect owner link needs a separate reviewed database operation.
 No command silently replaces or transfers an identity link.
 
-## Session and Google setup limits
+## Browser sessions and source selection
+
+The frontend uses `@supabase/supabase-js` with OAuth authorization code flow and PKCE.
+The Google button starts `signInWithOAuth` with the current origin and pathname as the return URL.
+It does not accept a return URL from query parameters. Callback codes are exchanged once and removed from browser history.
+Provider error descriptions are not displayed or logged by application code. The page uses a no-referrer policy.
+
+The SDK stores and refreshes the session in browser storage. Application requests obtain the current access token
+and send it only to same-origin `/api` endpoints. The frontend does not access database tables through Supabase's Data API.
+`GET /api/me` confirms application access and supplies the role before catalog or article requests begin.
+Only administrators see **Catalogo** and **Categorie**. Backend permission checks remain authoritative.
+An expired session returns to login; denied access shows the approval screen; connection failures offer a retry.
+Logout or account changes abort pending requests and remove the previous account's interface state.
+The frontend calls `signOut({ scope: 'local' })`: logout affects this browser, not every device.
+
+Readers without subscriptions see the shared catalog with enabled sources proposed initially.
+Nothing is saved until they confirm. **Non ora** skips the choice; an empty profile sees the proposal again on a later page load.
+Existing subscriptions are never replaced by the initial proposal. **Le mie fonti** lets each person follow or unfollow sources later.
+Unfollowing preserves personal read states. A failed multi-source save can be retried; repeated subscriptions are idempotent.
+New catalog entries are not followed automatically.
+
+For account-free loopback development, set `TNR_LOCAL_USER_ID` and `VITE_LOCAL_MODE=true`, with all Supabase settings absent.
+The frontend local mode works only in a development build on a loopback hostname. A production build rejects it.
+Do not expose this mode through a public proxy. See [local development](development.md).
+
+## Google setup and remaining limits
 
 JWT verification does not query `auth.sessions` on every request.
 A Supabase logout or session revocation does not invalidate an already issued access token before its expiry.
 For immediate application access removal, use the local access-revocation command against the application database.
-The later frontend must clear local session data on logout and handle expired tokens through Supabase's session APIs.
+The frontend clears its application state on logout and uses the SDK for session storage and renewal.
 
 Configure Google as the intended sign-in provider during the authorized cloud setup.
 Disable unused sign-in methods and anonymous sign-in there.
 The backend verifies Supabase user sessions. It does not infer the current OAuth provider from user-editable metadata.
-Google origins, Supabase callbacks, application redirects, and CORS need validation with the actual frontend URLs.
+In Google Cloud, the OAuth redirect URI is the Supabase callback, `https://PROJECT_REF.supabase.co/auth/v1/callback`.
+In Supabase, configure the application Site URL and allow the exact frontend return URLs.
+For local testing with the default port, the return URL is `http://127.0.0.1:5173/`.
+Google origins, callback URIs, application redirects, and CORS still need validation with the actual environments.
+The current frontend expects same-origin `/api`; production routing is part of the deployment step.
 Google test-user settings do not replace the application's approval list.
-The official Google button and the Supabase frontend integration remain part of the frontend step.
+
+The Google Identity Services button was evaluated. This version uses the HTML button option from Google's branding guide,
+including its provided multicolor mark, with Supabase's OAuth/PKCE flow.
+It does not load the Google Identity Services script or use a direct Google ID-token flow, which would require separate client-ID and nonce handling.
+The official branding reference is listed below. No third-party font request is added.
 
 ## Verification
 
 Tests use generated EC/RSA signatures, mocked JWKS HTTP responses, and real Alembic migrations on disposable databases.
 They check malformed, expired, forged, wrong-project, wrong-audience, anonymous, and privileged-role tokens.
 They also check key rotation, cache behavior, upstream failure, owner preservation, explicit approval, personal isolation, and revocation.
+Frontend tests mock the SDK and HTTP to check callback handling, session recovery, refresh, logout, approval,
+account isolation, administrative controls, and subscription changes, including interrupted saves.
 The tests do not use the personal Supabase project or live news services.
 
 A complete Google login, Supabase signing-key compatibility, OAuth redirects, and deployed session behavior remain unverified until cloud setup.
 
-Validation on 2026-11-06:
+Frontend-step validation on 2026-11-06:
 
 - SQLite: 289 tests passed. Two PostgreSQL-only checks were skipped.
-- PostgreSQL 17.11 in an isolated local container: all 291 tests passed.
-- Ruff lint, Ruff format, dependency checks, and local documentation links passed.
-- No frontend files changed, so frontend checks were not run.
+- PostgreSQL was not rerun for this frontend change. The preceding backend step passed all 291 tests on isolated PostgreSQL 17.11.
+- Ruff lint and format checks passed.
+- Frontend: 35 tests passed; ESLint, TypeScript, Prettier, and production build passed.
+- Local Chrome screenshots checked the login and initial source-selection layout. Real Google sign-in remains unverified.
 - No personal database, Supabase project, Google account, or cloud configuration was changed.
 
 ## Official references
@@ -163,4 +206,8 @@ Validation on 2026-11-06:
 - [Supabase signing keys](https://supabase.com/docs/guides/auth/signing-keys)
 - [Supabase sessions](https://supabase.com/docs/guides/auth/sessions)
 - [Google sign-in through Supabase](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
+- [Supabase PKCE flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow)
+- [Supabase session events](https://supabase.com/docs/reference/javascript/auth-onauthstatechange)
+- [Supabase logout](https://supabase.com/docs/reference/javascript/auth-signout)
+- [Google button branding and HTML option](https://developers.google.com/identity/branding-guidelines)
 - [PyJWT verification and key caching](https://pyjwt.readthedocs.io/en/latest/api.html)

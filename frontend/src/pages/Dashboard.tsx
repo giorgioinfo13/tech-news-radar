@@ -60,7 +60,7 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           <p>Le tue fonti, una lettura alla volta.</p>
         </div>
         <a href="#sources" className="button header-action">
-          Gestisci fonti
+          Scegli le fonti
         </a>
       </header>
       <section className="filter-panel" aria-label="Filtri notizie">
@@ -236,7 +236,7 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           >
             {sources.length
               ? 'Prova altri filtri oppure aggiorna una fonte per raccogliere nuovi articoli.'
-              : 'Aggiungi il tuo primo feed RSS o Atom e avvia un aggiornamento dalla pagina Fonti.'}{' '}
+              : 'Scegli le fonti da seguire per iniziare a leggere.'}{' '}
             <a href="#sources">Vai alle fonti</a>
           </Empty>
         ))}

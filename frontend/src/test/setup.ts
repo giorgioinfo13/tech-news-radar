@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 // jsdom does not implement the native modal focus/top-layer behavior.
 HTMLDialogElement.prototype.showModal = function () {
@@ -10,8 +10,15 @@ HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open')
 }
 
+beforeEach(() => {
+  vi.stubEnv('VITE_LOCAL_MODE', 'true')
+  vi.stubEnv('VITE_SUPABASE_URL', '')
+  vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', '')
+})
+
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-  history.replaceState(null, '', '#news')
+  vi.unstubAllEnvs()
+  history.replaceState(null, '', '/#news')
 })

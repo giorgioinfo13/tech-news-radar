@@ -2,7 +2,8 @@
 
 Tech News Radar is a local application with a React frontend and a FastAPI backend.
 Its backend supports shared content and personal data, with Supabase token verification or an explicit local identity adapter.
-Frontend login, cloud authentication setup, and public deployment remain separate steps. Simplicity and maintainability take priority over scale.
+The frontend supports Google login and browser sessions. Cloud authentication setup and public deployment remain separate steps.
+Simplicity and maintainability take priority over scale.
 
 ## Current foundation
 
@@ -12,7 +13,7 @@ Frontend login, cloud authentication setup, and public deployment remain separat
 - `GET /api/health` reports process health only. It does not check storage or sources.
 - FastAPI exposes `/docs` and `/openapi.json` by default.
 - Environment settings come from the root `.env` file or process environment.
-- The frontend provides news, source management, and category management views.
+- The frontend provides news and personal source selection, plus catalog and category management for administrators.
 
 ## Database foundation
 
@@ -185,7 +186,12 @@ for results. Reload it to see new articles, check times, and history.
 
 ## Frontend
 
-The Italian interface has three hash-based views: `#news`, `#sources`, and `#categories`.
+The Italian interface has four hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, and `#categories`.
+Catalog and category controls are visible only to administrators; the backend checks permissions independently.
+Supabase's JavaScript SDK handles Google OAuth with PKCE, session persistence, refresh, and logout.
+Before loading application data, the frontend verifies access through `/api/me`. It sends the current access token on each API request.
+Account changes and logout clear view state and abort previous requests. Roles come from the backend, not token metadata.
+An explicit development-only local mode remains available without cloud accounts. See [authentication](authentication.md).
 React state controls forms and filters. A small fetch client and query hook handle
 API calls, abort obsolete requests, and retain data during refresh. No router or
 server-state library is required at this size. Native form controls and `<dialog>`
@@ -195,6 +201,8 @@ The dashboard queries 20 articles per page. Search is submitted explicitly, and
 filter changes reset pagination. Source/category catalogs load all API pages so
 selectors do not silently omit entries beyond the first 100. Those small catalogs
 stay in memory. Filtering large catalogs can be added if they grow substantially.
+New readers confirm an initial selection from the shared catalog. Existing subscriptions are preserved.
+The personal source view supports follow/unfollow and refresh; unfollowing leaves read states intact.
 
 Source management supports create/edit/delete, category assignment, enable/disable,
 manual refresh, last-check/error display, and paginated collection history.
@@ -229,5 +237,5 @@ Add libraries and directories when their phase needs them.
 No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.
 
-Before server deployment, complete frontend authentication, cloud configuration, HTTPS, backups, and process
+Before server deployment, validate real Google login and complete cloud configuration, HTTPS, backups, and process
 management in separate tasks. Loopback defaults alone are not a public deployment design.

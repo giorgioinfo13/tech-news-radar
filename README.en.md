@@ -17,8 +17,8 @@ and categories; each reader chooses which sources to follow and keeps their
 own reading status.
 
 **The project is in development.** News collection and the reading interface
-are available locally. Google login in the interface and online deployment
-are still to come.
+are available locally. The interface includes Google login and personal source
+selection; online service configuration and deployment are still to come.
 
 For setup and technical details, see the [development guide](docs/development.md)
 and [architecture notes](docs/architecture.md).

@@ -75,16 +75,18 @@ only with a disposable database. Tests exercise this path in temporary directori
 
 ## Run the backend
 
-For local development, add this line to your private root `.env` after applying the migrations:
+For account-free local development, add these lines to your private root `.env` after applying the migrations:
 
 ```dotenv
 TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
+VITE_LOCAL_MODE=true
 ```
 
 This selects the reserved local administrator. It is not authentication and must not be enabled in a public deployment.
-Without this setting, data endpoints return `401`. Health and API documentation remain available.
-The backend also supports Supabase token verification and operator-approved access. See [authentication](authentication.md).
-Frontend Google login remains a separate step. See [multiuser behavior](multiuser.md) for roles and migration details.
+Omit all Supabase settings in this local mode. Without a local identity or Supabase configuration, data endpoints return `401`.
+Health and API documentation remain available. The frontend local mode works only in a development build on a loopback hostname.
+Google login and operator-approved access require the [authentication configuration](authentication.md).
+See [multiuser behavior](multiuser.md) for roles and migration details.
 
 In one terminal, start from the repository root:
 
@@ -203,7 +205,7 @@ An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
 Sources are not installed automatically. The optional catalog command below imports verified feeds.
-New sources are not followed automatically. Use `PUT /api/subscriptions/{source_id}` in `/docs` to follow them.
+New sources are not followed automatically. Select them in **Le mie fonti**, or use `PUT /api/subscriptions/{source_id}` in `/docs`.
 Existing sources are followed once for the local owner during migration `0003`.
 Automatic collection uses the same guarded collector and history as manual refresh.
 The frontend uses these endpoints and does not require a new database migration.
@@ -226,7 +228,7 @@ It rechecks pause state, interval, and last check time under the collector lock 
 Manual refreshes use the same lock and reset the automatic interval when they finish.
 Source edits and manual refreshes can return `409` while an automatic download is active.
 
-Open **Fonti → Dettagli e azioni** to inspect check times and collection history.
+As an administrator, open **Catalogo → Dettagli e azioni** to inspect check times and collection history.
 Reload the browser to see new articles and results. The frontend does not update automatically.
 History uses the same statuses for automatic and manual runs and does not label their origin.
 Scan failures appear in backend error logs. Completed downloads use the existing collector logs and database records.
@@ -257,7 +259,7 @@ Vite forwards `/api` requests to the backend, so
 <http://127.0.0.1:5173/api/health> returns the same health response.
 Stop each server with `Ctrl+C`.
 
-Both servers bind to loopback. Keep them local until cloud configuration and frontend authentication are complete.
+Both servers bind to loopback. Keep them local until cloud configuration and deployment checks are complete.
 If a configured port is occupied, stop the conflicting process or choose a new
 port explicitly. If you change the backend port, update `TNR_API_TARGET` too.
 
@@ -285,7 +287,7 @@ Changing a source URL breaks the catalog match. A later import can add the origi
 Deleted catalog sources are added again when you explicitly rerun the command.
 
 Import operations persist individually. If import stops, fix the reported problem and rerun it.
-Refresh failures do not stop other feeds. A failed refresh gives exit code 1 and remains visible in **Fonti**.
+Refresh failures do not stop other feeds. A failed refresh gives exit code 1 and remains visible in **Catalogo**.
 Cooldowns also count as failed attempts. Wait before retrying. Unrelated sources are not refreshed.
 The command does not start its own scheduler or download full article pages.
 With the backend scheduler enabled, a manual batch can receive `409` or `429` responses.
@@ -293,10 +295,17 @@ With the backend scheduler enabled, a manual batch can receive `409` or `429` re
 The interface is currently in Italian. Category names are editable data and retain
 their configured language. The initial category names are in English.
 
-1. Open **Fonti**, then **Aggiungi fonte**.
+1. As an administrator, open **Catalogo**, then **Aggiungi fonte**.
 2. Enter a name and a valid RSS/Atom URL. Select an optional category.
 3. Select **Salva fonte**, then **Aggiorna** on the source card.
-4. Open **Notizie** to browse the collected articles.
+4. Open **Le mie fonti** and follow the source, then open **Notizie** to browse its articles.
+
+Profiles without subscriptions first see the current catalog with enabled sources proposed.
+Confirm the desired sources or select **Non ora**. Existing choices are preserved.
+**Le mie fonti** changes only your subscriptions. Unfollowing a source preserves your read states.
+Readers can refresh followed sources, but cannot edit the shared catalog or categories.
+In Supabase mode, **Accedi con Google** starts login and **Esci** ends this browser's session.
+An unapproved account sees **Accesso riservato**. Follow the [operator approval procedure](authentication.md#approve-the-administrator-and-friends).
 
 **Notizie** combines source, category, read-status, and text filters. Submit text
 search with **Cerca** or Enter. **Azzera filtri** clears all filters.
@@ -306,12 +315,12 @@ Article titles open the original page in a new tab. The read-status button store
 your choice independently of opening the article. Missing publication dates are
 shown explicitly, with the acquisition time.
 
-**Fonti** supports source edits, category assignment, pause/reactivation, manual
+**Catalogo** supports source edits, category assignment, pause/reactivation, manual
 refresh, and collection history. The last error stays visible until a successful
 refresh clears it. A cooldown response displays the remaining wait time.
 Use **Dettagli e azioni** to inspect feed URLs, check times, pause/reactivation,
 history, and deletion. Editing and history appear beside the selected source.
-**Categorie** supports names, identifiers, and display order. Both deletion dialogs
+**Categorie** supports names, identifiers, and display order. These two views are for administrators. Both deletion dialogs
 explain which data is removed. Canceling a dialog does not change stored data.
 
 The layout supports desktop and mobile widths. Labels, keyboard focus indicators,
@@ -344,9 +353,14 @@ Enable the local identity explicitly for local data access. Restart the developm
 | `TNR_FEED_MAX_BYTES` | `2000000` | Transfer and decoded-body limits, range 1024–10000000 bytes each |
 | `TNR_FEED_MAX_ENTRIES` | `5000` | Entries per feed, range 1–10000 |
 | `TNR_API_TARGET` | `http://127.0.0.1:8000` | Backend target for the Vite development proxy |
+| `VITE_LOCAL_MODE` | unset | Explicit loopback development mode; requires the backend local identity and no Supabase settings |
+| `VITE_SUPABASE_URL` | unset | Public Supabase origin, matching the backend project |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | unset | Public `sb_publishable_` key for browser authentication |
 
 Process environment variables override `.env`. Do not store secrets in `VITE_*`
 variables: Vite can include them in browser assets. Keep `.env` out of Git.
+Restart Vite after changes. Production values are included at build time, so rebuild after changing them.
+Invalid or incomplete frontend authentication settings show an unavailable-access screen and do not request application data.
 
 If an older `.env` sets `TNR_FEED_MAX_ENTRIES=1000`, change it to `5000` for the starter catalog.
 OpenAI's feed exceeded 1,000 entries during verification. Restart the backend after this change.

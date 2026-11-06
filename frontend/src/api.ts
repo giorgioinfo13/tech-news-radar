@@ -1,3 +1,29 @@
+export interface AppUser {
+  id: string
+  display_name: string
+  role: 'admin' | 'reader'
+}
+export interface Subscription {
+  source_id: number
+  source: Source
+  created_at: string
+}
+
+type Credentials = {
+  identity: string
+  token: () => Promise<string | null>
+  failure: (status: number) => void
+}
+let credentials: Credentials | undefined
+let identityController = new AbortController()
+export function configureIdentity(next?: Credentials) {
+  if (next?.identity !== credentials?.identity || !next) {
+    identityController.abort()
+    identityController = new AbortController()
+  }
+  credentials = next
+}
+
 export interface Page<T> {
   items: T[]
   total: number
@@ -55,21 +81,49 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const access = credentials
+  if (!access) throw new ApiError('Accedi per continuare.', 401)
+  const identitySignal = identityController.signal
+  const signal = AbortSignal.any([
+    identitySignal,
+    ...(options.signal ? [options.signal] : []),
+    AbortSignal.timeout(15000),
+  ])
   let response: Response
   try {
+    signal.throwIfAborted()
+    const token = await access.token()
+    signal.throwIfAborted()
+    if (access.identity !== 'local' && !token) {
+      access.failure(401)
+      throw new ApiError('La sessione è scaduta. Accedi di nuovo.', 401)
+    }
+    const headers = new Headers(options.headers)
+    if (options.body) headers.set('Content-Type', 'application/json')
+    headers.delete('Authorization')
+    if (token) headers.set('Authorization', `Bearer ${token}`)
     response = await fetch(`/api${path}`, {
       ...options,
-      headers: {
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...options.headers,
-      },
+      headers,
+      signal,
+      credentials: 'omit',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
     })
+    signal.throwIfAborted()
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw error
-    throw new ApiError('Impossibile contattare il server. Verifica che il backend sia avviato.', 0)
+    if (error instanceof ApiError) throw error
+    if (identitySignal.aborted || options.signal?.aborted)
+      throw new DOMException('Aborted', 'AbortError')
+    throw new ApiError('Impossibile contattare il server. Controlla la connessione e riprova.', 0)
   }
+  if (response.status === 401 || (response.status === 403 && path !== '/me'))
+    access.failure(response.status)
   if (!response.ok) {
     const messages: Record<number, string> = {
+      401: 'La sessione è scaduta. Accedi di nuovo.',
+      403: 'Accesso non autorizzato per questo account.',
+      503: 'Il servizio è temporaneamente non disponibile. Riprova tra poco.',
       404: 'Questo elemento non esiste più. Aggiorna la pagina.',
       409: 'Operazione non disponibile: verifica eventuali duplicati, fonti disabilitate o un refresh in corso.',
       422: 'Controlla i dati inseriti: uno o più valori non sono validi.',
@@ -93,7 +147,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
 }
 
-export function mutate<T>(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
+export function mutate<T>(
+  path: string,
+  method: 'POST' | 'PATCH' | 'DELETE' | 'PUT',
+  body?: unknown,
+) {
   return request<T>(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
 }
 

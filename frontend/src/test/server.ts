@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { Article, Category, CollectionRun, Source } from '../api'
+import type { AppUser, Article, Category, CollectionRun, Source } from '../api'
 
 export const category: Category = {
   id: 1,
@@ -35,6 +35,10 @@ export const article: Article = {
 
 export function mockServer() {
   const state = {
+    user: { id: 'owner', display_name: 'Owner', role: 'admin' } as AppUser,
+    accessStatus: 200,
+    subscriptions: [1],
+    failSubscription: 0,
     categories: [structuredClone(category)],
     sources: [structuredClone(source)],
     articles: [structuredClone(article)],
@@ -42,7 +46,12 @@ export function mockServer() {
     failRefresh: 0,
     failRead: false,
   }
-  const calls: { path: string; method: string; body: Record<string, unknown> }[] = []
+  const calls: {
+    path: string
+    method: string
+    body: Record<string, unknown>
+    authorization: string | null
+  }[] = []
   function response(body: unknown, status = 200, headers: Record<string, string> = {}) {
     return new Response(status === 204 ? null : JSON.stringify(body), {
       status,
@@ -54,16 +63,28 @@ export function mockServer() {
     const path = url.pathname.replace('/api', '')
     const method = init?.method ?? 'GET'
     const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
-    calls.push({ path: url.pathname + url.search, method, body })
+    calls.push({
+      path: url.pathname + url.search,
+      method,
+      body,
+      authorization: new Headers(init?.headers).get('Authorization'),
+    })
+    if (state.accessStatus !== 200) return response({}, state.accessStatus)
+    if (path === '/me') return response(state.user)
     const id = Number(path.split('/')[2])
     if (method === 'GET') {
       let items: unknown[]
-      if (path === '/categories') items = state.categories
+      if (path === '/subscriptions')
+        items = state.sources
+          .filter((item) => state.subscriptions.includes(item.id))
+          .map((item) => ({ source_id: item.id, source: item, created_at: '2026-01-01T00:00:00Z' }))
+      else if (path === '/categories') items = state.categories
       else if (path === '/sources') items = state.sources
       else if (path.endsWith('/runs')) items = state.runs.filter((run) => run.source_id === id)
       else if (path === '/articles') {
         items = state.articles.filter(
           (item) =>
+            state.subscriptions.includes(item.source_id) &&
             (!url.searchParams.has('source_id') ||
               item.source_id === Number(url.searchParams.get('source_id'))) &&
             (!url.searchParams.has('category_id') ||
@@ -82,6 +103,13 @@ export function mockServer() {
         limit,
         offset,
       })
+    }
+    if (path.startsWith('/subscriptions/')) {
+      if (id === state.failSubscription) return response({}, 500)
+      if (method === 'PUT' && !state.subscriptions.includes(id)) state.subscriptions.push(id)
+      if (method === 'DELETE')
+        state.subscriptions = state.subscriptions.filter((value) => value !== id)
+      return response(null, 204)
     }
     if (path.endsWith('/refresh')) {
       if (state.failRefresh === 429) return response({}, 429, { 'Retry-After': '42' })
