@@ -31,7 +31,7 @@ The project is in development. The responsive editorial interface supports artic
 source/category filters, and read/unread status.
 The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
 manually, and inspect collection results. The backend handles deduplication and SQLite storage.
-Automatic updates are not implemented yet. Add feeds through the interface or
+The backend automatically checks enabled sources, normally every 60 minutes, while it runs. Add feeds through the interface or
 import the [starter catalog of 11 verified sources](docs/sources.md).
 The interface is currently in Italian.
 
@@ -52,18 +52,20 @@ cd frontend
 npm run dev
 ```
 
-In a third terminal, import the sources and collect the first articles:
+In a third terminal, import sources. The backend collects their first articles automatically:
 
 ```sh
 cd backend
-.venv/bin/python -m app.catalog --refresh
+.venv/bin/python -m app.catalog
 ```
 
 Open [Tech News Radar locally](http://127.0.0.1:5173). The catalog includes antirez,
 OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
 MacRumors, TechCrunch, and Wired Italia. All sources remain editable.
 Repeated imports preserve settings for sources with the same URL.
-Use **Fonti → Aggiorna** for subsequent updates.
+The first collection starts on a subsequent scan, normally within 30 seconds if the collector is free.
+You can also use **Fonti → Aggiorna** for manual updates. Reload the page to see new articles.
+The [configuration guide](docs/development.md#automatic-collection) explains how to disable automatic collection and change intervals.
 Stop each server with `Ctrl+C` in its terminal.
 
 ## Technologies
@@ -71,7 +73,7 @@ Stop each server with `Ctrl+C` in its terminal.
 - **Interface:** React, TypeScript, Vite, and Tailwind CSS.
 - **Backend:** Python and FastAPI.
 - **Persistence:** SQLite with SQLAlchemy and Alembic migrations.
-- **Collection:** feedparser, httpx, and defusedxml. APScheduler is planned for automatic updates.
+- **Collection:** feedparser, httpx, and defusedxml. Periodic collection uses the Python standard library.
 
 ## Development
 

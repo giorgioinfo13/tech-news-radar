@@ -21,7 +21,9 @@ ATOM = (FIXTURES / "atom.xml").read_bytes()
 
 @pytest.fixture
 async def setup(database, monkeypatch):
-    settings = Settings(_env_file=None, database_url=database.url.render_as_string())
+    settings = Settings(
+        _env_file=None, database_url=database.url.render_as_string(), scheduler_enabled=False
+    )
     app = create_app(settings)
     replies, requests = [], []
     clock = [datetime(2026, 11, 5, tzinfo=UTC)]

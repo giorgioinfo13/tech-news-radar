@@ -45,7 +45,7 @@ this behavior. The future UI must require confirmation before deletion.
 Collection runs use `running`, `success`, `not_modified`, or `error`. A completed run
 requires a finish time at or after its start. Counts must be nonnegative, and added
 articles cannot exceed seen articles. The collector closes interrupted runs when
-that source is next refreshed. No scheduler is implemented yet.
+that source is next refreshed, manually or automatically.
 
 SQL constraints enforce identity, references, and basic data consistency. The API
 validates HTTP URL syntax and text limits. The downloader validates feed destinations.
@@ -55,8 +55,8 @@ The database models do not download or validate feed URLs.
 
 FastAPI creates one engine per application lifespan and disposes it at shutdown.
 Each request uses a separate SQLAlchemy session. Write endpoints commit explicitly.
-Session cleanup rolls back unfinished transactions. Startup does not connect to
-the database or apply migrations. The health endpoint remains independent of storage.
+Session cleanup rolls back unfinished transactions. Startup does not wait for database access or apply migrations. The automatic worker
+first accesses the database after its initial poll delay. The health endpoint remains independent of storage.
 This uses FastAPI's [lifespan](https://fastapi.tiangolo.com/advanced/events/) and
 [dependency cleanup](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/) patterns.
 
@@ -90,11 +90,11 @@ last write. Interrupted runs are closed on the next refresh of the same source.
 An application-wide lock rejects concurrent refreshes and source PATCH/DELETE requests.
 It does not hold a database transaction during network access. Run exactly one backend
 process/worker against the database. The lock does not coordinate separate processes
-or external database edits. A future scheduler must use the same collector entry point.
+or external database edits. The scheduler uses this same collector and lock.
 
 Refreshes have a 30-second cooldown after success. After consecutive failures, the
 cooldown doubles from 60 seconds to a maximum of one hour. Rejected refreshes do not
-create runs. Source intervals remain settings for the future scheduler.
+create runs. Automatic collection also respects each source interval.
 
 The downloader uses HTTPX, public IP checks, and at most three redirects. Each hop
 connects to an already validated IP, with the original Host header and TLS hostname.
@@ -119,7 +119,7 @@ Configure the final feed URL to benefit from conditional requests.
 
 Before feedparser runs, defusedxml rejects malformed XML, DTDs, entities, and excessive
 nesting. See [defusedxml's controls](https://pypi.org/project/defusedxml/).
-The parser receives bytes, never a URL or path. Up to 1,000 entries are accepted by
+The parser receives bytes, never a URL or path. Up to 5,000 entries are accepted by
 default. Titles and descriptions become plain text, capped at 1,000 and 4,000 characters.
 Entries without a usable title or HTTP/HTTPS link are skipped. Missing or invalid
 publication dates remain null. Atom update dates do not replace publication dates.
@@ -137,11 +137,32 @@ includes duplicates and skipped entries. An entirely unusable nonempty feed is a
 Collection history, source diagnostics, and logs identify failures without raw response
 bodies or request URLs. There is no automatic history retention policy yet.
 
-## Planned MVP
+## Automatic collection
 
-Use APScheduler in the backend lifecycle. Manual and scheduled refreshes must
-share the collector's overlap protection, request limits, and retry behavior.
-Collection stops when the backend stops or the computer sleeps.
+A single `CollectionScheduler` thread belongs to the FastAPI lifespan. It shares the
+application's collector and uses Python's `threading.Event` for interruptible waits.
+This periodic loop needs no APScheduler dependency or persistent job store.
+See [Python event objects](https://docs.python.org/3.13/library/threading.html#event-objects)
+and [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/).
+
+After each poll delay, the worker reads enabled source IDs, ordered by oldest check time.
+It closes that session before collection. `Collector.refresh_if_due` acquires the shared
+lock and rereads source settings before it calls the existing collection path.
+A source is due when its last check plus the greater of its interval and cooldown is reached.
+Never-checked sources are due immediately. Missing, disabled, and unexpired sources are skipped.
+The source interval defaults to 60 minutes. The poll delay defaults to 30 seconds.
+
+Each pass is sequential. A busy collector defers the remaining pass. Source failures
+leave other sources available, and scan failures are logged without stopping the worker.
+The next pass starts after the current pass and poll delay. Missed intervals do not create jobs.
+Stored check times preserve the schedule across restarts without new database fields.
+Normal shutdown signals the worker, waits for its active feed, then disposes the engine.
+The lifespan waits for that join outside the event loop. OS DNS resolution can delay it.
+
+Set `TNR_SCHEDULER_ENABLED=false` to disable the worker. Change the scan delay with
+`TNR_SCHEDULER_POLL_SECONDS` (1–300 seconds). Run one backend process per database.
+Collection stops when the backend stops or the computer sleeps. The browser does not poll
+for results. Reload it to see new articles, check times, and history.
 
 ## Frontend
 
@@ -184,7 +205,7 @@ responsive layout and native dialog behavior separately from jsdom tests.
 Phases 1–4 include an optional verified source catalog and a local prototype.
 The catalog CLI uses the running REST API, including its collector lock and cooldown.
 It does not create a second collector, change the schema, or import sources at startup.
-Scheduling, broader end-to-end validation, and CI are the next separately approved phase.
+Automatic collection is implemented. Broader end-to-end validation and CI remain separate tasks.
 Add libraries and directories when their phase needs them.
 No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.

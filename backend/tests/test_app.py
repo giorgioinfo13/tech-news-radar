@@ -37,6 +37,7 @@ async def test_lifespan_and_health_do_not_create_database(tmp_path: Path) -> Non
     settings = Settings(
         _env_file=None,
         database_url=URL.create("sqlite", database=str(database_path)).render_as_string(),
+        scheduler_enabled=False,
     )
     app = create_app(settings)
     disposed = []

@@ -116,7 +116,8 @@ Slugs use lowercase ASCII letters, digits, and single hyphens between groups.
 Create a source with `{"name":"Example","feed_url":"https://example.org/feed.xml"}`.
 This is a placeholder URL, not a verified feed. Optional source fields are `category_id`,
 `enabled` (default `true`), and `refresh_interval_minutes` (default 60, range 1–10080).
-The interval is stored for the future scheduler and has no operational effect yet.
+The scheduler uses this interval after the last completed check, including manual refreshes.
+Change it through `/docs` or the REST API. The frontend does not yet expose this field.
 
 PATCH changes only supplied fields. An empty category/source PATCH preserves all values.
 Use `{"category_id":null}` to remove a source's category. Other editable fields cannot
@@ -175,8 +176,43 @@ An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
 Sources are not installed automatically. The optional catalog command below imports verified feeds.
-Automatic scheduling remains a future task.
+Automatic collection uses the same guarded collector and history as manual refresh.
 The frontend uses these endpoints and does not require a new database migration.
+
+## Automatic collection
+
+Apply migrations before you start the backend. Use one process and one worker per database.
+The scheduler starts with the backend and waits 30 seconds before its first scan.
+It checks enabled sources, with never-checked and older sources first.
+Each source has a default interval of 60 minutes, measured from its last completed check.
+New enabled sources become eligible on the next scan.
+
+Each pass collects sources sequentially. The next scan starts after the pass finishes and the poll interval expires.
+Slow feeds can delay later sources. A busy collector defers the pass until the next scan.
+The scheduler does not queue missed runs or repeat every interval missed while the computer was off.
+After restart, it uses the stored check times. Collection stops while the backend is off or the computer sleeps.
+
+After a failure, the scheduler waits for both the source interval and the collector cooldown to expire.
+It rechecks pause state, interval, and last check time under the collector lock before each download.
+Manual refreshes use the same lock and reset the automatic interval when they finish.
+Source edits and manual refreshes can return `409` while an automatic download is active.
+
+Open **Fonti → Dettagli e azioni** to inspect check times and collection history.
+Reload the browser to see new articles and results. The frontend does not update automatically.
+History uses the same statuses for automatic and manual runs and does not label their origin.
+Scan failures appear in backend error logs. Completed downloads use the existing collector logs and database records.
+Standard Python logging controls informational scheduler messages.
+
+To test a shorter interval, use `PATCH /api/sources/{id}` with `{"refresh_interval_minutes":1}` in `/docs`.
+Wait for the interval and a subsequent scan, then inspect `/api/sources/{id}/runs`.
+A failed source can take longer because of its cooldown. Restore the desired interval after the test.
+This test downloads the configured feed and writes articles to your local database.
+
+Set `TNR_SCHEDULER_ENABLED=false` in `.env` to use manual collection only.
+Set `TNR_SCHEDULER_POLL_SECONDS` to change scan frequency, not the individual source interval.
+Restart the backend after configuration changes.
+On normal shutdown, the worker finishes the active feed and skips remaining sources before the database closes.
+An OS DNS call can delay shutdown because the HTTP timeout does not bound that call.
 
 ## Run the frontend
 
@@ -203,11 +239,13 @@ From the repository root:
 
 ```sh
 cd backend
-.venv/bin/python -m app.catalog --refresh
+.venv/bin/python -m app.catalog
 ```
 
-This imports the [verified catalog](sources.md) and refreshes its enabled sources sequentially.
-Omit `--refresh` to import only source configurations. Use `--api-url http://127.0.0.1:18000`
+This imports the [verified catalog](sources.md) without changing existing settings.
+The scheduler collects new enabled sources on a subsequent scan.
+For a manual batch, disable the scheduler and restart the backend, then add `--refresh`.
+That option refreshes imported enabled sources sequentially. Use `--api-url http://127.0.0.1:18000`
 if the backend uses a different port. The command accepts only local HTTP API origins.
 It does not use `TNR_API_TARGET`, which configures Vite separately.
 
@@ -220,7 +258,8 @@ Deleted catalog sources are added again when you explicitly rerun the command.
 Import operations persist individually. If import stops, fix the reported problem and rerun it.
 Refresh failures do not stop other feeds. A failed refresh gives exit code 1 and remains visible in **Fonti**.
 Cooldowns also count as failed attempts. Wait before retrying. Unrelated sources are not refreshed.
-The command does not start a scheduler or download full article pages.
+The command does not start its own scheduler or download full article pages.
+With the backend scheduler enabled, a manual batch can receive `409` or `429` responses.
 
 The interface is currently in Italian. Category names are editable data and retain
 their configured language. The initial category names are in English.
@@ -248,7 +287,8 @@ explain which data is removed. Canceling a dialog does not change stored data.
 
 The layout supports desktop and mobile widths. Labels, keyboard focus indicators,
 loading/empty/error states, and retry controls are included. Unsaved forms and
-filters reset when you leave a view. Automatic refresh and offline access are not available.
+filters reset when you leave a view. The browser does not poll for new articles.
+Reload the page to see automatic collection results. Offline access is not available.
 
 The editorial interface uses local Source Serif 4 and Source Sans 3 font files.
 Their versions, hashes, and SIL Open Font Licenses are in `frontend/public/fonts/`.
@@ -266,6 +306,8 @@ file. Restart the development servers after configuration changes.
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
+| `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |
+| `TNR_SCHEDULER_POLL_SECONDS` | `30` | Wait between scans, range 1–300 seconds |
 | `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |
 | `TNR_FEED_MAX_BYTES` | `2000000` | Transfer and decoded-body limits, range 1024–10000000 bytes each |
 | `TNR_FEED_MAX_ENTRIES` | `5000` | Entries per feed, range 1–10000 |

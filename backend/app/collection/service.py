@@ -48,6 +48,25 @@ class Collector:
         with self.exclusive():
             return self._refresh(source_id)
 
+    def refresh_if_due(self, source_id: int) -> CollectionRun | None:
+        """Recheck current source settings under the same gate as manual refresh."""
+        with self.exclusive():
+            with Session(self.engine) as session:
+                source = session.get(Source, source_id)
+                if source is None or not source.enabled:
+                    return None
+                delay = max(source.refresh_interval_minutes * 60, self._cooldown(source))
+                if (
+                    source.last_checked_at
+                    and (utc_now() - source.last_checked_at).total_seconds() < delay
+                ):
+                    return None
+            return self._refresh(source_id)
+
+    @staticmethod
+    def _cooldown(source: Source) -> int:
+        return min(3600, 30 * 2 ** min(source.consecutive_failures, 7))
+
     def _refresh(self, source_id: int) -> CollectionRun:
         now = utc_now()
         with Session(self.engine) as session:
@@ -56,7 +75,7 @@ class Collector:
                 raise RefreshRejected(404, "Source not found")
             if not source.enabled:
                 raise RefreshRejected(409, "Enable the source before refreshing it")
-            cooldown = min(3600, 30 * 2 ** min(source.consecutive_failures, 7))
+            cooldown = self._cooldown(source)
             if source.last_checked_at:
                 remaining = cooldown - (now - source.last_checked_at).total_seconds()
                 if remaining > 0:

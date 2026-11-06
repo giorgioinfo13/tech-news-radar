@@ -39,7 +39,9 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 async def client(database: Engine) -> AsyncIterator[AsyncClient]:
-    settings = Settings(_env_file=None, database_url=database.url.render_as_string())
+    settings = Settings(
+        _env_file=None, database_url=database.url.render_as_string(), scheduler_enabled=False
+    )
     app = create_app(settings)
     # ASGITransport does not start lifespan automatically. Exercise production setup.
     async with app.router.lifespan_context(app):

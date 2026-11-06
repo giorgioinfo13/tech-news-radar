@@ -13,7 +13,7 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 
 The current implementation provides a scaffold, a health endpoint, the SQLite
 schema, REST APIs, RSS/Atom collection, and a responsive Italian dashboard with
-source/category management and manual refresh. Scheduling belongs to a later task.
+source/category management, manual refresh, and periodic collection in one backend worker.
 See [architecture](docs/architecture.md) for the intended scope.
 
 ## Working conventions

@@ -31,7 +31,7 @@ Il progetto è in sviluppo. L'interfaccia editoriale responsive permette di cons
 notizie, filtrare per fonte e categoria e gestire lo stato letto/non letto.
 Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiornamenti
 manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite.
-Gli aggiornamenti automatici sono ancora da implementare. Puoi aggiungere i feed
+Il backend aggiorna automaticamente le fonti attive, di norma ogni 60 minuti, mentre è in esecuzione. Puoi aggiungere i feed
 dall'interfaccia oppure importare il [catalogo iniziale di 11 fonti verificate](docs/sources.md).
 L'interfaccia è attualmente in italiano.
 
@@ -52,18 +52,20 @@ cd frontend
 npm run dev
 ```
 
-In un terzo terminale importa le fonti e raccogli i primi articoli:
+In un terzo terminale importa le fonti; il backend raccoglierà i primi articoli automaticamente:
 
 ```sh
 cd backend
-.venv/bin/python -m app.catalog --refresh
+.venv/bin/python -m app.catalog
 ```
 
 Apri [Tech News Radar in locale](http://127.0.0.1:5173). Il catalogo include antirez,
 OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
 MacRumors, TechCrunch e Wired Italia. Tutte le fonti restano modificabili.
 L'importazione ripetuta conserva le impostazioni delle fonti con lo stesso URL.
-Gli aggiornamenti successivi si avviano da **Fonti → Aggiorna**.
+La prima raccolta inizia con una scansione successiva, normalmente entro 30 secondi se il collector è libero.
+Puoi anche avviare un aggiornamento da **Fonti → Aggiorna**. Ricarica la pagina per vedere i nuovi articoli.
+La [configurazione](docs/development.md#automatic-collection) permette di disattivare la raccolta automatica e cambiare gli intervalli.
 Ferma i server con `Ctrl+C` nei rispettivi terminali.
 
 ## Tecnologie
@@ -71,7 +73,7 @@ Ferma i server con `Ctrl+C` nei rispettivi terminali.
 - **Interfaccia:** React, TypeScript, Vite e Tailwind CSS.
 - **Backend:** Python e FastAPI.
 - **Persistenza:** SQLite con SQLAlchemy e migrazioni Alembic.
-- **Raccolta:** feedparser, httpx e defusedxml. APScheduler è previsto per gli aggiornamenti automatici.
+- **Raccolta:** feedparser, httpx e defusedxml. Raccolta periodica con la libreria standard Python.
 
 ## Sviluppo
 
