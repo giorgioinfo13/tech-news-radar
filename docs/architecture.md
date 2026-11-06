@@ -216,6 +216,10 @@ only through the explicit control. The frontend does not fetch feed URLs directl
 
 Filters and unsaved forms are local to the current view and reset on navigation.
 There is no offline cache, polling, or UI language switch yet.
+The web app manifest supplies a stable root identity, standalone launch mode, and standard 192/512-pixel icons.
+An Apple touch icon supports Home Screen installation. The app requires a network connection and registers no service worker.
+Installation adds no cache of API responses, tokens, or personal data; Supabase session persistence remains unchanged.
+See [installation and device checks](development.md#install-the-web-app).
 Appearance supports light, dark, and system modes through shared CSS color variables.
 A small local script in the document head applies the saved preference before rendering.
 The React theme provider follows system changes and synchronizes the `tnr-theme` browser preference across tabs.

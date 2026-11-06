@@ -159,6 +159,17 @@ For account-free loopback development, set `TNR_LOCAL_USER_ID` and `VITE_LOCAL_M
 The frontend local mode works only in a development build on a loopback hostname. A production build rejects it.
 Do not expose this mode through a public proxy. See [local development](development.md).
 
+### Installed web app sessions
+
+Installation retains the same Supabase OAuth/PKCE flow. Do not assume that a browser tab and an installed app share storage.
+The callback must reach the context that holds the PKCE verifier. Do not copy authorization URLs between windows.
+On each supported iPhone and Android version, start login from the installed app and complete Google's consent flow.
+Check that the callback returns to a usable signed-in app, then close and reopen it to check session recovery.
+Check token renewal, logout, a second account, and denied or revoked access there too.
+If the callback opens in a different context and login fails, record the device, OS, and browser versions.
+Do not treat login in a browser tab as proof of installed-app compatibility.
+See [installation instructions](development.md#install-the-web-app). Real-device OAuth validation remains required before release.
+
 ## Google setup and remaining limits
 
 JWT verification does not query `auth.sessions` on every request.

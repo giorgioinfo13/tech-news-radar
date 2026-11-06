@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Tech News Radar",
+  "short_name": "Tech Radar",
+  "description": "Il tuo lettore personale di notizie su tecnologia, AI, software ed economia.",
+  "lang": "it",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#f4f6f8",
+  "background_color": "#f4f6f8",
+  "icons": [
+    {
+      "src": "/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

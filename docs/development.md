@@ -263,6 +263,44 @@ Both servers bind to loopback. Keep them local until cloud configuration and dep
 If a configured port is occupied, stop the conflicting process or choose a new
 port explicitly. If you change the backend port, update `TNR_API_TARGET` too.
 
+### Install the web app
+
+The manifest supplies the app name, icons, root launch URL, and standalone display mode.
+The app requires a network connection. It has no service worker or application-managed offline cache.
+Installation does not change access approval or the Supabase session stored by the SDK.
+
+For phone tests, use an approved HTTPS deployment with working API routing and OAuth return URLs.
+`127.0.0.1` on a phone refers to the phone, not the development computer.
+Keep the development servers on loopback. Desktop Chrome can test installation from the local frontend URL.
+
+- **iPhone, Safari:** open the app URL, then select **Share → Add to Home Screen**.
+  Enable **Open as Web App** if available, then select **Add**.
+- **Android, Chrome:** open the app URL, then select **⋮ → Install and create shortcut → Install**.
+  Menu labels can differ by browser version.
+
+Launch from the new icon. Check the name, icon, and absence of the browser address bar.
+Check light, dark, and system appearance. The manifest supplies a light launch background;
+the page updates its theme color after launch.
+Icons use `purpose: any`: their artwork extends beyond the safe area for maskable icons.
+The supplied PNGs retain transparent corners. Check the icon background and cropping on each phone before release.
+
+Start Google login from the installed app. Complete the [installed-session checks](authentication.md#installed-web-app-sessions)
+before accepting mobile support. A desktop test or mobile viewport does not validate this flow on a phone.
+
+Reload the app to load a new frontend build. Hosting must revalidate HTML and the manifest after deployment.
+No service-worker activation or cache reset is required.
+Name and icon changes follow the browser's update schedule and can require reinstallation.
+Do not reinstall during an OAuth redirect: removal can discard the pending session and PKCE verifier.
+Offline use is unsupported; the browser can show its network error page.
+
+Local Chrome on macOS passed installation, standalone launch, light/dark appearance, Google login, logout, and session recovery after reopening.
+Phone installation, icon rendering, OAuth, and installed-app token renewal remain unverified. No HTTPS deployment is configured for these checks yet.
+
+References: [Apple installation guide](https://support.apple.com/guide/iphone/iphea86e5236/ios),
+[Chrome Android installation](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=en),
+[Chrome installation criteria](https://developer.chrome.com/blog/update-install-criteria),
+and [maskable icon safe area](https://web.dev/articles/maskable-icon).
+
 ### Use the interface
 
 For a populated prototype, keep both servers running and open a third terminal.
