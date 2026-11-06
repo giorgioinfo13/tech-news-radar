@@ -5,7 +5,8 @@ No cloud account or Docker installation is necessary for SQLite development.
 Changing the database URL does not transfer existing data. Keep the local SQLite database intact.
 
 Database support includes the [multiuser data model and backend permissions](multiuser.md).
-Authentication, deployment, and data transfer require separate work.
+The backend supports [Supabase token verification and access approval](authentication.md).
+Frontend login, cloud configuration, deployment, and data transfer require separate work.
 Keep the backend on loopback with one process and one worker. The collector lock is process-local on both databases.
 
 ## Connection configuration
@@ -49,9 +50,10 @@ They do not fall back to `public` for application tables.
 Alembic creates the namespace in the migration transaction before it runs the unchanged revision `0001`.
 Revision `0002` adapts PostgreSQL types and constraints. It performs no SQLite table changes.
 Revision `0003` adds application users and personal data on both databases. It preserves the reserved local owner's existing read flags.
+Revision `0004` adds a unique identity link on the existing private user table. It does not grant new privileges.
 
 Set `TNR_MIGRATION_DATABASE_URL` to an owner connection when the application uses a restricted database role.
-Alembic uses this URL only for explicit migration commands. If unset, it uses `TNR_DATABASE_URL`.
+Alembic and the operator access commands use this URL for explicit database operations. If unset, it uses `TNR_DATABASE_URL`.
 Use a direct connection for migrations where reachable. Session pooling is the IPv4 alternative.
 Both connections must target the same database. The API never reads the migration URL to connect, creates tables, or applies migrations.
 
@@ -63,7 +65,7 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0003 (head)`. Applying these commands to Supabase requires separate owner authorization.
+The expected revision is `0004 (head)`. Applying these commands to Supabase requires separate owner authorization.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 
@@ -90,8 +92,9 @@ Do not run the application as the supplied Supabase `postgres` owner in a public
 
 RLS is not the access boundary in this step. No per-user policies exist yet.
 Owners and roles with `BYPASSRLS` can bypass RLS. SQL connections do not acquire end-user authorization from Supabase Auth automatically.
-FastAPI checks active users and roles, but its temporary local identity adapter is not authentication.
-Verified Supabase identities and invitation management remain necessary before public deployment.
+FastAPI verifies Supabase tokens and checks approved, active profiles and application roles.
+Its alternative local identity adapter is not authentication.
+Frontend login and authorized cloud configuration remain necessary before public deployment.
 
 See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-your-api) and
 [PostgreSQL row security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).

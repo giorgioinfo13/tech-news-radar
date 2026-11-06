@@ -5,10 +5,12 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Path, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import AuthenticationUnavailable, InvalidAccessToken
 from app.collection.service import Collector, RefreshRejected
 from app.db import Base
 from app.models import AppUser
@@ -21,10 +23,38 @@ def get_session(request: Request) -> Iterator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
+BearerDep = Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))]
 
 
-def get_identity(request: Request) -> UUID:
-    """Temporary local adapter. Replace with verified Supabase identity in the auth step."""
+def get_identity(request: Request, session: SessionDep, credentials: BearerDep) -> UUID:
+    """Resolve an explicitly approved identity, with no token-to-local fallback."""
+    if request.app.state.settings.supabase_url is not None:
+        authorization = request.headers.get("authorization", "")
+        parts = authorization.split()
+        if credentials is None or len(parts) != 2 or parts[0].lower() != "bearer":
+            raise HTTPException(
+                status_code=401,
+                detail="Bearer token required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        try:
+            subject = request.app.state.auth_verifier.verify(parts[1])
+        except InvalidAccessToken:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid access token",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except AuthenticationUnavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Authentication temporarily unavailable",
+                headers={"Retry-After": "10"},
+            ) from None
+        user_id = session.scalar(select(AppUser.id).where(AppUser.supabase_subject == subject))
+        if user_id is None:
+            raise HTTPException(status_code=403, detail="User is not authorized")
+        return user_id
     user_id = request.app.state.settings.local_user_id
     if user_id is None or request.headers.get("authorization"):
         raise HTTPException(status_code=401, detail="Authentication is not configured")

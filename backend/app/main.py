@@ -12,6 +12,7 @@ from app.api.dependencies import get_current_user
 from app.api.health import router as health_router
 from app.api.personal import router as personal_router
 from app.api.sources import router as sources_router
+from app.auth import SupabaseVerifier
 from app.collection.scheduler import CollectionScheduler
 from app.collection.service import Collector
 from app.config import Settings
@@ -50,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = config
+    app.state.auth_verifier = SupabaseVerifier(config.supabase_url) if config.supabase_url else None
     app.include_router(health_router, prefix="/api")
     for router in (categories_router, sources_router, articles_router, personal_router):
         app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])

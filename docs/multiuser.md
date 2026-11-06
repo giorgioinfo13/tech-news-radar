@@ -63,9 +63,9 @@ The migration then removes `articles.is_read`. It does not copy those flags to f
 Timestamps on migrated subscriptions and read states record the migration time, not the original unknown action time.
 Repeated upgrades do not restore subscriptions the owner subsequently removed.
 
-The reserved owner has no Google account or Supabase identity attached yet.
-The authentication step must explicitly link the owner's verified identity to this profile and preserve its data.
-Do not assign this profile to the first person who signs in.
+The reserved owner initially has no Google account or Supabase identity attached.
+Revision `0004` adds identity links. The operator must explicitly link the owner's verified Supabase UUID to this profile.
+See [authentication and access approval](authentication.md). Do not assign this profile to the first person who signs in.
 
 SQLite requires version 3.35 or later for native `DROP COLUMN`.
 This avoids a table rebuild that could cascade deletion of related data.
@@ -79,7 +79,7 @@ Use downgrade tests only on disposable databases.
 
 ## Local testing before authentication
 
-The backend denies data requests by default. Health and optional API documentation remain available.
+The backend denies data requests unless Supabase authentication or local identity is configured. Health and optional API documentation remain available.
 For local development, set this value in the private root `.env` after migration:
 
 ```dotenv
@@ -123,8 +123,9 @@ Validation on 2026-11-06:
 - Migration tests verified data preservation and removal of inherited Data API table grants.
 - No frontend files changed, so frontend checks were not run. No personal or hosted database was migrated.
 
-Supabase JWT verification, Google login, invitation provisioning, and browser sessions remain outside this step.
-Replace the local adapter with a verified identity provider before enabling external access.
+Supabase JWT verification and operator approval are now implemented in the backend.
+Frontend Google login, browser sessions, cloud configuration, and public access remain separate steps.
+Use the Supabase mode instead of the local adapter before enabling external access.
 Authorization must continue to use the application's role and active status, not user-editable metadata.
 See [Supabase user metadata guidance](https://supabase.com/docs/guides/database/postgres/row-level-security).
 Direct PostgreSQL connections do not automatically apply end-user RLS identity. The current boundary is the backend plus the private schema and database grants.

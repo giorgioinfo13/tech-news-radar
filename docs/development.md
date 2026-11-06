@@ -44,8 +44,9 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0003 (head)`, with no pending schema changes. Revision `0003` adds personal subscriptions and read states.
+`0004 (head)`, with no pending schema changes. Revision `0003` adds personal subscriptions and read states.
 It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
+Revision `0004` adds explicit Supabase identity links without changing existing profiles or personal data.
 SQLite must be version 3.35 or later for the native column removal. Check the SQLite library bundled with your Python installation.
 
 Run `alembic upgrade head` after updates that add migrations. Repeating it on an
@@ -82,7 +83,8 @@ TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
 
 This selects the reserved local administrator. It is not authentication and must not be enabled in a public deployment.
 Without this setting, data endpoints return `401`. Health and API documentation remain available.
-Supabase login and invitations are not implemented yet. See [multiuser behavior](multiuser.md) for roles and migration details.
+The backend also supports Supabase token verification and operator-approved access. See [authentication](authentication.md).
+Frontend Google login remains a separate step. See [multiuser behavior](multiuser.md) for roles and migration details.
 
 In one terminal, start from the repository root:
 
@@ -255,7 +257,7 @@ Vite forwards `/api` requests to the backend, so
 <http://127.0.0.1:5173/api/health> returns the same health response.
 Stop each server with `Ctrl+C`.
 
-Both servers bind to loopback. Keep them local: authentication is not implemented.
+Both servers bind to loopback. Keep them local until cloud configuration and frontend authentication are complete.
 If a configured port is occupied, stop the conflicting process or choose a new
 port explicitly. If you change the backend port, update `TNR_API_TARGET` too.
 
@@ -332,9 +334,10 @@ Enable the local identity explicitly for local data access. Restart the developm
 | --- | --- | --- |
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
-| `TNR_LOCAL_USER_ID` | unset | Explicit local-only application identity, selected by the backend |
+| `TNR_LOCAL_USER_ID` | unset | Explicit local-only identity, incompatible with `TNR_SUPABASE_URL` |
+| `TNR_SUPABASE_URL` | unset | HTTPS project origin for Supabase access-token verification |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
-| `TNR_MIGRATION_DATABASE_URL` | unset | Optional owner connection used only by Alembic; defaults to the application URL |
+| `TNR_MIGRATION_DATABASE_URL` | unset | Optional operator connection for Alembic and access provisioning; defaults to the application URL |
 | `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |
 | `TNR_SCHEDULER_POLL_SECONDS` | `30` | Wait between scans, range 1–300 seconds |
 | `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |

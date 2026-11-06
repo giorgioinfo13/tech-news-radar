@@ -1,8 +1,8 @@
 # Architecture and scope
 
 Tech News Radar is a local application with a React frontend and a FastAPI backend.
-Its backend supports shared content and personal data, with an explicit local identity adapter.
-Supabase authentication and public deployment remain separate steps. Simplicity and maintainability take priority over scale.
+Its backend supports shared content and personal data, with Supabase token verification or an explicit local identity adapter.
+Frontend login, cloud authentication setup, and public deployment remain separate steps. Simplicity and maintainability take priority over scale.
 
 ## Current foundation
 
@@ -31,6 +31,9 @@ Alembic revision `0002` adapts PostgreSQL dates, collations, and long-key constr
 PostgreSQL tables live in the private `tnr` schema, with Data API role grants revoked.
 See [PostgreSQL configuration and tests](postgresql.md) for privilege boundaries and isolated validation.
 No existing data is transferred, and no Supabase configuration is applied automatically.
+
+Revision `0004` adds a unique Supabase identity link. Operator commands approve readers or link the reserved owner.
+See [authentication and access approval](authentication.md).
 
 Revision `0003` adds `AppUser`, `Subscription`, and `ArticleReadState`.
 It moves existing read flags to the reserved local owner and removes the global article flag.
@@ -226,5 +229,5 @@ Add libraries and directories when their phase needs them.
 No paid API, LLM, Docker, distributed queue, or
 external database service is required for the planned MVP.
 
-Before server deployment, design authentication, HTTPS, backups, and process
-management in a separate task. Loopback defaults alone are not a public deployment design.
+Before server deployment, complete frontend authentication, cloud configuration, HTTPS, backups, and process
+management in separate tasks. Loopback defaults alone are not a public deployment design.

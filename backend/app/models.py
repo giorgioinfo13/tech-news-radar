@@ -152,6 +152,7 @@ class AppUser(Base):
     __tablename__ = "app_users"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    supabase_subject: Mapped[UUID | None] = mapped_column(Uuid, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(20), default="reader", server_default="reader")
     active: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false())
