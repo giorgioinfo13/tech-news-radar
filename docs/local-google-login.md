@@ -214,12 +214,46 @@ At this checkpoint, real login, session renewal, owner linking, and reader appro
 
 The profile still displays its original name, `Local owner`. Google login does not automatically rename existing application profiles.
 The local backup is excluded from Git. No remote application database, schema, or cloud setting changed during this link operation.
-Token renewal remains unverified. Reader approval, personal-data isolation, revocation, and direct authenticated denial probes still require a second real account.
-The earlier mocked tests do not replace these remaining checks.
+At this checkpoint, token renewal and the second-account checks remained pending. The following record covers their subsequent verification.
 
 Google's consent screen displayed the project's `PROJECT_REF.supabase.co` hostname.
 This is expected with the default hosted Supabase Auth domain.
 Brand verification and a custom authentication domain are separate configuration options described in the official Google-provider guide below.
+
+### Reader and session checks on 2026-11-06
+
+These checks used code revision `4939b2a`, the existing SQLite database, and a second real Google account in a separate Chrome profile.
+A new local SQLite backup passed integrity and foreign-key checks before reader provisioning.
+The application database contained 3,433 articles at that checkpoint. Normal collection continued during these checks.
+
+The first Google attempt returned `400: invalid_request` without a specific cause.
+The generated authorization redirect contained the expected Web client, callback, `code` response type, and `email profile` scopes.
+A fresh login from the application succeeded without code or cloud-configuration changes. The initial error's cause remains unknown.
+
+| Check | Observed result |
+| --- | --- |
+| Unapproved account | The UI showed **Accesso riservato** |
+| Direct authenticated requests before approval | `/api/me`, `/api/articles`, `/api/sources`, and `/api/subscriptions` each returned `403` |
+| Identity verification | The authenticated Supabase dashboard showed the matching Google account and user UUID |
+| Explicit local approval | `invite` created an active reader with zero subscriptions and zero read-state rows |
+| Initial source selection | The reader selected only Hacker News through the UI and saw its articles |
+| Personal reading state | The reader marked one article read through the UI |
+| Owner preservation | Profile fields, 11 subscriptions, and read-state rows matched the backup after the reader's changes |
+| Explicit SDK refresh | `refreshSession()` produced a different access token, a later expiry, the same identity, and `TOKEN_REFRESHED` |
+| Application requests after refresh | The normal API client returned the reader role, one subscription, and the personal reading state |
+| Direct administrative request | A source `PATCH` with its unchanged name returned `403` |
+| Revocation with a valid token | All four protected endpoints returned `403` while the Supabase session and unexpired token remained present |
+| UI after revocation | The normal API client's next article request returned `403`, and the UI showed **Accesso riservato** |
+| Data after revocation | The reader's subscription and read-state row remained intact. The owner's personal data remained unchanged |
+| Explicit reactivation | At the owner's request, `activate` restored reader access. **Verifica di nuovo** reopened the workspace without another Google login |
+| Preferences after reactivation | The UI retained Hacker News and the article marked read |
+
+The session check explicitly invoked the SDK refresh method. It did not wait for the automatic timer or natural token expiry.
+Diagnostic code kept tokens inside the browser and sent them only to the configured authentication service or same-origin API.
+Recorded diagnostic results contain status codes, counts, and boolean checks, without token values.
+No application code, schema, or cloud configuration changed during these tests.
+The second account remains an active reader. The original account remains the administrator.
+Documentation checks passed. Automated tests, lint, and builds were not repeated because application code did not change.
 
 ## Official references
 
@@ -229,4 +263,5 @@ Configuration references checked on 2026-11-06:
 - [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
 - [Supabase signing keys](https://supabase.com/docs/guides/auth/signing-keys)
 - [Supabase PKCE flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow)
+- [Supabase session refresh](https://supabase.com/docs/reference/javascript/auth-refreshsession)
 - [Google audience and testing exceptions](https://support.google.com/cloud/answer/15549945)
