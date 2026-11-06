@@ -123,7 +123,9 @@ async def test_search_and_source_order_preserve_sqlite_semantics(database, clien
     sources = (await client.get("/api/sources")).json()["items"]
     assert [source["name"] for source in sources] == ["A", "a", "z", "Ä", "ä"]
     for query, count in [("news", 5), ("ä", 1), ("Ä", 1), ("a news", 2), ("100%_ /", 5)]:
-        response = await client.get("/api/articles", params={"q": query})
+        response = await client.get(
+            "/api/articles", params={"q": query, "subscribed_only": "false"}
+        )
         assert response.status_code == 200
         assert response.json()["total"] == count
 
@@ -198,6 +200,9 @@ def test_postgres_namespace_privileges_and_storage(database):
             "categories",
             "collection_runs",
             "alembic_version",
+            "app_users",
+            "subscriptions",
+            "article_read_states",
         }
         assert (
             connection.exec_driver_sql("""
@@ -212,9 +217,11 @@ def test_postgres_namespace_privileges_and_storage(database):
             assert not connection.execute(
                 text("SELECT has_schema_privilege(:role, 'tnr', 'USAGE')"), {"role": role}
             ).scalar_one()
-            assert not connection.execute(
-                text("SELECT has_table_privilege(:role, 'tnr.articles', 'SELECT')"), {"role": role}
-            ).scalar_one()
+            for table in ("articles", "app_users", "subscriptions", "article_read_states"):
+                assert not connection.execute(
+                    text("SELECT has_table_privilege(:role, :table, 'SELECT')"),
+                    {"role": role, "table": f"tnr.{table}"},
+                ).scalar_one()
         constraints = (
             connection.exec_driver_sql("""
             SELECT conname FROM pg_constraint c JOIN pg_namespace n ON c.connamespace = n.oid

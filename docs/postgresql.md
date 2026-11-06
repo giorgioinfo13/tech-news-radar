@@ -4,7 +4,8 @@ SQLite remains the default database. PostgreSQL uses the same SQLAlchemy models,
 No cloud account or Docker installation is necessary for SQLite development.
 Changing the database URL does not transfer existing data. Keep the local SQLite database intact.
 
-This step provides database support only. Authentication, multiuser permissions, deployment, and data transfer require separate work.
+Database support includes the [multiuser data model and backend permissions](multiuser.md).
+Authentication, deployment, and data transfer require separate work.
 Keep the backend on loopback with one process and one worker. The collector lock is process-local on both databases.
 
 ## Connection configuration
@@ -47,6 +48,7 @@ Connections set `search_path` to `tnr` and the session timezone to UTC.
 They do not fall back to `public` for application tables.
 Alembic creates the namespace in the migration transaction before it runs the unchanged revision `0001`.
 Revision `0002` adapts PostgreSQL types and constraints. It performs no SQLite table changes.
+Revision `0003` adds application users and personal data on both databases. It preserves the reserved local owner's existing read flags.
 
 Set `TNR_MIGRATION_DATABASE_URL` to an owner connection when the application uses a restricted database role.
 Alembic uses this URL only for explicit migration commands. If unset, it uses `TNR_DATABASE_URL`.
@@ -61,11 +63,12 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0002 (head)`. Applying these commands to Supabase requires separate owner authorization.
+The expected revision is `0003 (head)`. Applying these commands to Supabase requires separate owner authorization.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 
 Downgrades are for disposable databases. A downgrade to `0001` can reject long Unicode keys that do not fit a B-tree.
+Downgrading `0003` discards user accounts and subscriptions, and retains only the reserved owner's read flags in the single-user schema.
 PostgreSQL rolls back that migration transaction. A downgrade to `base` removes application data but retains the private namespace.
 
 ## Data API and database privileges
@@ -73,10 +76,13 @@ PostgreSQL rolls back that migration transaction. A downgrade to `base` removes 
 Keep `tnr` out of the Supabase Data API's exposed schemas. If no feature needs the Data API, disable it during an authorized setup.
 Supabase Auth does not require exposing these application tables.
 Revision `0002` revokes schema, table, and sequence privileges from `PUBLIC` and existing `anon`, `authenticated`, and `service_role` roles.
+Revision `0003` also revokes table privileges on the new personal tables, including inherited default grants to these API roles.
 It does not change the `public`, `auth`, or `storage` schemas or create cloud roles.
 The schema boundary remains necessary for future tables, including tables that inherit broad project default grants.
 
-Use a separate login role for the backend before deployment. It needs `USAGE` on `tnr`, CRUD on application tables, and `USAGE` on their sequences.
+Use a separate login role for the backend before deployment. It needs `USAGE` on `tnr` and `SELECT` on `app_users`.
+It needs CRUD on catalog, collection, subscription, and read-state tables, plus `USAGE` on their sequences.
+Account and role administration is a separate privileged operation, not a public API in this step.
 It must not own the schema or tables, inherit privileged roles, or have `SUPERUSER`, `BYPASSRLS`, `CREATEROLE`, or `CREATEDB` privileges.
 Keep schema ownership and DDL permissions on the migration connection.
 Provisioning roles, passwords, grants, and Data API settings remains an explicit cloud-setup task.
@@ -84,7 +90,8 @@ Do not run the application as the supplied Supabase `postgres` owner in a public
 
 RLS is not the access boundary in this step. No per-user policies exist yet.
 Owners and roles with `BYPASSRLS` can bypass RLS. SQL connections do not acquire end-user authorization from Supabase Auth automatically.
-The unauthenticated FastAPI endpoints still need the future authentication and invitation checks before public deployment.
+FastAPI checks active users and roles, but its temporary local identity adapter is not authentication.
+Verified Supabase identities and invitation management remain necessary before public deployment.
 
 See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-your-api) and
 [PostgreSQL row security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
@@ -149,7 +156,7 @@ HTTP downloads remain mocked. Offline SQL generation and connection-policy tests
 Local PostgreSQL tests do not verify Supabase pooler connectivity, certificates, hosted role inheritance, or Data API settings.
 Those checks require a later authorized remote validation.
 
-Validation on 2026-11-06 used Python 3.13.3, Psycopg 3.3.8, and PostgreSQL 17.11 in the optional container:
+The PostgreSQL-support step validation on 2026-11-06 used Python 3.13.3, Psycopg 3.3.8, and PostgreSQL 17.11 in the optional container:
 
 - SQLite: 222 tests passed. Two PostgreSQL-only checks were skipped.
 - PostgreSQL: all 224 tests passed, including execution of the exported Alembic SQL.

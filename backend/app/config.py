@@ -1,6 +1,7 @@
 """Environment configuration shared by application entry points."""
 
 from pathlib import Path
+from uuid import UUID
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     docs_enabled: bool = True
     database_url: str = Field(default="sqlite:///data/news.db", repr=False)
     migration_database_url: str | None = Field(default=None, repr=False)
+    # Local development only. No request header/query/body may choose an identity.
+    local_user_id: UUID | None = None
     scheduler_enabled: bool = True
     scheduler_poll_seconds: int = Field(default=30, ge=1, le=300)
     feed_timeout_seconds: float = Field(default=10, gt=0, le=60)

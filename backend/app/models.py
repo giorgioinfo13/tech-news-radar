@@ -1,6 +1,7 @@
 """Persistence models. Feed validation and collection belong to later service modules."""
 
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -10,6 +11,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
+    func,
     text,
 )
 from sqlalchemy import false as sql_false
@@ -18,6 +21,8 @@ from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, UTCDateTime, utc_now
+
+LOCAL_OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 def text_type(length: int | None = None):
@@ -95,7 +100,6 @@ class Article(Base):
     description: Mapped[str | None] = mapped_column(text_type())
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
-    is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false())
 
     source: Mapped[Source] = relationship()
 
@@ -141,4 +145,52 @@ class CollectionRun(Base):
             name="status_matches_finish",
         ),
         Index("ix_collection_runs_source_started_at", "source_id", "started_at", "id"),
+    )
+
+
+class AppUser(Base):
+    __tablename__ = "app_users"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    display_name: Mapped[str] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(20), default="reader", server_default="reader")
+    active: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false())
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utc_now, server_default=func.current_timestamp()
+    )
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'reader')", name="valid_role"),
+        CheckConstraint("length(trim(display_name)) > 0", name="display_name_not_blank"),
+    )
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utc_now, server_default=func.current_timestamp()
+    )
+    source: Mapped[Source] = relationship()
+
+
+class ArticleReadState(Base):
+    """A row means read; absence means unread, independently of subscriptions."""
+
+    __tablename__ = "article_read_states"
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    read_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utc_now, server_default=func.current_timestamp()
     )

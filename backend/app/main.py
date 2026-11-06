@@ -4,11 +4,13 @@ from asyncio import to_thread
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from app.api.articles import router as articles_router
 from app.api.categories import router as categories_router
+from app.api.dependencies import get_current_user
 from app.api.health import router as health_router
+from app.api.personal import router as personal_router
 from app.api.sources import router as sources_router
 from app.collection.scheduler import CollectionScheduler
 from app.collection.service import Collector
@@ -47,8 +49,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if config.docs_enabled else None,
         lifespan=lifespan,
     )
+    app.state.settings = config
     app.include_router(health_router, prefix="/api")
-    app.include_router(categories_router, prefix="/api")
-    app.include_router(sources_router, prefix="/api")
-    app.include_router(articles_router, prefix="/api")
+    for router in (categories_router, sources_router, articles_router, personal_router):
+        app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])
     return app

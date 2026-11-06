@@ -1,7 +1,8 @@
 # Architecture and scope
 
-Tech News Radar is a local, single-user application with a React frontend and a
-FastAPI backend. Simplicity and maintainability take priority over scale.
+Tech News Radar is a local application with a React frontend and a FastAPI backend.
+Its backend supports shared content and personal data, with an explicit local identity adapter.
+Supabase authentication and public deployment remain separate steps. Simplicity and maintainability take priority over scale.
 
 ## Current foundation
 
@@ -31,6 +32,12 @@ PostgreSQL tables live in the private `tnr` schema, with Data API role grants re
 See [PostgreSQL configuration and tests](postgresql.md) for privilege boundaries and isolated validation.
 No existing data is transferred, and no Supabase configuration is applied automatically.
 
+Revision `0003` adds `AppUser`, `Subscription`, and `ArticleReadState`.
+It moves existing read flags to the reserved local owner and removes the global article flag.
+Sources and categories belong to the catalog. Only administrators can change them.
+Subscriptions and read states belong to individual users, including administrators.
+See [multiuser ownership and permissions](multiuser.md) for the complete contract and migration behavior.
+
 The initial entities are `Category`, `Source`, `Article`, and `CollectionRun`.
 Each source has at most one category. Articles inherit that category. A null
 category means uncategorized. Category names and slugs, and source feed URLs, are unique.
@@ -43,8 +50,9 @@ GUIDs can be null. Different sources can reference the same article. The collect
 adds conservative URL matching on top of these database constraints.
 
 Deleting a category sets its sources' category to null and preserves their articles.
-Deleting a source cascades to its articles and collection history. The API documents
-this behavior. The future UI must require confirmation before deletion.
+Deleting a source cascades to its articles, collection history, subscriptions, and personal read states.
+Deleting a user removes only that user's subscriptions and read states. Shared content remains.
+The API documents deletion behavior. The interface requires confirmation for catalog deletions.
 
 Collection runs use `running`, `success`, `not_modified`, or `error`. A completed run
 requires a finish time at or after its start. Counts must be nonnegative, and added
@@ -67,6 +75,9 @@ This uses FastAPI's [lifespan](https://fastapi.tiangolo.com/advanced/events/) an
 Pydantic schemas define public fields separately from database models. Routes handle
 category/source changes, article queries, read status, and collection history.
 Shared helpers cover sessions, bounded pagination, missing records, and constraint conflicts.
+Protected routes resolve an active user on each request. No request parameter can select another user's personal data.
+The default configuration denies data access. The temporary local identity adapter accepts only loopback clients and rejects bearer tokens.
+It is not a login mechanism and must not be enabled behind a public proxy.
 The collection service handles the separate download, parsing, and persistence workflow.
 
 Article lists sort by publication time, or acquisition time when publication time
@@ -74,6 +85,7 @@ is absent. Descending IDs break ties. Search matches literal substrings in title
 and descriptions. Both databases use ASCII case handling, without linguistic or
 semantic search. Offset pagination can shift when articles arrive between requests.
 Large feeds may eventually need indexed search or cursor pagination.
+Article lists default to personal subscriptions. Browsing the full shared archive is explicit and still uses the caller's own read states.
 
 Source URLs accept HTTP/HTTPS, exclude embedded credentials and fragments, and use
 Pydantic URL normalization. Saving a source does not check feed availability or

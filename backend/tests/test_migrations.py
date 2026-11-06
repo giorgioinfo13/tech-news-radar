@@ -16,6 +16,9 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
         "sources",
         "articles",
         "collection_runs",
+        "app_users",
+        "subscriptions",
+        "article_read_states",
     }
     with Session(database) as session:
         categories = session.scalars(select(Category).order_by(Category.sort_order)).all()

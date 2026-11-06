@@ -5,7 +5,14 @@ from httpx import AsyncClient
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
-from app.models import Article, CollectionRun, Source
+from app.models import (
+    LOCAL_OWNER_ID,
+    Article,
+    ArticleReadState,
+    CollectionRun,
+    Source,
+    Subscription,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -203,7 +210,6 @@ def news(database: Engine) -> dict:
                 description="An AI agent",
                 published_at=timestamp + timedelta(days=1),
                 fetched_at=timestamp,
-                is_read=True,
             ),
             Article(
                 source_id=first.id,
@@ -221,6 +227,14 @@ def news(database: Engine) -> dict:
             ),
         ]
         session.add_all(articles)
+        session.flush()
+        session.add(ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=articles[1].id))
+        session.add_all(
+            [
+                Subscription(user_id=LOCAL_OWNER_ID, source_id=source.id)
+                for source in (first, second)
+            ]
+        )
         session.add_all(
             [
                 CollectionRun(
@@ -299,7 +313,7 @@ async def test_read_status_is_idempotent_and_persisted(
         assert response.status_code == 200
         assert response.json()["is_read"] is True
     with Session(database) as session:
-        assert session.get(Article, article_id).is_read is True
+        assert session.get(ArticleReadState, (LOCAL_OWNER_ID, article_id)) is not None
     assert (await client.get("/api/articles?is_read=true")).json()["total"] == 2
     assert (await client.patch(path, json={"is_read": False})).json()["is_read"] is False
     for body in [{}, {"is_read": None}, {"is_read": "false"}, {"is_read": True, "title": "Edited"}]:

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.collection.download import Download, FeedDownloader
 from app.config import Settings
 from app.main import create_app
-from app.models import Article, CollectionRun, Source
+from app.models import LOCAL_OWNER_ID, Article, ArticleReadState, CollectionRun, Source
 
 pytestmark = pytest.mark.anyio
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -24,6 +24,7 @@ async def setup(database, monkeypatch):
     settings = Settings(
         _env_file=None,
         database_url=database.url.render_as_string(hide_password=False),
+        local_user_id=LOCAL_OWNER_ID,
         scheduler_enabled=False,
     )
     app = create_app(settings)
@@ -58,6 +59,7 @@ async def setup(database, monkeypatch):
             )
             assert response.status_code == 201
             source_id = response.json()["id"]
+            await client.put(f"/api/subscriptions/{source_id}")
             yield client, collector, source_id, replies, requests, clock
 
 
@@ -95,7 +97,7 @@ async def test_refresh_persists_articles_then_uses_conditional_304(setup, databa
         assert source.last_checked_at == source.last_success_at == clock[0]
         assert source.last_error is None
         assert source.etag == '"v1"'
-        assert session.get(Article, articles[0]["id"]).is_read is True
+        assert session.get(ArticleReadState, (LOCAL_OWNER_ID, articles[0]["id"])) is not None
     history = (await client.get(f"/api/sources/{source_id}/runs")).json()
     assert history["total"] == 2
     assert [item["status"] for item in history["items"]] == ["not_modified", "success"]
@@ -126,7 +128,7 @@ async def test_repeat_and_changed_guid_or_url_deduplicate_without_overwriting(se
         assert any(
             article.url == "https://example.org/first?original=1#section" for article in articles
         )
-        assert session.get(Article, original[0]["id"]).is_read is True
+        assert session.get(ArticleReadState, (LOCAL_OWNER_ID, original[0]["id"])) is not None
 
 
 async def test_duplicates_inside_feed_and_across_sources(setup):
@@ -150,7 +152,7 @@ async def test_duplicates_inside_feed_and_across_sources(setup):
     ).json()["id"]
     replies.append(reply())
     assert (await client.post(f"/api/sources/{second}/refresh")).json()["articles_added"] == 2
-    assert (await client.get("/api/articles")).json()["total"] == 4
+    assert (await client.get("/api/articles?subscribed_only=false")).json()["total"] == 4
 
 
 async def test_atom_refresh_and_missing_publication_dates(setup):

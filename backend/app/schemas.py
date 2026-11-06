@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Annotated, Literal, Self
+from uuid import UUID
 
 from pydantic import (
     AfterValidator,
@@ -151,3 +152,15 @@ class Page[T](BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class UserRead(OutputModel):
+    id: UUID
+    display_name: str
+    role: Literal["admin", "reader"]
+
+
+class SubscriptionRead(OutputModel):
+    source_id: int
+    source: SourceRead
+    created_at: datetime

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 
 from app.api.dependencies import (
@@ -8,6 +8,7 @@ from app.api.dependencies import (
     commit_or_conflict,
     get_or_404,
     paginate,
+    require_admin,
 )
 from app.models import Category
 from app.schemas import CategoryCreate, CategoryRead, CategoryUpdate, Page
@@ -23,7 +24,9 @@ def list_categories(session: SessionDep, pagination: PaginationDep):
     )
 
 
-@router.post("", response_model=CategoryRead, status_code=201)
+@router.post(
+    "", response_model=CategoryRead, status_code=201, dependencies=[Depends(require_admin)]
+)
 def create_category(data: CategoryCreate, session: SessionDep):
     category = Category(**data.model_dump())
     session.add(category)
@@ -31,7 +34,7 @@ def create_category(data: CategoryCreate, session: SessionDep):
     return category
 
 
-@router.patch("/{category_id}", response_model=CategoryRead)
+@router.patch("/{category_id}", response_model=CategoryRead, dependencies=[Depends(require_admin)])
 def update_category(category_id: ResourceId, data: CategoryUpdate, session: SessionDep):
     category = get_or_404(session, Category, category_id)
     for field, value in data.model_dump(exclude_unset=True).items():
@@ -40,7 +43,7 @@ def update_category(category_id: ResourceId, data: CategoryUpdate, session: Sess
     return category
 
 
-@router.delete("/{category_id}", status_code=204)
+@router.delete("/{category_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete_category(category_id: ResourceId, session: SessionDep) -> Response:
     """Delete the category and leave its sources uncategorized. Articles are preserved."""
     session.delete(get_or_404(session, Category, category_id))

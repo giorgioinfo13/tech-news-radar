@@ -33,7 +33,9 @@ The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
 manually, and inspect collection results. The backend handles deduplication and SQLite or PostgreSQL storage.
 SQLite remains the default for local use without a cloud account.
 [PostgreSQL support for Supabase](docs/postgresql.md) uses the same models and services.
-Authentication, multiuser access, and public deployment are not available yet.
+The backend distinguishes administrators and readers, with personal subscriptions and read status.
+Google login, invitations, onboarding, and public deployment are not available yet.
+Local checks use an identity explicitly configured in the backend. See the [multiuser model](docs/multiuser.md).
 The backend automatically checks enabled sources, normally every 60 minutes, while it runs. Add feeds through the interface or
 import the [starter catalog of 11 verified sources](docs/sources.md).
 The interface is currently in Italian.
@@ -41,6 +43,7 @@ The interface is currently in Italian.
 ## Local preview
 
 Complete the [initial setup](docs/development.md#setup) and apply the migrations.
+Configure the [local identity](docs/development.md#run-the-backend).
 Start the backend and frontend in two terminals from the repository root:
 
 ```sh
@@ -66,6 +69,9 @@ Open [Tech News Radar locally](http://127.0.0.1:5173). The catalog includes anti
 OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
 MacRumors, TechCrunch, and Wired Italia. All sources remain editable.
 Repeated imports preserve settings for sources with the same URL.
+To follow newly imported sources, use `PUT /api/subscriptions/{source_id}` through `/docs`.
+Sources present before the multiuser migration remain followed by the owner.
+Subscription selection in the interface will arrive with onboarding.
 The first collection starts on a subsequent scan, normally within 30 seconds if the collector is free.
 You can also use **Fonti → Aggiorna** for manual updates. Reload the page to see new articles.
 The [configuration guide](docs/development.md#automatic-collection) explains how to disable automatic collection and change intervals.

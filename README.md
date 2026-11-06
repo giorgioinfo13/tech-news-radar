@@ -33,14 +33,16 @@ Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiorn
 manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite o PostgreSQL.
 SQLite resta la scelta predefinita per l'avvio locale senza account cloud.
 Il [supporto PostgreSQL per Supabase](docs/postgresql.md) usa gli stessi modelli e servizi.
-Autenticazione, accesso multiutente e deploy pubblico non sono ancora disponibili.
+Il backend distingue amministratore e lettori, con sottoscrizioni e stato di lettura personali.
+Login Google, inviti, onboarding e deploy pubblico non sono ancora disponibili.
+Le prove locali usano un'identità configurata esplicitamente nel backend: vedi il [modello multiutente](docs/multiuser.md).
 Il backend aggiorna automaticamente le fonti attive, di norma ogni 60 minuti, mentre è in esecuzione. Puoi aggiungere i feed
 dall'interfaccia oppure importare il [catalogo iniziale di 11 fonti verificate](docs/sources.md).
 L'interfaccia è attualmente in italiano.
 
 ## Prova locale
 
-Dopo il [setup iniziale](docs/development.md#setup) e le migrazioni, avvia backend e
+Dopo il [setup iniziale](docs/development.md#setup), le migrazioni e la [configurazione dell'identità locale](docs/development.md#run-the-backend), avvia backend e
 frontend in due terminali, dalla cartella del progetto:
 
 ```sh
@@ -66,6 +68,9 @@ Apri [Tech News Radar in locale](http://127.0.0.1:5173). Il catalogo include ant
 OpenAI, DeepMind, Hugging Face, Mistral, Simon Willison, Hacker News, arXiv,
 MacRumors, TechCrunch e Wired Italia. Tutte le fonti restano modificabili.
 L'importazione ripetuta conserva le impostazioni delle fonti con lo stesso URL.
+Per seguire le fonti appena importate usa `PUT /api/subscriptions/{source_id}` da `/docs`.
+Le fonti già presenti prima della migrazione multiutente restano seguite dal proprietario.
+La selezione delle sottoscrizioni nell'interfaccia arriverà con l'onboarding.
 La prima raccolta inizia con una scansione successiva, normalmente entro 30 secondi se il collector è libero.
 Puoi anche avviare un aggiornamento da **Fonti → Aggiorna**. Ricarica la pagina per vedere i nuovi articoli.
 La [configurazione](docs/development.md#automatic-collection) permette di disattivare la raccolta automatica e cambiare gli intervalli.

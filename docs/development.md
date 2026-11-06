@@ -44,7 +44,9 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0002 (head)`, with no pending schema changes. Revision `0002` leaves SQLite tables and data unchanged.
+`0003 (head)`, with no pending schema changes. Revision `0003` adds personal subscriptions and read states.
+It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
+SQLite must be version 3.35 or later for the native column removal. Check the SQLite library bundled with your Python installation.
 
 Run `alembic upgrade head` after updates that add migrations. Repeating it on an
 up-to-date database preserves category edits and existing data. The API does not
@@ -72,6 +74,16 @@ only with a disposable database. Tests exercise this path in temporary directori
 
 ## Run the backend
 
+For local development, add this line to your private root `.env` after applying the migrations:
+
+```dotenv
+TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
+```
+
+This selects the reserved local administrator. It is not authentication and must not be enabled in a public deployment.
+Without this setting, data endpoints return `401`. Health and API documentation remain available.
+Supabase login and invitations are not implemented yet. See [multiuser behavior](multiuser.md) for roles and migration details.
+
 In one terminal, start from the repository root:
 
 ```sh
@@ -90,7 +102,9 @@ database requests to fail, even when the health check succeeds.
 ## Use the REST API
 
 Use `/docs` to inspect request schemas and try the endpoints against your local database.
-These operations change persistent data. Authentication is not implemented.
+These operations change persistent data. The local identity adapter is for loopback development only.
+The backend requires an active application user and checks permissions on each request.
+Only administrators can create, edit, or delete categories and sources.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
@@ -102,6 +116,9 @@ These operations change persistent data. Authentication is not implemented.
 | `GET` | `/api/sources/{id}/runs` | List a source's collection history |
 | `GET` | `/api/articles` | List, filter, and search articles |
 | `PATCH` | `/api/articles/{id}` | Set read/unread status |
+| `GET` | `/api/me` | Read the current user's identity and role |
+| `GET` | `/api/subscriptions` | List the current user's followed sources |
+| `PUT`, `DELETE` | `/api/subscriptions/{source_id}` | Follow or unfollow a source for the current user |
 
 All list endpoints return `items`, `total`, `limit`, and `offset`. The default limit
 is 50, with a maximum of 100. Offset starts at zero. Total counts all matching items,
@@ -110,7 +127,10 @@ Articles sort newest first, using acquisition time when publication time is unkn
 Collection history sorts by start time. Descending IDs break article and history ties.
 
 Source filters are `category_id` and `enabled`. Article filters are `source_id`,
-`category_id`, `is_read`, and `q`. Filters combine. Search checks titles and descriptions
+`category_id`, `is_read`, `q`, and `subscribed_only`. Filters combine.
+Articles default to followed sources. Set `subscribed_only=false` to browse the shared archive.
+Read status and its filters always apply to the current user, including for administrators.
+Search checks titles and descriptions
 for a literal substring. ASCII letters match without case sensitivity on both databases.
 Non-ASCII case variants remain distinct. `%` and `_` are literal characters.
 An empty or whitespace-only search applies no text filter. Categories in article responses
@@ -181,6 +201,8 @@ An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
 Sources are not installed automatically. The optional catalog command below imports verified feeds.
+New sources are not followed automatically. Use `PUT /api/subscriptions/{source_id}` in `/docs` to follow them.
+Existing sources are followed once for the local owner during migration `0003`.
 Automatic collection uses the same guarded collector and history as manual refresh.
 The frontend uses these endpoints and does not require a new database migration.
 
@@ -303,13 +325,14 @@ Browser checks cover layout at 320, 390, and 1440 pixels. This is not a full acc
 
 ## Configuration
 
-Copy `.env.example` to the repository root as `.env`. Defaults work without that
-file. Restart the development servers after configuration changes.
+Copy `.env.example` to the repository root as `.env` if no private file exists.
+Enable the local identity explicitly for local data access. Restart the development servers after configuration changes.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
+| `TNR_LOCAL_USER_ID` | unset | Explicit local-only application identity, selected by the backend |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
 | `TNR_MIGRATION_DATABASE_URL` | unset | Optional owner connection used only by Alembic; defaults to the application URL |
 | `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |

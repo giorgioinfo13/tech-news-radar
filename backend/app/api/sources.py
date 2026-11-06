@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
@@ -8,14 +8,16 @@ from app.api.dependencies import (
     PaginationDep,
     ResourceId,
     SessionDep,
+    UserDep,
     commit_or_conflict,
     get_or_404,
     paginate,
     reject_refresh,
+    require_admin,
     source_write_guard,
 )
 from app.collection.service import RefreshRejected
-from app.models import Category, CollectionRun, Source
+from app.models import Category, CollectionRun, Source, Subscription
 from app.schemas import CollectionRunRead, Page, SourceCreate, SourceRead, SourceUpdate
 
 router = APIRouter(prefix="/sources", tags=["sources"])
@@ -37,7 +39,7 @@ def list_sources(
     return paginate(session, statement, pagination)
 
 
-@router.post("", response_model=SourceRead, status_code=201)
+@router.post("", response_model=SourceRead, status_code=201, dependencies=[Depends(require_admin)])
 def create_source(data: SourceCreate, session: SessionDep):
     """Store a source configuration. This does not fetch or verify the feed."""
     if data.category_id is not None:
@@ -48,7 +50,11 @@ def create_source(data: SourceCreate, session: SessionDep):
     return source
 
 
-@router.patch("/{source_id}", response_model=SourceRead, dependencies=[Depends(source_write_guard)])
+@router.patch(
+    "/{source_id}",
+    response_model=SourceRead,
+    dependencies=[Depends(require_admin), Depends(source_write_guard)],
+)
 def update_source(source_id: ResourceId, data: SourceUpdate, session: SessionDep):
     source = get_or_404(session, Source, source_id)
     if data.category_id is not None:
@@ -68,7 +74,11 @@ def update_source(source_id: ResourceId, data: SourceUpdate, session: SessionDep
     return source
 
 
-@router.delete("/{source_id}", status_code=204, dependencies=[Depends(source_write_guard)])
+@router.delete(
+    "/{source_id}",
+    status_code=204,
+    dependencies=[Depends(require_admin), Depends(source_write_guard)],
+)
 def delete_source(source_id: ResourceId, session: SessionDep) -> Response:
     """Permanently delete the source, all its articles, and its collection history."""
     session.delete(get_or_404(session, Source, source_id))
@@ -100,8 +110,18 @@ def list_collection_runs(source_id: ResourceId, session: SessionDep, pagination:
         },
     },
 )
-def refresh_source(source_id: ResourceId, collector: CollectorDep, response: Response):
+def refresh_source(
+    source_id: ResourceId,
+    collector: CollectorDep,
+    response: Response,
+    user: UserDep,
+    session: SessionDep,
+):
     """Refresh one enabled source and wait for its result. No background task is queued."""
+    if user.role != "admin" and session.get(Subscription, (user.id, source_id)) is None:
+        raise HTTPException(status_code=403, detail="Follow this source before refreshing it")
+    # Authorization must not keep a transaction open during the guarded download.
+    session.rollback()
     try:
         run = collector.refresh(source_id)
     except RefreshRejected as exc:

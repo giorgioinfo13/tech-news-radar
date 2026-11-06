@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 
 from app.db import BACKEND_ROOT, create_database_engine, resolve_database_url
-from app.models import Article, Category, CollectionRun, Source
+from app.models import LOCAL_OWNER_ID, Article, ArticleReadState, Category, CollectionRun, Source
 
 
 def add_source(session: Session, feed_url: str = "https://example.com/feed") -> Source:
@@ -66,8 +66,8 @@ def test_data_survives_engine_restart_with_dates_and_read_status(database):
         assert source.enabled is True
         assert source.refresh_interval_minutes == 60
         assert source.consecutive_failures == 0
-        assert article.is_read is False
-        article.is_read = True
+        assert session.get(ArticleReadState, (LOCAL_OWNER_ID, article.id)) is None
+        session.add(ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id))
         article_id = article.id
     url = database.url
     database.dispose()
@@ -77,7 +77,7 @@ def test_data_survives_engine_restart_with_dates_and_read_status(database):
             article = session.get(Article, article_id)
             assert article.url == original_url
             assert article.guid == "entry-1"
-            assert article.is_read is True
+            assert session.get(ArticleReadState, (LOCAL_OWNER_ID, article.id)) is not None
             assert article.published_at == published.astimezone(UTC)
             assert article.published_at.tzinfo == UTC
             assert article.fetched_at.tzinfo == UTC

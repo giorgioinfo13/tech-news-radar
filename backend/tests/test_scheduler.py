@@ -14,7 +14,7 @@ from app.collection.scheduler import CollectionScheduler
 from app.collection.service import Collector, RefreshRejected
 from app.config import Settings
 from app.main import create_app
-from app.models import Article, CollectionRun, Source
+from app.models import LOCAL_OWNER_ID, Article, ArticleReadState, CollectionRun, Source
 
 RSS = (Path(__file__).parent / "fixtures/rss.xml").read_bytes()
 
@@ -51,7 +51,7 @@ def test_first_collection_interval_boundary_and_restart_use_persisted_dates(setu
     assert len(requests) == 1
     with Session(database) as session:
         article = session.scalar(select(Article).where(Article.source_id == source_id))
-        article.is_read = True
+        session.add(ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id))
         session.commit()
     clock[0] += timedelta(minutes=60) - timedelta(microseconds=1)
     # A fresh scheduler instance also respects the last completed check.
@@ -66,7 +66,7 @@ def test_first_collection_interval_boundary_and_restart_use_persisted_dates(setu
     with Session(database) as session:
         runs = session.scalars(select(CollectionRun).order_by(CollectionRun.id)).all()
         assert [run.status for run in runs] == ["success", "not_modified"]
-        assert session.scalar(select(Article).where(Article.is_read.is_(True))) is not None
+        assert session.scalar(select(ArticleReadState)) is not None
         assert len(session.scalars(select(Article)).all()) == 2
 
 
@@ -232,6 +232,7 @@ async def test_lifespan_worker_keeps_api_responsive_and_finishes_before_disposal
         Settings(
             _env_file=None,
             database_url=database.url.render_as_string(hide_password=False),
+            local_user_id=LOCAL_OWNER_ID,
             scheduler_enabled=True,
             scheduler_poll_seconds=1,
         )

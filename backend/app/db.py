@@ -6,7 +6,7 @@ from sqlite3 import Connection as SQLiteConnection
 
 from sqlalchemy import URL, DateTime, Engine, MetaData, create_engine, event, make_url
 from sqlalchemy.engine import Dialect
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session
 from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
 from sqlalchemy.types import TypeDecorator
 
@@ -137,3 +137,16 @@ def _configure_postgres(connection, record: ConnectionPoolEntry) -> None:
             cursor.execute("SET SESSION TIME ZONE 'UTC'")
     finally:
         connection.autocommit = previous_autocommit
+
+
+def insert_once(session: Session, model: type[Base], values: dict) -> None:
+    """Atomically insert a personal state row; repeated requests are idempotent."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    insert = pg_insert if session.get_bind().dialect.name == "postgresql" else sqlite_insert
+    session.execute(
+        insert(model)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=list(model.__table__.primary_key.columns))
+    )

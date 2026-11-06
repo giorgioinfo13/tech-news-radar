@@ -13,6 +13,7 @@ from sqlalchemy.pool import NullPool
 from app.config import Settings
 from app.db import create_database_engine, resolve_database_url
 from app.main import create_app
+from app.models import LOCAL_OWNER_ID
 
 
 def pytest_addoption(parser):
@@ -77,6 +78,7 @@ async def client(database: Engine) -> AsyncIterator[AsyncClient]:
     settings = Settings(
         _env_file=None,
         database_url=database.url.render_as_string(hide_password=False),
+        local_user_id=LOCAL_OWNER_ID,
         scheduler_enabled=False,
     )
     app = create_app(settings)

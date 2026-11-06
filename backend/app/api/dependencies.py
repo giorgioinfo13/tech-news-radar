@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Path, Query, Request
 from sqlalchemy import Select, func, select
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.collection.service import Collector, RefreshRejected
 from app.db import Base
+from app.models import AppUser
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -19,6 +21,37 @@ def get_session(request: Request) -> Iterator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
+
+
+def get_identity(request: Request) -> UUID:
+    """Temporary local adapter. Replace with verified Supabase identity in the auth step."""
+    user_id = request.app.state.settings.local_user_id
+    if user_id is None or request.headers.get("authorization"):
+        raise HTTPException(status_code=401, detail="Authentication is not configured")
+    if request.client is None or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(status_code=403, detail="Local identity requires a loopback client")
+    return user_id
+
+
+def get_current_user(
+    identity: Annotated[UUID, Depends(get_identity)], session: SessionDep
+) -> AppUser:
+    user = session.get(AppUser, identity)
+    if user is None or not user.active:
+        raise HTTPException(status_code=403, detail="User is not authorized")
+    return user
+
+
+UserDep = Annotated[AppUser, Depends(get_current_user)]
+
+
+def require_admin(user: UserDep) -> AppUser:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Administrator access required")
+    return user
+
+
+AdminDep = Annotated[AppUser, Depends(require_admin)]
 
 
 def get_collector(request: Request) -> Collector:
