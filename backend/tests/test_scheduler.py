@@ -231,7 +231,7 @@ async def test_lifespan_worker_keeps_api_responsive_and_finishes_before_disposal
     app = create_app(
         Settings(
             _env_file=None,
-            database_url=database.url.render_as_string(),
+            database_url=database.url.render_as_string(hide_password=False),
             scheduler_enabled=True,
             scheduler_poll_seconds=1,
         )
@@ -282,7 +282,9 @@ async def test_disabled_scheduler_does_not_start_worker(database, monkeypatch):
 
     monkeypatch.setattr(CollectionScheduler, "start", fail)
     monkeypatch.setenv("TNR_SCHEDULER_ENABLED", "false")
-    app = create_app(Settings(_env_file=None, database_url=database.url.render_as_string()))
+    app = create_app(
+        Settings(_env_file=None, database_url=database.url.render_as_string(hide_password=False))
+    )
     async with app.router.lifespan_context(app):
         assert app.state.scheduler is None
 

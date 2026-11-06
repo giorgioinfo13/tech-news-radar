@@ -39,8 +39,14 @@ def test_nested_database_directory_is_created_only_when_engine_is_requested(tmp_
 
 def test_foreign_keys_enabled_for_each_connection(database):
     with database.connect() as first, database.connect() as second:
-        assert first.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
-        assert second.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
+        for connection in (first, second):
+            if database.dialect.name == "sqlite":
+                assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
+            else:
+                assert (
+                    connection.exec_driver_sql("SHOW session_replication_role").scalar_one()
+                    == "origin"
+                )
 
 
 def test_data_survives_engine_restart_with_dates_and_read_status(database):
@@ -249,7 +255,7 @@ def test_collection_run_can_finish(database, status):
         assert stored.finished_at.tzinfo == UTC
 
 
-def test_sqlite_rolls_back_data_and_ddl(database):
+def test_database_rolls_back_data_and_ddl(database):
     with Session(database) as session:
         add_source(session)
         # Closing a session without commit must discard the write.

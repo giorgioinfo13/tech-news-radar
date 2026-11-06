@@ -61,4 +61,8 @@ def test_offline_sql_does_not_create_a_database(migration_config):
     assert "CREATE TABLE articles" in output.getvalue()
     assert "INSERT INTO categories" in output.getvalue()
     database_url = resolve_database_url(migration_config.get_main_option("sqlalchemy.url"))
-    assert not Path(database_url.database).exists()
+    if database_url.get_backend_name() == "sqlite":
+        assert not Path(database_url.database).exists()
+    else:
+        assert "CREATE SCHEMA IF NOT EXISTS tnr" in output.getvalue()
+        assert "TIMESTAMP WITH TIME ZONE" in output.getvalue()

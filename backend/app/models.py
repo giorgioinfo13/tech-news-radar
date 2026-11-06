@@ -2,20 +2,50 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy import false as sql_false
 from sqlalchemy import true as sql_true
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, UTCDateTime, utc_now
+
+
+def text_type(length: int | None = None):
+    # PostgreSQL C collation preserves SQLite's byte ordering and ASCII case folding.
+    base = String(length) if length is not None else Text()
+    postgres = String(length, collation="C") if length is not None else Text(collation="C")
+    return base.with_variant(postgres, "postgresql")
+
+
+def exact_key(name: str, *columns: str):
+    """Exact uniqueness, including long UTF-8 keys that exceed PostgreSQL B-tree limits."""
+    # Composite callers use an integer source_id first, making ':' unambiguous.
+    expression = " || ':' || ".join(f"{column}::text" for column in columns)
+    return (
+        UniqueConstraint(*columns, name=name).ddl_if(dialect="sqlite"),
+        # Hash exclusion rechecks original values, so hash collisions are not duplicates.
+        ExcludeConstraint((text(f"({expression})"), "="), name=name, using="hash").ddl_if(
+            dialect="postgresql"
+        ),
+    )
 
 
 class Category(Base):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), unique=True)
-    slug: Mapped[str] = mapped_column(String(120), unique=True)
+    name: Mapped[str] = mapped_column(text_type(120), unique=True)
+    slug: Mapped[str] = mapped_column(text_type(120), unique=True)
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
 
     __table_args__ = (
@@ -28,8 +58,8 @@ class Source(Base):
     __tablename__ = "sources"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
-    feed_url: Mapped[str] = mapped_column(String(2048), unique=True)
+    name: Mapped[str] = mapped_column(text_type(200))
+    feed_url: Mapped[str] = mapped_column(text_type(2048))
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), index=True
     )
@@ -46,6 +76,7 @@ class Source(Base):
     category: Mapped[Category | None] = relationship()
 
     __table_args__ = (
+        *exact_key("uq_sources_feed_url", "feed_url"),
         CheckConstraint("length(trim(name)) > 0", name="name_not_blank"),
         CheckConstraint("length(trim(feed_url)) > 0", name="feed_url_not_blank"),
         CheckConstraint("refresh_interval_minutes > 0", name="positive_refresh_interval"),
@@ -58,10 +89,10 @@ class Article(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
-    guid: Mapped[str | None] = mapped_column(String(1024))
-    url: Mapped[str] = mapped_column(String(2048))
-    title: Mapped[str] = mapped_column(Text)
-    description: Mapped[str | None] = mapped_column(Text)
+    guid: Mapped[str | None] = mapped_column(text_type(1024))
+    url: Mapped[str] = mapped_column(text_type(2048))
+    title: Mapped[str] = mapped_column(text_type())
+    description: Mapped[str | None] = mapped_column(text_type())
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false())
@@ -69,8 +100,8 @@ class Article(Base):
     source: Mapped[Source] = relationship()
 
     __table_args__ = (
-        UniqueConstraint("source_id", "guid", name="uq_articles_source_guid"),
-        UniqueConstraint("source_id", "url", name="uq_articles_source_url"),
+        *exact_key("uq_articles_source_guid", "source_id", "guid"),
+        *exact_key("uq_articles_source_url", "source_id", "url"),
         CheckConstraint("guid IS NULL OR length(trim(guid)) > 0", name="guid_not_blank"),
         CheckConstraint("length(trim(url)) > 0", name="url_not_blank"),
         CheckConstraint("length(trim(title)) > 0", name="title_not_blank"),

@@ -22,7 +22,9 @@ ATOM = (FIXTURES / "atom.xml").read_bytes()
 @pytest.fixture
 async def setup(database, monkeypatch):
     settings = Settings(
-        _env_file=None, database_url=database.url.render_as_string(), scheduler_enabled=False
+        _env_file=None,
+        database_url=database.url.render_as_string(hide_password=False),
+        scheduler_enabled=False,
     )
     app = create_app(settings)
     replies, requests = [], []

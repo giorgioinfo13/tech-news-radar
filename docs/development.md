@@ -44,7 +44,7 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0001 (head)`, with no pending schema changes.
+`0002 (head)`, with no pending schema changes. Revision `0002` leaves SQLite tables and data unchanged.
 
 Run `alembic upgrade head` after updates that add migrations. Repeating it on an
 up-to-date database preserves category edits and existing data. The API does not
@@ -53,6 +53,10 @@ create tables or apply migrations at startup. The database directory is ignored 
 `TNR_DATABASE_URL` controls the database location. Relative SQLite paths resolve
 from `backend/`, even if the command runs from another directory. Absolute SQLite
 paths are supported. SQLite URI mode (`uri=true`) is not supported.
+
+SQLite remains the default and needs no cloud account. PostgreSQL uses the same models, APIs, collector, and scheduler.
+See [PostgreSQL setup and isolated tests](postgresql.md) for TLS, schema isolation, and migration credentials.
+Changing the URL does not copy data between databases.
 
 For a command from the repository root, specify the config explicitly:
 
@@ -107,7 +111,8 @@ Collection history sorts by start time. Descending IDs break article and history
 
 Source filters are `category_id` and `enabled`. Article filters are `source_id`,
 `category_id`, `is_read`, and `q`. Filters combine. Search checks titles and descriptions
-for a literal substring, with SQLite's case handling. `%` and `_` are literal characters.
+for a literal substring. ASCII letters match without case sensitivity on both databases.
+Non-ASCII case variants remain distinct. `%` and `_` are literal characters.
 An empty or whitespace-only search applies no text filter. Categories in article responses
 reflect the source's current category. Disabled sources' existing articles remain visible.
 
@@ -306,6 +311,7 @@ file. Restart the development servers after configuration changes.
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
+| `TNR_MIGRATION_DATABASE_URL` | unset | Optional owner connection used only by Alembic; defaults to the application URL |
 | `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |
 | `TNR_SCHEDULER_POLL_SECONDS` | `30` | Wait between scans, range 1–300 seconds |
 | `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |
@@ -347,6 +353,8 @@ for responsive layout, native dialog focus, and other behavior jsdom does not re
 Backend tests use an in-process HTTP client and temporary SQLite databases initialized
 through Alembic. They require no external news services and do not change the local
 development database. Migration tests also check schema/model consistency and repeated upgrades.
+The same database, API, collector, and scheduler tests support an optional isolated PostgreSQL run.
+Use the [PostgreSQL test procedure](postgresql.md#isolated-postgresql-tests). Docker is optional and is not required for normal development.
 
 To inspect the frontend build, run `npm run preview` from `frontend/`.
 Open <http://127.0.0.1:4173>. This previews static assets only; it does not provide

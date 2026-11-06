@@ -15,26 +15,30 @@ FastAPI backend. Simplicity and maintainability take priority over scale.
 
 ## Database foundation
 
-SQLite uses synchronous SQLAlchemy sessions. Alembic revision `0001` creates the
+SQLite and PostgreSQL use shared models and synchronous SQLAlchemy sessions. Alembic revision `0001` creates the
 schema and eight editable categories. Schema changes are explicit migration commands,
 not startup side effects. No default sources are inserted yet.
 
 The engine enables foreign keys on every SQLite connection and uses Python's modern
 transaction mode with a five-second lock timeout. Keep transactions short and use
-one backend worker. Models expose timezone-aware UTC timestamps. SQL stores UTC
-without timezone metadata; naive Python datetime inputs are rejected.
+one backend worker. Models expose timezone-aware UTC timestamps. SQLite stores naive UTC,
+while PostgreSQL uses `timestamptz`. Naive Python datetime inputs are rejected.
 
-The schema uses portable SQL types and constraints. PostgreSQL remains a possible
-future migration, not a current dependency or a tested replacement. Driver setup,
-URL/index limits, and migration behavior need validation before a switch.
+SQLite remains the local default. PostgreSQL uses Psycopg 3, verified TLS for remote connections,
+and a bounded SQLAlchemy pool with direct or session-pooler connections.
+Alembic revision `0002` adapts PostgreSQL dates, collations, and long-key constraints without changing SQLite tables.
+PostgreSQL tables live in the private `tnr` schema, with Data API role grants revoked.
+See [PostgreSQL configuration and tests](postgresql.md) for privilege boundaries and isolated validation.
+No existing data is transferred, and no Supabase configuration is applied automatically.
 
 The initial entities are `Category`, `Source`, `Article`, and `CollectionRun`.
 Each source has at most one category. Articles inherit that category. A null
 category means uncategorized. Category names and slugs, and source feed URLs, are unique.
 
 Articles preserve the original URL and publication date separately from acquisition
-time. Missing publication dates stay null. Composite unique constraints on
+time. Missing publication dates stay null. Database constraints on
 `(source_id, guid)` and `(source_id, url)` reject exact duplicates within a source.
+SQLite uses unique constraints. PostgreSQL uses hash exclusion constraints to support long UTF-8 keys with exact comparisons.
 GUIDs can be null. Different sources can reference the same article. The collector
 adds conservative URL matching on top of these database constraints.
 
@@ -67,7 +71,7 @@ The collection service handles the separate download, parsing, and persistence w
 
 Article lists sort by publication time, or acquisition time when publication time
 is absent. Descending IDs break ties. Search matches literal substrings in titles
-and descriptions. SQLite case handling is primarily ASCII, without linguistic or
+and descriptions. Both databases use ASCII case handling, without linguistic or
 semantic search. Offset pagination can shift when articles arrive between requests.
 Large feeds may eventually need indexed search or cursor pagination.
 

@@ -16,7 +16,8 @@ class Settings(BaseSettings):
 
     app_name: str = "Tech News Radar"
     docs_enabled: bool = True
-    database_url: str = "sqlite:///data/news.db"
+    database_url: str = Field(default="sqlite:///data/news.db", repr=False)
+    migration_database_url: str | None = Field(default=None, repr=False)
     scheduler_enabled: bool = True
     scheduler_poll_seconds: int = Field(default=30, ge=1, le=300)
     feed_timeout_seconds: float = Field(default=10, gt=0, le=60)

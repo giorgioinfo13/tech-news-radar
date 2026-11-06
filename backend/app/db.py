@@ -11,6 +11,7 @@ from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
 from sqlalchemy.types import TypeDecorator
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+POSTGRES_SCHEMA = "tnr"
 
 
 class Base(DeclarativeBase):
@@ -30,24 +31,49 @@ def utc_now() -> datetime:
 
 
 class UTCDateTime(TypeDecorator[datetime]):
-    """Store naive UTC in SQL and expose aware UTC in Python; reject ambiguous input."""
+    """Use timestamptz on PostgreSQL and naive UTC on SQLite; expose aware UTC."""
 
     impl = DateTime
     cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect):
+        return dialect.type_descriptor(DateTime(timezone=dialect.name == "postgresql"))
 
     def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
         if value is None:
             return None
         if value.utcoffset() is None:
             raise ValueError("Database timestamps must include a timezone")
-        return value.astimezone(UTC).replace(tzinfo=None)
+        value = value.astimezone(UTC)
+        return value if dialect.name == "postgresql" else value.replace(tzinfo=None)
 
     def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
-        return value.replace(tzinfo=UTC) if value is not None else None
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def resolve_database_url(database_url: str | URL) -> URL:
     url = make_url(database_url)
+    if url.drivername in {"postgres", "postgresql", "postgresql+psycopg"}:
+        url = url.set(drivername="postgresql+psycopg")
+        # Keep host, TLS and session configuration unambiguous. Do not let libpq
+        # environment defaults or query overrides silently select another server.
+        if (
+            not url.host
+            or not url.database
+            or set(url.query) - {"sslmode", "sslrootcert", "connect_timeout"}
+        ):
+            raise ValueError("PostgreSQL requires a host/database and supported connection options")
+        if url.port == 6543:
+            raise ValueError("Use a direct connection or the session pooler on port 5432")
+        sslmode = url.query.get("sslmode", "verify-full")
+        local = url.host in {"localhost", "127.0.0.1", "::1"}
+        if sslmode != "verify-full" and not (local and sslmode == "disable"):
+            raise ValueError("PostgreSQL requires sslmode=verify-full (disable is local-only)")
+        return url.update_query_dict({"sslmode": sslmode})
+    if url.drivername not in {"sqlite", "sqlite+pysqlite"}:
+        raise ValueError("Supported databases are SQLite and PostgreSQL with psycopg")
     if url.get_backend_name() == "sqlite":
         if url.query.get("uri") == "true":
             raise ValueError("SQLite URI mode is not supported; use a regular SQLite URL")
@@ -71,8 +97,19 @@ def _configure_sqlite(connection: SQLiteConnection, record: ConnectionPoolEntry)
 
 def create_database_engine(database_url: str | URL) -> Engine:
     url = resolve_database_url(database_url)
-    if url.get_backend_name() != "sqlite":
-        return create_engine(url)
+    if url.get_backend_name() == "postgresql":
+        engine = create_engine(
+            url,
+            pool_size=3,
+            max_overflow=0,
+            pool_timeout=10,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args={"connect_timeout": int(url.query.get("connect_timeout", "10"))},
+            hide_parameters=True,
+        )
+        event.listen(engine, "connect", _configure_postgres, insert=True)
+        return engine
 
     if url.database and url.database != ":memory:":
         Path(url.database).parent.mkdir(parents=True, exist_ok=True)
@@ -88,3 +125,15 @@ def create_database_engine(database_url: str | URL) -> Engine:
     )
     event.listen(engine, "connect", _configure_sqlite)
     return engine
+
+
+def _configure_postgres(connection, record: ConnectionPoolEntry) -> None:
+    # Session pooler only: SET must survive transaction rollback and pool reuse.
+    previous_autocommit = connection.autocommit
+    connection.autocommit = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SET SESSION search_path TO {POSTGRES_SCHEMA}")
+            cursor.execute("SET SESSION TIME ZONE 'UTC'")
+    finally:
+        connection.autocommit = previous_autocommit

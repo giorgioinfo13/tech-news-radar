@@ -30,7 +30,10 @@ dependencies. Core features will not require paid services or AI models.
 The project is in development. The responsive editorial interface supports article search,
 source/category filters, and read/unread status.
 The Sources and Categories pages let you organize RSS/Atom feeds, refresh them
-manually, and inspect collection results. The backend handles deduplication and SQLite storage.
+manually, and inspect collection results. The backend handles deduplication and SQLite or PostgreSQL storage.
+SQLite remains the default for local use without a cloud account.
+[PostgreSQL support for Supabase](docs/postgresql.md) uses the same models and services.
+Authentication, multiuser access, and public deployment are not available yet.
 The backend automatically checks enabled sources, normally every 60 minutes, while it runs. Add feeds through the interface or
 import the [starter catalog of 11 verified sources](docs/sources.md).
 The interface is currently in Italian.
@@ -72,7 +75,7 @@ Stop each server with `Ctrl+C` in its terminal.
 
 - **Interface:** React, TypeScript, Vite, and Tailwind CSS.
 - **Backend:** Python and FastAPI.
-- **Persistence:** SQLite with SQLAlchemy and Alembic migrations.
+- **Persistence:** SQLite or PostgreSQL (Psycopg 3), with SQLAlchemy and Alembic migrations.
 - **Collection:** feedparser, httpx, and defusedxml. Periodic collection uses the Python standard library.
 
 ## Development

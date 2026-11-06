@@ -30,7 +30,10 @@ operative. Le funzioni di base non richiederanno servizi a pagamento o modelli A
 Il progetto è in sviluppo. L'interfaccia editoriale responsive permette di consultare e cercare
 notizie, filtrare per fonte e categoria e gestire lo stato letto/non letto.
 Dalle pagine Fonti e Categorie puoi organizzare i feed RSS/Atom, avviare aggiornamenti
-manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite.
+manuali e consultarne gli esiti. Il backend gestisce deduplicazione e persistenza SQLite o PostgreSQL.
+SQLite resta la scelta predefinita per l'avvio locale senza account cloud.
+Il [supporto PostgreSQL per Supabase](docs/postgresql.md) usa gli stessi modelli e servizi.
+Autenticazione, accesso multiutente e deploy pubblico non sono ancora disponibili.
 Il backend aggiorna automaticamente le fonti attive, di norma ogni 60 minuti, mentre è in esecuzione. Puoi aggiungere i feed
 dall'interfaccia oppure importare il [catalogo iniziale di 11 fonti verificate](docs/sources.md).
 L'interfaccia è attualmente in italiano.
@@ -72,7 +75,7 @@ Ferma i server con `Ctrl+C` nei rispettivi terminali.
 
 - **Interfaccia:** React, TypeScript, Vite e Tailwind CSS.
 - **Backend:** Python e FastAPI.
-- **Persistenza:** SQLite con SQLAlchemy e migrazioni Alembic.
+- **Persistenza:** SQLite o PostgreSQL (Psycopg 3), con SQLAlchemy e migrazioni Alembic.
 - **Raccolta:** feedparser, httpx e defusedxml. Raccolta periodica con la libreria standard Python.
 
 ## Sviluppo
