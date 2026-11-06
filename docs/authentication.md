@@ -30,6 +30,11 @@ Do not change `TNR_SUPABASE_URL` to another project while keeping existing ident
 SQLite and PostgreSQL use the same authentication and permission code.
 No foreign key to the remote `auth.users` table is required.
 
+The optional `POST /api/internal/collect` is a machine-only exception with a separate bearer secret.
+It can only scan existing due sources; it cannot read personal data, approve users, or change the catalog.
+User access tokens do not authorize this endpoint, and its secret does not authorize user endpoints.
+It returns `404` while unconfigured. See [external collection](development.md#collection-on-render-free) for activation and rotation.
+
 ## Configuration
 
 Set these values in the private root `.env` for local integration testing, after cloud setup is authorized:

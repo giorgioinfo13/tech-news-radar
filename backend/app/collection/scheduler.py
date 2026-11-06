@@ -1,7 +1,9 @@
 """One sequential worker, owned by the application's lifespan, with no job queue."""
 
 import logging
+from dataclasses import dataclass
 from threading import Event, Thread
+from time import monotonic
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +12,14 @@ from app.collection.service import Collector, RefreshRejected
 from app.models import Source
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ScanResult:
+    collected: int = 0
+    failed: int = 0
+    skipped: int = 0
+    deferred: bool = False
 
 
 class CollectionScheduler:
@@ -40,7 +50,11 @@ class CollectionScheduler:
                 # Keep the worker alive after storage failures. Do not log DB URLs.
                 logger.error("Scheduled collection scan failed (%s)", type(exc).__name__)
 
-    def run_once(self) -> None:
+    def run_once(
+        self, *, max_sources: int | None = None, max_seconds: float | None = None
+    ) -> ScanResult:
+        result = ScanResult()
+        started = monotonic()
         with Session(self.collector.engine) as session:
             source_ids = session.scalars(
                 select(Source.id)
@@ -49,16 +63,31 @@ class CollectionScheduler:
             ).all()
         # No session or transaction is held while another source downloads.
         for source_id in source_ids:
-            if self._stop.is_set():
+            if (
+                self._stop.is_set()
+                or (max_sources is not None and result.collected + result.failed >= max_sources)
+                or (max_seconds is not None and monotonic() - started >= max_seconds)
+            ):
+                result.deferred = True
                 break
             try:
-                self.collector.refresh_if_due(source_id)
+                run = self.collector.refresh_if_due(source_id)
+                if run is None:
+                    result.skipped += 1
+                elif run.status == "error":
+                    result.failed += 1
+                else:
+                    result.collected += 1
             except RefreshRejected as exc:
                 if exc.status_code == 409:
                     # Manual refresh or source changes have the gate; retry next scan.
                     logger.debug("Scheduled collection deferred: collector busy")
+                    result.deferred = True
                     break
+                result.skipped += 1
             except Exception as exc:
+                result.failed += 1
                 logger.error(
                     "Scheduled collection source=%s failed (%s)", source_id, type(exc).__name__
                 )
+        return result

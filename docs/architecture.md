@@ -184,6 +184,13 @@ Set `TNR_SCHEDULER_ENABLED=false` to disable the worker. Change the scan delay w
 Collection stops when the backend stops or the computer sleeps. The browser does not poll
 for results. Reload it to see new articles, check times, and history.
 
+For a sleeping backend, an opt-in GitHub Actions workflow can wake the service and request a bounded scan.
+`POST /api/internal/collect` requires a dedicated secret and runs synchronously in the API thread pool, without a second collector process.
+The internal timer and external-trigger mode are mutually exclusive. Both reuse the same due-source scan and guarded downloader.
+External scans have a separate nonblocking scan lock, a cooldown, and per-pass limits; source operations retain their existing shared lock.
+The response reports collected, failed, skipped, and deferred work. Shutdown finishes the active feed before engine disposal.
+See [activation, timing, and provider limits](development.md#collection-on-render-free).
+
 ## Frontend
 
 The Italian interface has four hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, and `#categories`.

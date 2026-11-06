@@ -239,11 +239,69 @@ Wait for the interval and a subsequent scan, then inspect `/api/sources/{id}/run
 A failed source can take longer because of its cooldown. Restore the desired interval after the test.
 This test downloads the configured feed and writes articles to your local database.
 
-Set `TNR_SCHEDULER_ENABLED=false` in `.env` to use manual collection only.
+Set `TNR_SCHEDULER_ENABLED=false` in `.env` to disable the internal timer.
+Without an external trigger secret, this leaves manual collection only.
 Set `TNR_SCHEDULER_POLL_SECONDS` to change scan frequency, not the individual source interval.
 Restart the backend after configuration changes.
 On normal shutdown, the worker finishes the active feed and skips remaining sources before the database closes.
 An OS DNS call can delay shutdown because the HTTP timeout does not bound that call.
+
+### Collection on Render Free
+
+The prepared workflow `.github/workflows/collect.yml` requests one scan at minute 17 of each hour (UTC).
+It remains inactive unless the repository variable `TNR_COLLECTION_ENABLED` is exactly `true`.
+It runs only on `main` in the original repository, with read-only repository permission and one concurrent job.
+The runner executes the standard-library script `scripts/trigger_collection.py`. It does not connect to the database or download feeds.
+
+The script first requests `/api/health` without credentials, with up to 12 attempts for cold starts.
+It then sends one `POST /api/internal/collect`, with a dedicated bearer secret and a 600-second response timeout.
+It accepts only HTTPS `*.onrender.com` origins and refuses redirects. No credential appears in the URL.
+A POST timeout leaves completion unknown; the script does not repeat the POST.
+
+The backend reuses the existing collector, downloader, persisted due times, and source lock.
+Each scan permits up to 25 feed attempts and checks a 240-second budget between feeds.
+An active feed finishes first, so DNS or slow reads can exceed that budget.
+Scans cannot overlap. A 300-second cooldown follows every scan, including empty or failed scans.
+This scan cooldown resets on restart; persisted source intervals and backoff do not.
+No new timer thread runs in external-trigger mode. One backend process per database remains mandatory.
+
+Hourly triggers do not guarantee hourly feed updates. A source's interval starts when its previous check finishes.
+A 60-minute interval can therefore defer a feed until the following hourly trigger, giving approximately two hours between checks.
+Missed schedules create no backlog. Remaining sources wait for the next scan, with unchecked and oldest sources first.
+
+After an explicitly authorized deployment with PostgreSQL, configure these values:
+
+| Destination | Setting | Value and type |
+| --- | --- | --- |
+| Render environment | `TNR_SCHEDULER_ENABLED` | `false`, public setting |
+| Render environment | `TNR_COLLECTION_TRIGGER_SECRET` | Private random URL-safe secret, 32–128 characters |
+| GitHub Actions repository secret | `TNR_COLLECTION_TRIGGER_SECRET` | Same secret as Render; not a Supabase key |
+| GitHub Actions repository variable | `TNR_BACKEND_URL` | Actual `https://SERVICE.onrender.com` origin, public |
+| GitHub Actions repository variable | `TNR_COLLECTION_ENABLED` | `true` only after the other values are verified |
+
+Generate the secret privately with `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'` when configuration is authorized.
+Do not put it in Git, frontend variables, screenshots, or logs. Leave local `.env` unchanged for internal scheduling.
+The backend rejects configuration that enables both the internal timer and the external trigger.
+
+After activation, run **Actions → Collect feeds → Run workflow** on `main`.
+Check the result counts and the administrator's collection history. Repeat after at least 20 minutes without application traffic to test cold start.
+HTTP `409`/`429` means deferred work, not completed collection. Partial scans or feed errors fail the workflow for operator attention.
+Check Actions for failures and disabled schedules. To stop requests, set `TNR_COLLECTION_ENABLED=false`.
+To revoke the trigger credential, remove or replace it on Render and update GitHub before reactivation.
+
+Provider limits, checked on 2026-11-06:
+
+- [Render Free](https://render.com/docs/free) sleeps after 15 idle minutes and takes about one minute to wake.
+  Its filesystem is ephemeral; remote PostgreSQL is required before this deployment. Workspaces share 750 free instance hours monthly.
+  Bandwidth limits and high outbound traffic can suspend service. This workflow performs collection, not continuous keep-alive requests.
+- [Render cron jobs](https://render.com/docs/cronjobs) cost at least $1 monthly per job, so they are not the free default.
+- [GitHub schedules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+  can be delayed or dropped, and public-repository schedules stop after 60 days without repository activity.
+  Re-enable the workflow through Actions when necessary; this is not a guaranteed-time scheduler.
+  [Standard hosted runners are free for public repositories](https://docs.github.com/en/actions/concepts/billing-and-usage).
+
+Local tests use temporary migrated databases and mocked feeds and HTTP responses.
+Render suspension, actual GitHub execution, and collection against remote PostgreSQL remain deployment checks.
 
 ## Run the frontend
 
@@ -396,6 +454,7 @@ Enable the local identity explicitly for local data access. Restart the developm
 | `TNR_MIGRATION_DATABASE_URL` | unset | Optional operator connection for Alembic and access provisioning; defaults to the application URL |
 | `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |
 | `TNR_SCHEDULER_POLL_SECONDS` | `30` | Wait between scans, range 1–300 seconds |
+| `TNR_COLLECTION_TRIGGER_SECRET` | unset | Private bearer secret for bounded external scans; requires internal scheduler disabled |
 | `TNR_FEED_TIMEOUT_SECONDS` | `10` | Per-operation HTTP timeout, greater than 0 and at most 60 seconds |
 | `TNR_FEED_MAX_BYTES` | `2000000` | Transfer and decoded-body limits, range 1024–10000000 bytes each |
 | `TNR_FEED_MAX_ENTRIES` | `5000` | Entries per feed, range 1–10000 |
