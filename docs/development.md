@@ -328,6 +328,15 @@ loading/empty/error states, and retry controls are included. Unsaved forms and
 filters reset when you leave a view. The browser does not poll for new articles.
 Reload the page to see automatic collection results. Offline access is not available.
 
+Use **Tema** on the login screen or in the sidebar to select **Sistema**, **Chiaro**, or **Scuro**.
+The default is **Sistema**, which follows operating-system changes while the page is open.
+The choice is stored in this browser and synchronized between tabs. It is not an account setting and is not sent to the API.
+Logout preserves it. If browser storage is blocked, the choice lasts until the page is reloaded.
+Changing the theme preserves filters, unsaved forms, subscriptions, and read states.
+
+For a browser check, change the system appearance, select an explicit theme, then reload.
+Also check keyboard selection, mobile layout, form controls, notices, and confirmation dialogs in both themes.
+
 The editorial interface uses local Source Serif 4 and Source Sans 3 font files.
 Their versions, hashes, and SIL Open Font Licenses are in `frontend/public/fonts/`.
 No external font service or UI component library is required. Shared color and

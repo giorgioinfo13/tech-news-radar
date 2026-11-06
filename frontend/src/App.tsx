@@ -11,6 +11,7 @@ import { Sources } from './pages/Sources'
 import { Categories } from './pages/Categories'
 import { useQuery } from './useQuery'
 import { Icon } from './Icon'
+import { ThemeProvider, ThemeSelector } from './Theme'
 
 function currentPage() {
   return ['sources', 'catalog', 'categories'].includes(location.hash.slice(1))
@@ -19,6 +20,14 @@ function currentPage() {
 }
 
 export default function App({ controller: supplied }: { controller?: AuthController } = {}) {
+  return (
+    <ThemeProvider>
+      <AuthenticatedApp supplied={supplied} />
+    </ThemeProvider>
+  )
+}
+
+function AuthenticatedApp({ supplied }: { supplied?: AuthController }) {
   const [controller] = useState(() => supplied ?? new AuthController(authConfiguration()))
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot)
   useEffect(() => controller.start(), [controller])
@@ -93,6 +102,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
             <button onClick={() => void controller.logout()}>Esci</button>
           )}
         </div>
+        <ThemeSelector />
         <div className="sidebar-note">
           <p>Il tuo spazio di lettura.</p>
           <a href="#sources">Scegli le fonti da seguire</a>

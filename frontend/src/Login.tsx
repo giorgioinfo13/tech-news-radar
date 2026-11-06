@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import logo from '../../docs/assets/tech-news-radar-logo.svg'
 import { Notice } from './components'
 import type { AuthController, AuthState } from './auth'
+import { ThemeSelector } from './Theme'
 
 function AccessLayout({ children }: { children: ReactNode }) {
   return (
@@ -9,6 +10,7 @@ function AccessLayout({ children }: { children: ReactNode }) {
       <div className="access-panel">
         <img className="access-logo" src={logo} alt="Tech News Radar" />
         {children}
+        <ThemeSelector />
       </div>
     </main>
   )

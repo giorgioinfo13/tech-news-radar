@@ -215,7 +215,15 @@ Opening an original article does not automatically mark it read. Read state chan
 only through the explicit control. The frontend does not fetch feed URLs directly.
 
 Filters and unsaved forms are local to the current view and reset on navigation.
-There is no offline cache, polling, dark mode, or UI language switch yet.
+There is no offline cache, polling, or UI language switch yet.
+Appearance supports light, dark, and system modes through shared CSS color variables.
+A small local script in the document head applies the saved preference before rendering.
+The React theme provider follows system changes and synchronizes the `tnr-theme` browser preference across tabs.
+Storage failures fall back to a usable in-memory choice. Theme changes do not remount the authenticated workspace or call the API.
+This preference belongs to the browser, survives logout, and does not change user records.
+The original branding assets remain unchanged; the full logo has a light backing in dark mode for legibility.
+See the browser APIs for [system appearance](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-color-scheme)
+and [storage events](https://developer.mozilla.org/en-US/docs/Web/API/Window/storage_event).
 API errors provide retry guidance, including the refresh cooldown from `Retry-After`.
 Vitest and Testing Library cover behavior with mocked HTTP. Browser checks cover
 responsive layout and native dialog behavior separately from jsdom tests.
