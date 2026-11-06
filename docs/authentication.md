@@ -4,6 +4,8 @@ The backend verifies Supabase access tokens and accepts only explicitly approved
 The frontend provides Google sign-in, browser session recovery, logout, and personal source selection.
 Google provider setup and deployment still require separate authorization. Installing the code does not configure cloud accounts.
 
+Use the [local Google login procedure](local-google-login.md) to configure and verify the first real session with SQLite.
+
 ## Identity and permission boundary
 
 The browser must send a Supabase **access token** in `Authorization: Bearer <access-token>`.
@@ -188,7 +190,8 @@ Frontend tests mock the SDK and HTTP to check callback handling, session recover
 account isolation, administrative controls, and subscription changes, including interrupted saves.
 The tests do not use the personal Supabase project or live news services.
 
-A complete Google login, Supabase signing-key compatibility, OAuth redirects, and deployed session behavior remain unverified until cloud setup.
+The [local verification record](local-google-login.md#owner-login-check-on-2026-11-06) covers the first real Google login and owner link.
+Deployed session behavior remains unverified. Local checks do not establish production readiness.
 
 Frontend-step validation on 2026-11-06:
 
