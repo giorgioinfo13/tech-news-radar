@@ -51,3 +51,27 @@ the Vercel skill. Its review fetches current guidance from the URL in its `SKILL
 The design reference is the approved editorial direction: cool neutral surfaces,
 blue actions, Source Serif 4 article titles, and Source Sans 3 controls. Vercel's
 review checklist does not override Italian copy, scope, or application behavior.
+
+## PostgreSQL skill
+
+The owner authorized a project-local Supabase skill installation on 2026-11-06.
+
+- Skill: `supabase-postgres-best-practices`, metadata version `1.1.1`.
+- Source: [supabase/agent-skills](https://github.com/supabase/agent-skills/tree/c9be0e931b7930f7d02126d04774d904c381e7d7/skills/supabase-postgres-best-practices).
+- Source revision: `c9be0e931b7930f7d02126d04774d904c381e7d7`.
+- Destination: `.agents/skills/supabase-postgres-best-practices/`.
+- Distribution: unchanged skill directory, including its references and changelog.
+  The upstream root MIT `LICENSE` is included in the destination directory to
+  preserve the Supabase copyright notice.
+
+The Codex skill installer was used instead of `npx skills add`, with an explicit
+revision, skill path, and project destination. No npm dependency, global skill,
+Supabase CLI, MCP connection, or cloud configuration was installed. The separate
+general `supabase` skill was inspected but not installed; it can be evaluated for
+the authentication phase.
+
+Use the installed skill for the approved PostgreSQL migration and subsequent
+schema, query, connection, and RLS work. It does not replace SQLAlchemy or Alembic,
+require advanced database features, or authorize remote operations. Read the
+relevant reference files for each task and verify version-sensitive advice against
+current official documentation. Future upstream updates require explicit review.

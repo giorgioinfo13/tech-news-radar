@@ -68,6 +68,7 @@ automatic discovery depends on the agent. They do not override user instructions
 - [security-review](.agents/skills/security-review/SKILL.md): review concrete security boundaries, especially external feeds.
 - [ste-documentation](.agents/skills/ste-documentation/SKILL.md): English technical documentation, without claiming certified compliance.
 - [frontend-design](.agents/skills/frontend-design/SKILL.md): visual direction and implementation, following the selected editorial design.
+- [supabase-postgres-best-practices](.agents/skills/supabase-postgres-best-practices/SKILL.md): PostgreSQL schema, migrations, queries, connection management, and RLS guidance for the planned database migration.
 - `web-design-guidelines`: optional local UI review skill in `.agents/skills/web-design-guidelines/`; excluded from Git. Installation details are in the provenance document.
 
 For UI work, preserve Italian sentence case and the existing API behavior. Review
@@ -75,6 +76,10 @@ guidelines are a checklist, not authorization to add libraries, URL state, new
 business behavior, or unrelated features. Keep the fonts local and preserve their licenses.
 
 Source revision and adoption limits are in [skill provenance](docs/agent-skills.md).
+
+Read the PostgreSQL skill before PostgreSQL database work. Apply only guidance
+relevant to the approved phase; keep SQLAlchemy and Alembic as the project's
+database tools. Installing a skill does not authorize cloud changes or migrations.
 
 ## Verification
 
