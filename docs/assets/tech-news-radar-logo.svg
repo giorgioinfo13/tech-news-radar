@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
+<title id="title">Tech News Radar</title><desc id="desc">Radar circolare con tracce di notizie tecnologiche e un circuito AI, accompagnato dal nome Tech News Radar.</desc>
+<defs>
+ <linearGradient id="sweep" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#12b8a6" stop-opacity=".1"/><stop offset="1" stop-color="#45d7c5" stop-opacity=".55"/></linearGradient>
+ <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#44cfca"/><stop offset="1" stop-color="#2a76ae"/></linearGradient>
+ <linearGradient id="word" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1a9aaa"/><stop offset="1" stop-color="#447bd6"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#1d6577" flood-opacity=".12"/></filter>
+</defs>
+<g transform="translate(180 173)" filter="url(#shadow)">
+ <circle r="128" fill="#f3fbfb"/>
+ <circle r="121" fill="#e8f7f8" stroke="url(#ring)" stroke-width="8"/>
+ <circle r="95" fill="none" stroke="#8bcfd2" stroke-width="2" opacity=".76"/>
+ <circle r="62" fill="none" stroke="#8bcfd2" stroke-width="2" opacity=".8"/>
+ <circle r="29" fill="none" stroke="#8bcfd2" stroke-width="1.8" opacity=".75"/>
+ <path d="M0 0 L0 -117 A117 117 0 0 1 114 -28 Z" fill="url(#sweep)" transform="rotate(34)"/>
+ <path d="M0 -115 V115 M-115 0 H115" stroke="#80bfc4" stroke-width="1.6" opacity=".36"/>
+ <path d="M0 0 L74 -91" stroke="#1fb2aa" stroke-width="5" stroke-linecap="round"/>
+ <circle r="8" fill="#126c86" stroke="white" stroke-width="2"/>
+ <!-- radar targets -->
+ <circle cx="-66" cy="-47" r="10" fill="#fff" stroke="#2b9bad" stroke-width="4"/>
+ <circle cx="81" cy="49" r="7.5" fill="#eaa25d" stroke="white" stroke-width="2.5"/>
+ <circle cx="45" cy="-70" r="6.5" fill="#2bc5b5" stroke="white" stroke-width="2"/>
+ <!-- news feed pages -->
+ <g transform="translate(-61 55)" >
+  <rect x="-31" y="-34" width="69" height="64" rx="8" fill="white" stroke="#2e7696" stroke-width="3"/>
+  <rect x="-22" y="-25" width="24" height="20" rx="4" fill="#64c7d0"/>
+  <path d="M9 -22 H28 M9 -14 H28 M-22 3 H27 M-22 13 H27 M-22 22 H13" stroke="#8cb6c4" stroke-width="4" stroke-linecap="round"/>
+ </g>
+ <!-- AI silicon tile -->
+ <g transform="translate(61 -19)">
+  <rect x="-26" y="-26" width="52" height="52" rx="11" fill="#215c8a" stroke="#fff" stroke-width="4"/>
+  <path d="M-15 -32 V-26 M0 -32 V-26 M15 -32 V-26 M-15 26 V32 M0 26 V32 M15 26 V32 M-32 -15 H-26 M-32 0 H-26 M-32 15 H-26 M26 -15 H32 M26 0 H32 M26 15 H32" stroke="#215c8a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M-13 7 L-2 -8 L9 4 L15 -11" fill="none" stroke="#a3e5df" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="-13" cy="7" r="3.5" fill="white"/><circle cx="-2" cy="-8" r="3.5" fill="white"/><circle cx="9" cy="4" r="3.5" fill="white"/><circle cx="15" cy="-11" r="3.5" fill="white"/>
+ </g>
+</g>
+<g transform="translate(354 131)">
+ <text x="0" y="0" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="60" letter-spacing="-2.5" fill="#182e45">Tech News</text>
+ <text x="0" y="71" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="76" letter-spacing="-2.9" fill="url(#word)">Radar</text>
+ <path d="M2 94 H330" stroke="#bbe0e4" stroke-width="3" stroke-linecap="round"/>
+ <text x="2" y="128" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="500" font-size="18" letter-spacing="1.6" fill="#698194">YOUR SIGNAL. YOUR NEWS.</text>
+</g>
+</svg>
