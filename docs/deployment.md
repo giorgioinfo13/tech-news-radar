@@ -37,6 +37,7 @@ worker caches API responses or tokens.
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
 | `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
 | `backend/app/transfer.py` | Local-only SQLite-to-PostgreSQL rehearsal with row verification and transactional rollback |
+| `backend/app/transfer_supabase.py` | Offline transfer plan, read-only remote checks, and explicit execution against a pinned Supabase target |
 | `frontend/public/privacy.html` | Public explanation of authentication, personal data and deletion requests |
 
 The templates are deliberately not active hosting configuration files. Do not
@@ -130,8 +131,9 @@ Do not start with an empty online account and discard the local owner's data.
 Prepare a transfer against a **copy** first. Approval must name the source
 snapshot, exact target, expected counts, and rollback plan. The importer itself
 must be reviewed and tested in that phase; this guide does not authorize a copy.
-The current rehearsal command refuses remote targets. Remote execution needs a
-separate reviewed change and explicit authorization.
+The rehearsal command still refuses remote targets. The separate Supabase
+command below prepares a plan offline. Its remote operations require explicit
+authorization. Preparing a plan does not connect to Supabase or authorize a copy.
 
 1. Stop local writes and the collector during the final snapshot/cutover. Make
    the SQLite backup below and record its SHA-256, Alembic head, and counts for
@@ -233,6 +235,114 @@ row preservation, subsequent inserts, rollback, concurrent-write exclusion,
 personal reads/subscriptions, reader permissions, revoked users, and unapproved
 users. These API tests substitute verified identities. They do not repeat Google
 OAuth or establish behavior on hosted services or installed mobile apps.
+
+#### Supabase transfer plan and execution
+
+The operator command has four separate operations:
+
+| Operation | Network and database effects |
+| --- | --- |
+| `prepare` | Local file reads only, plus a new private plan file |
+| `check` | Remote transaction with `REPEATABLE READ READ ONLY`, plus a private preflight report |
+| `execute` | One remote transaction that copies the reviewed snapshot and restarts four sequences |
+| `verify` | Remote read-only comparison after execution, including sequence values |
+
+All commands use an explicit private JSON configuration file (mode 0600).
+Its `TNR_MIGRATION_DATABASE_URL` field contains the operator connection.
+The commands do not inherit application or migration URLs from `.env`.
+Keep this file outside Git, for example under `backend/data/deployment/`.
+Never print it or pass its password through a command-line argument.
+
+The URL must use `postgres.PROJECT_REF`, a Supabase session-pooler hostname,
+port `5432`, database `postgres`, `sslmode=verify-full`, and an absolute CA path.
+The plan pins the exact project reference, host, username, and CA checksum.
+It also pins the snapshot path/checksum, revision `0004`, and every table's
+count and normalized-row checksum. It contains no connection password or
+Auth subject values. Store it privately because it includes local paths.
+
+From `backend/`, prepare a plan with the chosen snapshot:
+
+```bash
+.venv/bin/python -m app.transfer_supabase prepare \
+  --operator-config data/deployment/operator.json \
+  --snapshot data/backups/SNAPSHOT.db --sha256 SNAPSHOT_SHA256 \
+  --project-ref PROJECT_REF --output data/deployment/transfer-plan.json
+```
+
+The command prints the plan's SHA-256. Record it with the reviewed plan.
+Preparation checks local inputs only. It does not establish current remote
+state, TLS connectivity, identity existence, or application grants.
+
+Before the final transfer, stop local API/collector writes and keep hosting
+and external collection inactive. Create and rehearse a final snapshot if the
+working database changed. Prepare a new plan for that snapshot. A plan does
+not detect later writes to the separate working SQLite database.
+
+After authorization for remote inspection, run:
+
+```bash
+.venv/bin/python -m app.transfer_supabase check \
+  --operator-config data/deployment/operator.json \
+  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
+  --output data/deployment/transfer-preflight.json
+```
+
+The check verifies both TLS hops, database/operator identity, the unchanged
+migration seeds, and the restricted `tnr_app` permissions. It rejects PUBLIC
+or Data API role access to the application schema/tables. It checks that each
+active application's Auth subject exists in this project's `auth.users`.
+It does not read profile metadata to assign privileges or modify Auth records.
+Confirm Data API dashboard settings separately. No migration command runs here.
+
+Review the private report and its printed checksum. Before authorizing execution,
+retain a backup of the remote `tnr` schema with the separate backup procedure.
+Record its checksum privately. Keep the original SQLite and its final snapshot.
+Approval must identify the project, snapshot, plan checksum, counts, and rollback
+procedure. The preflight report must be less than 24 hours old.
+
+Only after explicit approval for that exact transfer, run:
+
+```bash
+.venv/bin/python -m app.transfer_supabase execute \
+  --operator-config data/deployment/operator.json \
+  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
+  --preflight data/deployment/transfer-preflight.json --preflight-sha256 PREFLIGHT_SHA256 \
+  --confirm-project-ref PROJECT_REF --output data/deployment/transfer-executed.json
+```
+
+Execution rechecks the pinned files, endpoint, Auth identities, grants, and seeds
+under application-table locks. It rejects changes since preflight. It uses the
+same copy and verification transaction as the local rehearsal. Runtime grants
+are checked again before commit. It does not change Auth records, roles,
+passwords, hosting, the local `.env`, or the original SQLite database.
+
+Before starting application writes, verify the committed data:
+
+```bash
+.venv/bin/python -m app.transfer_supabase verify \
+  --operator-config data/deployment/operator.json \
+  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
+  --output data/deployment/transfer-verified.json
+```
+
+Every output must be a new filename. Files use mode 0600 and refuse overwrites.
+A failure can leave an empty or incomplete output file. A connection failure
+during commit can leave the outcome uncertain: do not automatically execute again.
+Use `verify` first. If it fails, inspect the target read-only and compare it with
+the preflight seeds. Do not infer rollback solely from a missing success report.
+
+Before new online writes, rollback can keep the application on unchanged SQLite.
+Leave remote data intact until its state is understood. Restoring a remote backup
+or deleting imported rows requires another explicit, reviewed operation.
+After online writes begin, reconcile those writes before switching databases.
+The command has no destructive reset or automatic rollback-after-commit option.
+
+The local tests use real PostgreSQL migrations and simulate Supabase Auth and
+transport metadata. They verify read-only enforcement, target restrictions,
+grant/identity failures, stale reports, drift, rollback, and post-transfer checks.
+They do not validate a live pooler, the project's CA, or current cloud settings.
+References: [Supabase session pooling and TLS](https://supabase.com/docs/guides/database/connecting-to-postgres)
+and [PostgreSQL read-only transactions](https://www.postgresql.org/docs/17/sql-set-transaction.html).
 
 ### 3. Render and Vercel deployment, separately authorized
 

@@ -196,40 +196,47 @@ def verify_rows(connection: Connection, rows: dict[str, list[dict]]) -> dict:
     return report
 
 
+def lock_target(connection: Connection) -> None:
+    """Lock application tables in the caller's transaction before checking or copying."""
+    connection.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+    connection.exec_driver_sql("SET LOCAL statement_timeout = '60s'")
+    names = ", ".join(f"tnr.{table.name}" for table in TABLES)
+    connection.exec_driver_sql(f"LOCK TABLE {names}, tnr.alembic_version IN EXCLUSIVE MODE")
+
+
+def copy_rows(connection: Connection, rows: dict[str, list[dict]]) -> dict:
+    """Copy and verify in an existing transaction after lock_target; never commit here."""
+    check_layout(connection)
+    check_seed(connection)
+    # Keep the reserved owner row/UUID. Replace only the verified, unused category seeds.
+    owner = next(row for row in rows["app_users"] if row["id"] == LOCAL_OWNER_ID)
+    connection.execute(
+        AppUser.__table__.update()
+        .where(AppUser.id == LOCAL_OWNER_ID)
+        .values(**{key: value for key, value in owner.items() if key != "id"})
+    )
+    connection.execute(Category.__table__.delete())
+    for table in TABLES:
+        batch_rows = rows[table.name]
+        if table.name == "app_users":
+            batch_rows = [row for row in batch_rows if row["id"] != LOCAL_OWNER_ID]
+        for offset in range(0, len(batch_rows), 500):
+            connection.execute(table.insert(), batch_rows[offset : offset + 500])
+    for name in SEQUENCED_TABLES:
+        next_id = max(1, max((row["id"] for row in rows[name]), default=0) + 1)
+        # RESTART is transactional; setval is not. No nextval is consumed by verification.
+        connection.exec_driver_sql(f"ALTER SEQUENCE tnr.{name}_id_seq RESTART WITH {next_id}")
+    return verify_rows(connection, rows)
+
+
 def rehearse(snapshot: Path, expected_hash: str, target_url: str) -> dict:
     url = local_target_url(target_url)
     rows = read_snapshot(snapshot, expected_hash)
     engine = create_database_engine(url)
     try:
         with engine.begin() as connection:
-            connection.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
-            connection.exec_driver_sql("SET LOCAL statement_timeout = '60s'")
-            # Fixed model identifiers only. Stop writers before validating the target's seeds.
-            names = ", ".join(f"tnr.{table.name}" for table in TABLES)
-            connection.exec_driver_sql(f"LOCK TABLE {names}, tnr.alembic_version IN EXCLUSIVE MODE")
-            check_layout(connection)
-            check_seed(connection)
-            # Keep the reserved owner row/UUID. Replace only the verified, unused category seeds.
-            owner = next(row for row in rows["app_users"] if row["id"] == LOCAL_OWNER_ID)
-            connection.execute(
-                AppUser.__table__.update()
-                .where(AppUser.id == LOCAL_OWNER_ID)
-                .values(**{key: value for key, value in owner.items() if key != "id"})
-            )
-            connection.execute(Category.__table__.delete())
-            for table in TABLES:
-                batch_rows = rows[table.name]
-                if table.name == "app_users":
-                    batch_rows = [row for row in batch_rows if row["id"] != LOCAL_OWNER_ID]
-                for offset in range(0, len(batch_rows), 500):
-                    connection.execute(table.insert(), batch_rows[offset : offset + 500])
-            for name in SEQUENCED_TABLES:
-                next_id = max(1, max((row["id"] for row in rows[name]), default=0) + 1)
-                # RESTART is transactional; setval is not. No nextval is consumed by verification.
-                connection.exec_driver_sql(
-                    f"ALTER SEQUENCE tnr.{name}_id_seq RESTART WITH {next_id}"
-                )
-            report = verify_rows(connection, rows)
+            lock_target(connection)
+            report = copy_rows(connection, rows)
         return {"revision": REVISION, "snapshot_sha256": expected_hash, "tables": report}
     finally:
         engine.dispose()
