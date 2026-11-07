@@ -142,8 +142,24 @@ def check_privileges(connection) -> None:
     ).one()
     if schema[0] is not True or schema[1] is not False or schema[2] == "tnr_app":
         raise TransferError("Runtime schema privileges or ownership are unsafe.")
+    guards = connection.execute(
+        text("""
+        SELECT relrowsecurity, pg_get_userbyid(relowner),
+            (SELECT count(*) FROM pg_policy WHERE polrelid=c.oid),
+            EXISTS (SELECT 1 FROM pg_policy WHERE polrelid=c.oid
+                AND polname='app_users_insert_reader' AND polcmd='a'
+                AND polwithcheck IS NOT NULL)
+        FROM pg_class c WHERE c.oid='tnr.app_users'::regclass
+    """)
+    ).one()
+    if not guards[0] or guards[1] == "tnr_app" or guards[2:] != (2, True):
+        raise TransferError("Reader provisioning requires the migrated app_users RLS policies.")
     for name in [*(table.name for table in transfer.TABLES), "alembic_version"]:
-        allowed = {"SELECT"} if name == "app_users" else {"SELECT", "INSERT", "UPDATE", "DELETE"}
+        allowed = (
+            {"SELECT", "INSERT"}
+            if name == "app_users"
+            else {"SELECT", "INSERT", "UPDATE", "DELETE"}
+        )
         if name == "alembic_version":
             allowed = set()
         for permission in (

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthenticationUnavailable, InvalidAccessToken
 from app.collection.service import Collector, RefreshRejected
 from app.db import Base
+from app.invitations import claim_invitation
 from app.models import AppUser
 
 
@@ -38,7 +39,8 @@ def get_identity(request: Request, session: SessionDep, credentials: BearerDep) 
                 headers={"WWW-Authenticate": "Bearer"},
             )
         try:
-            subject = request.app.state.auth_verifier.verify(parts[1])
+            claims = request.app.state.auth_verifier.verify_claims(parts[1])
+            subject = UUID(claims["sub"])
         except InvalidAccessToken:
             raise HTTPException(
                 status_code=401,
@@ -52,6 +54,21 @@ def get_identity(request: Request, session: SessionDep, credentials: BearerDep) 
                 headers={"Retry-After": "10"},
             ) from None
         user_id = session.scalar(select(AppUser.id).where(AppUser.supabase_subject == subject))
+        if user_id is None:
+            try:
+                user_id = claim_invitation(
+                    session,
+                    subject,
+                    claims.get("email"),
+                    parts[1],
+                    request.app.state.google_identity_verifier,
+                )
+            except AuthenticationUnavailable:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Authentication temporarily unavailable",
+                    headers={"Retry-After": "10"},
+                ) from None
         if user_id is None:
             raise HTTPException(status_code=403, detail="User is not authorized")
         return user_id

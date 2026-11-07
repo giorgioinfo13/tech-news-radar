@@ -15,6 +15,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.invitations import normalize_email
+
 CategoryName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
 ]
@@ -164,3 +166,16 @@ class SubscriptionRead(OutputModel):
     source_id: int
     source: SourceRead
     created_at: datetime
+
+
+class InvitationCreate(InputModel):
+    email: Annotated[str, StringConstraints(max_length=254), AfterValidator(normalize_email)]
+    display_name: CategoryName
+
+
+class InvitationRead(OutputModel):
+    id: UUID
+    email: str
+    display_name: str
+    created_at: datetime
+    accepted_at: datetime | None

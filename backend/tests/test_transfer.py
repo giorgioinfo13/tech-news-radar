@@ -20,6 +20,7 @@ from app.models import (
     ArticleReadState,
     Category,
     CollectionRun,
+    ReaderInvitation,
     Source,
     Subscription,
 )
@@ -157,6 +158,15 @@ def snapshot(tmp_path):
                 {"user_id": LOCAL_OWNER_ID, "article_id": 101, "read_at": STAMP},
                 {"user_id": READER, "article_id": 305, "read_at": STAMP},
             ],
+        )
+        connection.execute(
+            ReaderInvitation.__table__.insert(),
+            {
+                "email": "pending@example.org",
+                "display_name": "Pending friend",
+                "invited_by": LOCAL_OWNER_ID,
+                "created_at": STAMP,
+            },
         )
     engine.dispose()
     return path

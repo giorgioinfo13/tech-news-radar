@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { AppUser, Article, Category, CollectionRun, Source } from '../api'
+import type { AppUser, Article, Category, CollectionRun, ReaderInvitation, Source } from '../api'
 
 export const category: Category = {
   id: 1,
@@ -45,6 +45,8 @@ export function mockServer() {
     runs: [] as CollectionRun[],
     failRefresh: 0,
     failRead: false,
+    invitations: [] as ReaderInvitation[],
+    failInvitation: 0,
   }
   const calls: {
     path: string
@@ -72,6 +74,26 @@ export function mockServer() {
     if (state.accessStatus !== 200) return response({}, state.accessStatus)
     if (path === '/me') return response(state.user)
     const id = Number(path.split('/')[2])
+    if (path.startsWith('/invitations') && method !== 'GET') {
+      if (state.failInvitation) return response({}, state.failInvitation)
+      if (method === 'POST') {
+        const email = String(body.email).toLowerCase()
+        if (state.invitations.some((item) => item.email === email)) return response({}, 409)
+        const invitation: ReaderInvitation = {
+          id: crypto.randomUUID(),
+          email,
+          display_name: String(body.display_name),
+          created_at: '2026-01-01T00:00:00Z',
+          accepted_at: null,
+        }
+        state.invitations.unshift(invitation)
+        return response(invitation, 201)
+      }
+      const invitation = state.invitations.find((item) => item.id === path.split('/')[2])
+      if (!invitation || invitation.accepted_at) return response({}, 409)
+      state.invitations = state.invitations.filter((item) => item.id !== invitation.id)
+      return response(null, 204)
+    }
     if (method === 'GET') {
       let items: unknown[]
       if (path === '/subscriptions')
@@ -79,6 +101,7 @@ export function mockServer() {
           .filter((item) => state.subscriptions.includes(item.id))
           .map((item) => ({ source_id: item.id, source: item, created_at: '2026-01-01T00:00:00Z' }))
       else if (path === '/categories') items = state.categories
+      else if (path === '/invitations') items = state.invitations
       else if (path === '/sources') items = state.sources
       else if (path.endsWith('/runs')) items = state.runs.filter((run) => run.source_id === id)
       else if (path === '/articles') {

@@ -1,4 +1,5 @@
 type IconName =
+  | 'invite'
   | 'radar'
   | 'news'
   | 'sources'
@@ -10,6 +11,12 @@ type IconName =
   | 'check'
 
 const paths: Record<IconName, React.ReactNode> = {
+  invite: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 6 9 7 9-7" />
+    </>
+  ),
   radar: (
     <>
       <circle cx="12" cy="12" r="9" />

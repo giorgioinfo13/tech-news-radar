@@ -8,13 +8,14 @@ import radar from '../../docs/assets/tech-news-radar-icon-circular.svg'
 import { QueryState } from './components'
 import { Dashboard } from './pages/Dashboard'
 import { Sources } from './pages/Sources'
+import { Invitations } from './pages/Invitations'
 import { Categories } from './pages/Categories'
 import { useQuery } from './useQuery'
 import { Icon } from './Icon'
 import { ThemeProvider, ThemeSelector } from './Theme'
 
 function currentPage() {
-  return ['sources', 'catalog', 'categories'].includes(location.hash.slice(1))
+  return ['sources', 'catalog', 'categories', 'invitations'].includes(location.hash.slice(1))
     ? location.hash.slice(1)
     : 'news'
 }
@@ -66,6 +67,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
     { id: 'sources', label: 'Le mie fonti', icon: 'sources' },
     { id: 'catalog', label: 'Catalogo', icon: 'sources' },
     { id: 'categories', label: 'Categorie', icon: 'categories' },
+    { id: 'invitations', label: 'Inviti', icon: 'invite' },
   ] as const
   return (
     <div className="app-shell">
@@ -83,7 +85,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
         </a>
         <nav aria-label="Navigazione principale">
           {pages
-            .filter((item) => admin || !['catalog', 'categories'].includes(item.id))
+            .filter((item) => admin || !['catalog', 'categories', 'invitations'].includes(item.id))
             .map((item) => (
               <a
                 key={item.id}
@@ -155,6 +157,7 @@ function Workspace({
     setOnboarding(false)
     location.hash = '#news'
   }
+  if (admin && page === 'invitations') return <Invitations />
   if (onboarding)
     return (
       <Subscriptions

@@ -44,7 +44,8 @@ worker caches API responses or tokens.
 The `.example` templates are not active hosting configuration files.
 `frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
 does not mean that a frontend deployment exists. Do not deploy without separate
-approval. No new Alembic revision is needed: the current head is `0004`.
+approval. The current head is `0005`.
+For an existing `0004` deployment, follow the [invitation rollout](authentication.md#invite-friends-by-email) before deploying this version.
 
 ## Environment map
 
@@ -59,6 +60,7 @@ builds; do not allow wildcard OAuth redirect URLs.
 | `TNR_DOCS_ENABLED` | Render | `false` | Public |
 | `TNR_SCHEDULER_ENABLED` | Render | `false`, external collection for sleeping instances | Public |
 | `TNR_SUPABASE_URL` | Render | `https://PROJECT_REF.supabase.co`, JWT issuer/JWKS | Public |
+| `TNR_SUPABASE_PUBLISHABLE_KEY` | Render | Same public project key as the frontend, for Google invitation verification | Public |
 | `TNR_DATABASE_URL` | Render | SQLAlchemy URL for `tnr_app.PROJECT_REF` through the session pooler | **Secret**, includes password |
 | `supabase-ca.crt` | Render secret file | CA from the project, available as `/etc/secrets/supabase-ca.crt` | Public certificate; private configuration file |
 | `TNR_COLLECTION_TRIGGER_SECRET` | Render and GitHub Actions secret | Same random URL-safe value, 32–128 characters; activate only after hosting checks | **Secret** |
@@ -117,8 +119,8 @@ of dropping/recreating it. Run `backend/sql/check_app_role.sql` and verify:
 - Login is true; superuser, database/role creation, replication, bypass-RLS and
   inheritance flags are false. There are no memberships permitting `SET ROLE`.
 - Schema USAGE is true, CREATE is false; the role owns no `tnr` objects.
-- `app_users` permits SELECT only. Six data tables permit SELECT/INSERT/UPDATE/
-  DELETE; `alembic_version` has no runtime access. Sequences permit USAGE only.
+- `app_users` permits SELECT and reader-only INSERT, constrained by the migration `0005` RLS policies.
+  Seven data tables permit SELECT/INSERT/UPDATE/DELETE. `alembic_version` has no runtime access. Sequences permit USAGE only.
 - `anon`, `authenticated` and `service_role` have no `tnr` schema/table access.
 - `tnr` is not in Data API exposed schemas. Disable the Data API if unused by
   other project applications; this app uses direct SQL and Supabase Auth.
@@ -145,7 +147,7 @@ authorization. Preparing a plan does not connect to Supabase or authorize a copy
    by the migrations. All other application tables must be empty.
 3. Transfer with typed SQLAlchemy values in one transaction: `app_users`,
    `categories`, `sources`, `articles`, `collection_runs`, `subscriptions`, then
-   `article_read_states`. Keep UUIDs, Supabase subjects, primary keys, UTC times,
+   `article_read_states`, then `reader_invitations`. Keep UUIDs, Supabase subjects, primary keys, UTC times,
    active/role flags, source state and personal rows. Update the **same reserved
    owner row** from the snapshot, rather than creating another administrator.
    Reconcile the default categories with the snapshot before inserting sources;
@@ -218,7 +220,7 @@ the snapshot hash, revision, and counts/hashes for all seven tables. It contains
 no credentials, account identifiers, or record contents. A failed command can
 leave an empty report. Inspect the disposable target before a retry.
 
-The importer reads the source in read-only mode. It requires revision `0004`,
+The importer reads the source in read-only mode. It requires revision `0005`,
 valid SQLite integrity/foreign keys, and no unfinished collection. It checks
 the target's unchanged migration seeds under table locks. It copies typed rows
 in batches and compares every column before commit. It reads the snapshot into
@@ -258,7 +260,7 @@ Never print it or pass its password through a command-line argument.
 The URL must use `postgres.PROJECT_REF`, a Supabase session-pooler hostname,
 port `5432`, database `postgres`, `sslmode=verify-full`, and an absolute CA path.
 The plan pins the exact project reference, host, username, and CA checksum.
-It also pins the snapshot path/checksum, revision `0004`, and every table's
+It also pins the snapshot path/checksum, revision `0005`, and every table's
 count and normalized-row checksum. It contains no connection password or
 Auth subject values. Store it privately because it includes local paths.
 
@@ -486,7 +488,8 @@ python -m app.access delete-reader --subject VERIFIED_UUID --confirm-subject VER
 ```
 
 This irreversible operation requires an inactive reader, refuses the owner, and
-cascades only their subscriptions and read states. Shared sources/articles remain.
+removes their subscriptions, read states, and used email invitation. Shared sources/articles remain.
+Cancel any separate pending invitations for that person from **Inviti**.
 Delete the matching Supabase Auth user separately through an explicitly approved
 cloud operation. Keep access revoked between the two steps. Re-invitation after
 deletion creates a new profile; do not silently reconnect old backup data.

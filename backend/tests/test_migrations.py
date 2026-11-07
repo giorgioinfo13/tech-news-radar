@@ -6,7 +6,16 @@ from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from app.db import resolve_database_url
-from app.models import Category, Source
+from app.models import (
+    LOCAL_OWNER_ID,
+    AppUser,
+    Article,
+    ArticleReadState,
+    Category,
+    Source,
+    Subscription,
+)
+from app.transfer import TABLES, read_rows
 
 
 def test_initial_migration_matches_models_and_seeds_categories(database, migration_config):
@@ -19,6 +28,7 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
         "app_users",
         "subscriptions",
         "article_read_states",
+        "reader_invitations",
     }
     with Session(database) as session:
         categories = session.scalars(select(Category).order_by(Category.sort_order)).all()
@@ -47,6 +57,36 @@ def test_repeated_upgrade_preserves_user_changes(database, migration_config):
         assert len(categories) == 7
         assert categories[0].name == "My AI news"
         assert session.scalar(select(Source)).name == "My source"
+
+
+def test_invitation_migration_preserves_existing_profiles_and_personal_data(
+    database, migration_config
+):
+    command.downgrade(migration_config, "0004")
+    with Session(database) as session, session.begin():
+        session.get(AppUser, LOCAL_OWNER_ID).display_name = "Existing owner"
+        source = Source(name="Preserved source", feed_url="https://example.org/preserved")
+        session.add(source)
+        session.flush()
+        article = Article(
+            source_id=source.id, title="Preserved article", url="https://example.org/a"
+        )
+        session.add(article)
+        session.flush()
+        session.add_all(
+            [
+                Subscription(user_id=LOCAL_OWNER_ID, source_id=source.id),
+                ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id),
+            ]
+        )
+    tables = [table for table in TABLES if table.name != "reader_invitations"]
+    with database.connect() as connection:
+        before = {table.name: read_rows(connection, table) for table in tables}
+    command.upgrade(migration_config, "head")
+    command.check(migration_config)
+    with database.connect() as connection:
+        assert {table.name: read_rows(connection, table) for table in tables} == before
+        assert "reader_invitations" in inspect(connection).get_table_names()
 
 
 def test_downgrade_and_upgrade_on_disposable_database(database, migration_config):

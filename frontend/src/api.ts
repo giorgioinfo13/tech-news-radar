@@ -1,3 +1,10 @@
+export interface ReaderInvitation {
+  id: string
+  email: string
+  display_name: string
+  created_at: string
+  accepted_at: string | null
+}
 export interface AppUser {
   id: string
   display_name: string

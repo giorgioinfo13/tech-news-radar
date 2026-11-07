@@ -1,15 +1,15 @@
-"""Operator-only access provisioning. No HTTP endpoint or automatic Auth registration."""
+"""Operator commands for owner linking, reader approval, revocation, and deletion."""
 
 import argparse
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db import create_database_engine
-from app.models import LOCAL_OWNER_ID, AppUser
+from app.models import LOCAL_OWNER_ID, AppUser, ReaderInvitation
 
 
 def link_owner(session: Session, subject: UUID) -> UUID:
@@ -61,6 +61,7 @@ def delete_reader(session: Session, subject: UUID) -> UUID:
     if user is None or user.role != "reader" or user.active or user.id == LOCAL_OWNER_ID:
         raise ValueError("Deletion requires an existing, revoked reader")
     user_id = user.id
+    session.execute(delete(ReaderInvitation).where(ReaderInvitation.accepted_subject == subject))
     session.delete(user)
     session.flush()
     return user_id

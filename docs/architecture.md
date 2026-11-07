@@ -34,6 +34,8 @@ See [PostgreSQL configuration and tests](postgresql.md) for privilege boundaries
 No existing data is transferred, and no Supabase configuration is applied automatically.
 
 Revision `0004` adds a unique Supabase identity link. Operator commands approve readers or link the reserved owner.
+Revision `0005` adds administrator email invitations and transactional reader creation after verified Google identity checks.
+Existing profiles and revoked status take precedence. No HTTP route changes roles or assigns the owner.
 See [authentication and access approval](authentication.md).
 
 Revision `0003` adds `AppUser`, `Subscription`, and `ArticleReadState`.

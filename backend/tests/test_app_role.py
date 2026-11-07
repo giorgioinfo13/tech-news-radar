@@ -1,16 +1,20 @@
 """Exercise the deployment SQL only on an isolated local PostgreSQL database."""
 
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 
 from app.db import create_database_engine
+from app.invitations import claim_invitation
+from app.models import LOCAL_OWNER_ID, AppUser, ReaderInvitation
 
 SQL_ROOT = Path(__file__).resolve().parents[1] / "sql"
 
 
-def test_runtime_role_can_use_app_data_but_cannot_provision_or_migrate(database):
+def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate(database):
     if database.dialect.name != "postgresql":
         pytest.skip("Run with --postgres to validate role setup on a disposable server")
     created = False
@@ -38,6 +42,61 @@ def test_runtime_role_can_use_app_data_but_cannot_provision_or_migrate(database)
             connection.exec_driver_sql("UPDATE tnr.sources SET name = 'Updated'")
             assert source_id > 0
             connection.exec_driver_sql("DELETE FROM tnr.sources")
+        subject = uuid4()
+        with Session(runtime) as session, session.begin():
+            session.add(
+                ReaderInvitation(
+                    email="friend@example.org",
+                    display_name="Friend",
+                    invited_by=LOCAL_OWNER_ID,
+                )
+            )
+
+        class VerifiedGoogleIdentity:
+            def matches(self, *args):
+                return True
+
+        with Session(runtime) as session:
+            user_id = claim_invitation(
+                session,
+                subject,
+                "friend@example.org",
+                "test-token",
+                VerifiedGoogleIdentity(),
+            )
+            assert session.get(AppUser, user_id).role == "reader"
+        for role, candidate in (("admin", uuid4()), ("reader", uuid4())):
+            with pytest.raises(DBAPIError), Session(runtime) as session, session.begin():
+                session.add(
+                    AppUser(
+                        supabase_subject=candidate, display_name="Forbidden", role=role, active=True
+                    )
+                )
+                session.flush()
+        # Even a consumed invitation must never authorize an administrator insert.
+        admin_subject = uuid4()
+        with Session(runtime) as session, session.begin():
+            from app.db import utc_now
+
+            session.add(
+                ReaderInvitation(
+                    email="admin@example.org",
+                    display_name="Not admin",
+                    invited_by=LOCAL_OWNER_ID,
+                    accepted_subject=admin_subject,
+                    accepted_at=utc_now(),
+                )
+            )
+        with pytest.raises(DBAPIError), Session(runtime) as session, session.begin():
+            session.add(
+                AppUser(
+                    supabase_subject=admin_subject,
+                    display_name="Forbidden",
+                    role="admin",
+                    active=True,
+                )
+            )
+            session.flush()
         for sql in (
             "UPDATE tnr.app_users SET active = true",
             "DELETE FROM tnr.app_users",

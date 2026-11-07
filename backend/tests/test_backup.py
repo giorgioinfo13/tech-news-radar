@@ -24,7 +24,7 @@ def test_backup_preserves_migrated_data_and_never_overwrites(database, tmp_path)
     backup_module.backup(source, destination)
     assert destination.stat().st_mode & 0o777 == 0o600
     with sqlite3.connect(destination) as copy:
-        assert copy.execute("SELECT version_num FROM alembic_version").fetchall() == [("0004",)]
+        assert copy.execute("SELECT version_num FROM alembic_version").fetchall() == [("0005",)]
         assert copy.execute("SELECT name FROM sources").fetchall() == [("Preserved",)]
         assert copy.execute("SELECT count(*) FROM app_users").fetchone() == (1,)
     with pytest.raises(FileExistsError):

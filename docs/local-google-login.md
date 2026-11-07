@@ -12,7 +12,7 @@ See [authentication](authentication.md) for identity checks and operator-command
 1. Check the branch, working tree, and listeners on ports `8000` and `5173`.
 2. Confirm that each listener belongs to this repository before you stop or restart it.
 3. Check the configured database type without printing credentials.
-4. Confirm that the SQLite database uses Alembic revision `0004`.
+4. Confirm that the SQLite database uses Alembic revision `0005`.
 5. Record the owner's profile ID, role, active status, identity-link status, subscriptions, and read-state counts privately.
 
 The reserved owner ID is `00000000-0000-0000-0000-000000000001`.
@@ -89,6 +89,7 @@ The backend and frontend do not need it. The callback on port `54321` applies to
 
 ```dotenv
 TNR_SUPABASE_URL=https://PROJECT_REF.supabase.co
+TNR_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 ```
@@ -96,6 +97,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 | Variable | Consumer | Classification |
 | --- | --- | --- |
 | `TNR_SUPABASE_URL` | FastAPI JWT verifier | Public project origin |
+| `TNR_SUPABASE_PUBLISHABLE_KEY` | FastAPI Google invitation verification | Same public API key as the frontend |
 | `VITE_SUPABASE_URL` | Browser Supabase SDK | Public project origin |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser Supabase SDK | Public API key, not an access token |
 

@@ -30,6 +30,9 @@ class SupabaseVerifier:
         self._unavailable_until = 0.0
 
     def verify(self, token: str) -> UUID:
+        return UUID(self.verify_claims(token)["sub"])
+
+    def verify_claims(self, token: str) -> dict:
         try:
             if not token or len(token) > 16384 or len(token.partition(".")[0]) > 2048:
                 raise InvalidAccessToken
@@ -72,7 +75,8 @@ class SupabaseVerifier:
             ):
                 raise InvalidAccessToken
             UUID(claims["session_id"])
-            return UUID(claims["sub"])
+            UUID(claims["sub"])
+            return claims
         except (
             jwt.PyJWTError,
             ValueError,

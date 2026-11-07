@@ -203,6 +203,7 @@ def test_postgres_namespace_privileges_and_storage(database):
             "app_users",
             "subscriptions",
             "article_read_states",
+            "reader_invitations",
         }
         assert (
             connection.exec_driver_sql("""
@@ -217,7 +218,13 @@ def test_postgres_namespace_privileges_and_storage(database):
             assert not connection.execute(
                 text("SELECT has_schema_privilege(:role, 'tnr', 'USAGE')"), {"role": role}
             ).scalar_one()
-            for table in ("articles", "app_users", "subscriptions", "article_read_states"):
+            for table in (
+                "articles",
+                "app_users",
+                "subscriptions",
+                "article_read_states",
+                "reader_invitations",
+            ):
                 assert not connection.execute(
                     text("SELECT has_table_privilege(:role, :table, 'SELECT')"),
                     {"role": role, "table": f"tnr.{table}"},

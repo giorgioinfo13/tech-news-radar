@@ -11,6 +11,7 @@ from app.api.categories import router as categories_router
 from app.api.collection import router as collection_router
 from app.api.dependencies import get_current_user
 from app.api.health import router as health_router
+from app.api.invitations import router as invitations_router
 from app.api.personal import router as personal_router
 from app.api.sources import router as sources_router
 from app.auth import SupabaseVerifier
@@ -19,6 +20,7 @@ from app.collection.service import Collector
 from app.collection.trigger import CollectionTrigger
 from app.config import Settings
 from app.db import create_database_engine
+from app.invitations import GoogleIdentityVerifier
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -63,6 +65,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = config
     app.state.auth_verifier = SupabaseVerifier(config.supabase_url) if config.supabase_url else None
 
+    app.state.google_identity_verifier = (
+        GoogleIdentityVerifier(config.supabase_url, config.supabase_publishable_key)
+        if config.supabase_url
+        else None
+    )
+
     @app.middleware("http")
     async def private_responses(request, call_next):
         response = await call_next(request)
@@ -76,6 +84,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router, prefix="/api")
     app.include_router(collection_router, prefix="/api")
-    for router in (categories_router, sources_router, articles_router, personal_router):
+    for router in (
+        categories_router,
+        sources_router,
+        articles_router,
+        personal_router,
+        invitations_router,
+    ):
         app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])
     return app

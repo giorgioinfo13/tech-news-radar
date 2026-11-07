@@ -20,6 +20,8 @@ services:
         value: "false"
       - key: TNR_SUPABASE_URL
         sync: false
+      - key: TNR_SUPABASE_PUBLISHABLE_KEY
+        sync: false
       - key: TNR_DATABASE_URL
         sync: false
 # Add supabase-ca.crt as a secret file before the authorized deploy.

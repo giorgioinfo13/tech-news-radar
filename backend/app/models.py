@@ -195,3 +195,27 @@ class ArticleReadState(Base):
     read_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=utc_now, server_default=func.current_timestamp()
     )
+
+
+class ReaderInvitation(Base):
+    __tablename__ = "reader_invitations"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    email: Mapped[str] = mapped_column(text_type(254), unique=True)
+    display_name: Mapped[str] = mapped_column(String(120))
+    invited_by: Mapped[UUID] = mapped_column(ForeignKey("app_users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
+    accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    # No FK that could reset acceptance when a profile is removed outside the operator command.
+    accepted_subject: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(email) BETWEEN 3 AND 254 AND email = lower(trim(email))",
+            name="normalized_email",
+        ),
+        CheckConstraint("length(trim(display_name)) BETWEEN 1 AND 120", name="invitation_name"),
+        CheckConstraint(
+            "(accepted_at IS NULL) = (accepted_subject IS NULL)", name="invitation_claim"
+        ),
+    )

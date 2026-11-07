@@ -22,14 +22,24 @@ from app.models import (
     ArticleReadState,
     Category,
     CollectionRun,
+    ReaderInvitation,
     Source,
     Subscription,
 )
 
-REVISION = "0004"
+REVISION = "0005"
 TABLES = tuple(
     model.__table__
-    for model in (AppUser, Category, Source, Article, CollectionRun, Subscription, ArticleReadState)
+    for model in (
+        AppUser,
+        Category,
+        Source,
+        Article,
+        CollectionRun,
+        Subscription,
+        ArticleReadState,
+        ReaderInvitation,
+    )
 )
 SEQUENCED_TABLES = ("categories", "sources", "articles", "collection_runs")
 # Frozen migration seed contract, not the application's editable category catalog.
@@ -93,7 +103,7 @@ def check_layout(connection: Connection) -> None:
     if connection.execute(text("SELECT version_num FROM alembic_version")).scalars().all() != [
         REVISION
     ]:
-        raise TransferError("Both databases must use migration revision 0004.")
+        raise TransferError("Both databases must use migration revision 0005.")
     for table in TABLES:
         if {column["name"] for column in inspector.get_columns(table.name, schema=schema)} != set(
             table.c.keys()

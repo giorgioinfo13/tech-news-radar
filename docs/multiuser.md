@@ -15,10 +15,11 @@ Subscriptions and article read states belong to individual users. Administrator 
 | Create, change, assign, or delete categories | No | Yes |
 | Refresh a source | Followed and globally enabled sources | Any globally enabled source |
 | View shared collection history | Yes | Yes |
-| Change application accounts or roles through HTTP | No endpoint | No endpoint |
+| Create, list, or cancel pending reader invitations | No | Yes |
+| Change existing application accounts or roles through HTTP | No endpoint | No endpoint |
 
 Unknown and inactive users cannot access data endpoints. New application records default to `reader` and inactive.
-Activation must be explicit. No first-registration administrator rule exists.
+Activation requires operator approval or an administrator email invitation claimed by a verified Google identity. No first-registration administrator rule exists.
 The backend loads role and active status from the application database on every request.
 It does not accept these values from client JSON, query parameters, headers, or Supabase user metadata.
 
@@ -51,6 +52,7 @@ The shared models work on SQLite and PostgreSQL:
 - `app_users`: UUID identity, display name, `admin`/`reader` role, active status, and creation timestamp.
 - `subscriptions`: composite primary key `(user_id, source_id)` and creation timestamp.
 - `article_read_states`: composite primary key `(user_id, article_id)` and read timestamp.
+- `reader_invitations`: unique normalized email, display name, inviting administrator, and one-time acceptance state.
 
 Foreign keys cascade personal data cleanup. Indexes on `source_id` and `article_id` support reverse lookups and deletion.
 The application uses conflict-safe inserts for repeated subscription and read requests.

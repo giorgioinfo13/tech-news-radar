@@ -51,6 +51,8 @@ Alembic creates the namespace in the migration transaction before it runs the un
 Revision `0002` adapts PostgreSQL types and constraints. It performs no SQLite table changes.
 Revision `0003` adds application users and personal data on both databases. It preserves the reserved local owner's existing read flags.
 Revision `0004` adds a unique identity link on the existing private user table. It does not grant new privileges.
+Revision `0005` adds `reader_invitations` and reader-only INSERT policies on `app_users`, without changing existing profiles.
+It revokes inherited Data API grants on the new table. Runtime grants remain a separate operator operation.
 
 Set `TNR_MIGRATION_DATABASE_URL` to an owner connection when the application uses a restricted database role.
 Alembic and the operator access commands use this URL for explicit database operations. If unset, it uses `TNR_DATABASE_URL`.
@@ -65,7 +67,7 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0004 (head)`. Applying these commands to Supabase requires separate owner authorization.
+The expected revision is `0005 (head)`. Applying these commands to Supabase requires separate owner authorization.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 
@@ -87,15 +89,19 @@ Revision `0003` also revokes table privileges on the new personal tables, includ
 It does not change the `public`, `auth`, or `storage` schemas or create cloud roles.
 The schema boundary remains necessary for future tables, including tables that inherit broad project default grants.
 
-Use a separate login role for the backend before deployment. It needs `USAGE` on `tnr` and `SELECT` on `app_users`.
-It needs CRUD on catalog, collection, subscription, and read-state tables, plus `USAGE` on their sequences.
-Account and role administration is a separate privileged operation, not a public API in this step.
+Use a separate login role for the backend before deployment. It needs `USAGE` on `tnr` and `SELECT, INSERT` on `app_users`.
+It needs CRUD on catalog, collection, subscription, read-state, and invitation tables, plus `USAGE` on their sequences.
+The API can create only active readers through explicit invitations. Existing role and access changes remain privileged operator operations.
 It must not own the schema or tables, inherit privileged roles, or have `SUPERUSER`, `BYPASSRLS`, `CREATEROLE`, or `CREATEDB` privileges.
 Keep schema ownership and DDL permissions on the migration connection.
 Provisioning roles, passwords, grants, and Data API settings remains an explicit cloud-setup task.
 Do not run the application as the supplied Supabase `postgres` owner in a public deployment.
 
-RLS is not the access boundary in this step. No per-user policies exist yet.
+RLS on `app_users` permits runtime reads and inserts of active readers with a matching consumed invitation.
+The runtime role cannot insert administrators or update/delete profiles. It cannot change these policies.
+These policies do not isolate individual users. API authorization remains the per-user access boundary.
+For an existing runtime role, review `backend/sql/enable_reader_invitations.sql` after migration `0005`.
+Both operations require separate authorization for a remote database.
 Owners and roles with `BYPASSRLS` can bypass RLS. SQL connections do not acquire end-user authorization from Supabase Auth automatically.
 FastAPI verifies Supabase tokens and checks approved, active profiles and application roles.
 Its alternative local identity adapter is not authentication.

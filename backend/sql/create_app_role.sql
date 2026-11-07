@@ -5,8 +5,13 @@
 BEGIN;
 DO $setup$
 BEGIN
-    IF to_regclass('tnr.app_users') IS NULL THEN
-        RAISE EXCEPTION 'Apply Alembic migrations before role setup';
+    IF to_regclass('tnr.reader_invitations') IS NULL THEN
+        RAISE EXCEPTION 'Apply Alembic migration 0005 before role setup';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid='tnr.app_users'::regclass AND relrowsecurity)
+       OR NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='tnr.app_users'::regclass
+                      AND polname='app_users_insert_reader') THEN
+        RAISE EXCEPTION 'Reader-only provisioning requires the migrated RLS policies';
     END IF;
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tnr_app') THEN
         RAISE EXCEPTION 'tnr_app already exists: inspect its grants instead of recreating it';
@@ -16,10 +21,10 @@ BEGIN
 END
 $setup$;
 GRANT USAGE ON SCHEMA tnr TO tnr_app;
-GRANT SELECT ON tnr.app_users TO tnr_app;
+GRANT SELECT, INSERT ON tnr.app_users TO tnr_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     tnr.categories, tnr.sources, tnr.articles, tnr.collection_runs,
-    tnr.subscriptions, tnr.article_read_states TO tnr_app;
+    tnr.subscriptions, tnr.article_read_states, tnr.reader_invitations TO tnr_app;
 GRANT USAGE ON SEQUENCE
     tnr.categories_id_seq, tnr.sources_id_seq,
     tnr.articles_id_seq, tnr.collection_runs_id_seq TO tnr_app;

@@ -28,12 +28,20 @@ class Settings(BaseSettings):
     # Local development only. No request header/query/body may choose an identity.
     local_user_id: UUID | None = None
     supabase_url: str | None = None
+    supabase_publishable_key: str | None = Field(default=None, repr=False)
     scheduler_enabled: bool = True
     scheduler_poll_seconds: int = Field(default=30, ge=1, le=300)
     collection_trigger_secret: SecretStr | None = None
     feed_timeout_seconds: float = Field(default=10, gt=0, le=60)
     feed_max_bytes: int = Field(default=2_000_000, ge=1024, le=10_000_000)
     feed_max_entries: int = Field(default=5000, ge=1, le=10000)
+
+    @field_validator("supabase_publishable_key")
+    @classmethod
+    def validate_publishable_key(cls, value: str | None) -> str | None:
+        if value is not None and not re.fullmatch(r"sb_publishable_[A-Za-z0-9_-]{1,200}", value):
+            raise ValueError("Use a Supabase publishable key, never a privileged key")
+        return value
 
     @field_validator("collection_trigger_secret")
     @classmethod

@@ -20,7 +20,7 @@ SELECT c.relname, pg_get_userbyid(c.relowner) AS owner
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'tnr' AND pg_get_userbyid(c.relowner) = 'tnr_app';
 
--- app_users: SELECT only; six data tables: SELECT/INSERT/UPDATE/DELETE.
+-- app_users: SELECT/INSERT with reader-only RLS; data/invitation tables: CRUD.
 -- alembic_version: no access. TRUNCATE and REFERENCES always false.
 SELECT table_name,
        has_table_privilege('tnr_app', format('tnr.%I', table_name), 'SELECT') AS sel,
@@ -48,3 +48,8 @@ WHERE r.rolname IN ('anon', 'authenticated', 'service_role') AND n.nspname = 'tn
   AND c.relkind IN ('r', 'p')
   AND has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER');
 -- The last query must return no rows. Check Data API exposed schemas separately.
+
+-- Both policies and relrowsecurity=true are required for runtime reader provisioning.
+SELECT relrowsecurity FROM pg_class WHERE oid='tnr.app_users'::regclass;
+SELECT policyname, cmd, qual, with_check FROM pg_policies
+WHERE schemaname='tnr' AND tablename='app_users';

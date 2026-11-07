@@ -17,12 +17,14 @@ It accepts ES256 and RS256 signatures from the configured project's public JWKS 
 It rejects anonymous users and tokens whose database role is not `authenticated`.
 This token role is not the application's `admin` or `reader` role.
 The application loads its role and active status from `app_users` on every request.
-Neither `user_metadata`, `app_metadata`, email addresses, nor Google test-user lists grant application access.
+Neither user-editable metadata nor Google test-user lists grant application access.
+An email grants access only through an explicit administrator invitation and the verified Google identity check below.
 
 Revision `0004` adds a nullable, unique `supabase_subject` to `app_users`.
 Existing profiles and personal data keep their IDs. No profile receives an identity automatically.
 The backend looks up the verified subject through this link. It never treats a JWT subject as an application profile ID.
-No HTTP endpoint creates profiles, changes roles, or links the reserved administrator.
+No HTTP endpoint changes existing roles or links the reserved administrator.
+Revision `0005` adds administrator email invitations. A valid invitation creates one active reader at first authenticated access.
 An unapproved Supabase user receives `403` and creates no application data.
 
 The application database supports one Supabase Auth project.
@@ -41,6 +43,7 @@ Set these values in the private root `.env` for local integration testing, after
 
 ```dotenv
 TNR_SUPABASE_URL=https://PROJECT_REF.supabase.co
+TNR_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 ```
@@ -48,7 +51,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 Both URLs must identify the same project. Only the `VITE_*` values enter the browser build.
 Use the project's public publishable key, never a secret key, service-role key, or database password.
 The frontend accepts `sb_publishable_` keys; legacy JWT API keys are not supported by this configuration.
-The backend needs only `TNR_SUPABASE_URL` to verify tokens. Restart Vite after environment changes; rebuild production assets after changes.
+The backend verifies JWT signatures without an API key.
+Email invitations additionally require `TNR_SUPABASE_PUBLISHABLE_KEY` to verify the Google identity through Supabase Auth.
+Use the same public key as the frontend. Existing approved users do not require this additional request.
+Restart affected local servers after environment changes. Rebuild production frontend assets after frontend configuration changes.
 
 Remove `TNR_LOCAL_USER_ID` and `VITE_LOCAL_MODE` when you enable Supabase authentication.
 Setting both causes a configuration error. Failed bearer authentication never falls back to a local administrator.
@@ -75,15 +81,64 @@ An unavailable key service returns `503`, with `Retry-After: 10`.
 Invalid or missing tokens return `401`. Unknown or inactive application users return `403`.
 Supabase can also cache its JWKS response upstream. Coordinate key rotation with the official signing-key guidance.
 
-Apply migration `0004` explicitly to an authorized database before you enable the API or run access commands.
+Apply migration `0005` explicitly to an authorized database before you enable the API or run access commands.
 The API and access commands never apply migrations automatically.
 Back up existing data before migration. Supabase migrations still require separate owner authorization.
 Downgrading to `0003` removes identity links and blocks Supabase access, but preserves profiles, subscriptions, and read states.
 
+## Invite friends by email
+
+This feature requires migration `0005`, the runtime grants, and the backend public key described above.
+Source code alone does not activate it on an existing deployment.
+
+1. Sign in as the administrator.
+2. Open **Inviti**.
+3. Enter the person's display name and their Google account email.
+4. Select **Salva invito**.
+5. Share the application link with that person through your usual channel.
+
+A pending invitation appears as **In attesa**. Select **Annulla invito** to remove it before use.
+At first login, the backend creates an active reader and marks the invitation **Utilizzato**.
+The reader starts with no subscriptions or read states. The existing source-selection screen guides them.
+If the person already sees **Accesso riservato**, they can select **Verifica di nuovo** after you save the invitation.
+
+The list contains invitations, not all existing users. It cannot change roles or reactivate a revoked account.
+Used invitations cannot be cancelled through HTTP. Use the operator commands below for revocation and reactivation.
+Adding an invitation for an existing profile does not change that profile or consume the invitation.
+Cancel such unused invitations when they are unnecessary.
+
+Email matching ignores case and surrounding spaces. It accepts ASCII email addresses and preserves dots and plus aliases.
+Use the Google account email itself, not an alternate forwarding address.
+Duplicate emails return `409`. Names, emails, and acceptance timestamps are visible only to administrators through these routes.
+`GET/POST /api/invitations` and `DELETE /api/invitations/{id}` require an active administrator.
+The API accepts no role, subject, or acceptance fields in invitation input.
+
+For an unknown JWT subject, the backend first checks for a pending email invitation.
+It then requests the current user from the fixed Supabase `/auth/v1/user` endpoint with that bearer token and public key.
+The response must identify the same subject and confirmed email, with a matching verified Google identity.
+User-editable `user_metadata` is not evidence of email ownership. An unconfirmed, different, or non-Google identity cannot claim the invitation.
+A failed upstream lookup leaves the invitation pending. Temporary failures return `503` with a retry delay.
+
+The claim and reader insert share one transaction. Concurrent claims create at most one profile.
+A concurrent cancellation prevents a later claim. Existing profile links and inactive status take precedence over invitations.
+A used invitation cannot create another account or restore a deleted profile automatically.
+The operator `delete-reader` command also removes that reader's used invitation and email.
+Cancel unrelated pending invitations separately when processing a deletion request.
+
+Before production rollout, run the [isolated PostgreSQL tests](postgresql.md#isolated-postgresql-tests), including the runtime role checks.
+For an existing production deployment, prepare a fresh backup and obtain authorization before remote changes.
+Apply migration `0005` with the operator connection. Review and apply `backend/sql/enable_reader_invitations.sql` separately.
+Set the public backend key on Render, then deploy and verify the backend before the frontend.
+Keep automatic deployment disabled unless separately authorized. See [database privileges](postgresql.md#data-api-and-database-privileges).
+
+Reference: Supabase [server-verified user retrieval](https://supabase.com/docs/reference/javascript/auth-getuser)
+and [user identities](https://supabase.com/docs/guides/auth/identities).
+
 ## Approve the administrator and friends
 
-This version uses operator approval by Supabase user UUID. It does not send invitation emails.
-The person first authenticates with Google through Supabase, then waits for your approval before accessing application data.
+Link the administrator by verified Supabase UUID with the operator command below.
+For friends, use administrator email invitations before their first login, or the existing operator approval after login.
+Neither method sends email messages.
 Until approval, the frontend shows **Accesso riservato**. After approval, the person can select **Verifica di nuovo** without signing in again.
 A Supabase account alone does not mean that the person is an approved application user.
 
@@ -95,7 +150,8 @@ Do not paste access tokens or private identity lists into Git, issue reports, or
 Run the following commands from `backend/` against the intended application database.
 Replace the uppercase placeholders with verified UUIDs. These examples are not ready to run.
 The commands use `TNR_MIGRATION_DATABASE_URL` when set, otherwise `TNR_DATABASE_URL`.
-They need write access to `app_users`. The running API needs only read access to that table.
+They need privileged write access to `app_users`. The runtime role cannot update or delete profiles.
+Its PostgreSQL insert permission is limited by the reader-only RLS policy from migration `0005`.
 An operator command changes its configured database, so remote execution requires explicit authorization.
 
 Link your verified account to the reserved administrator:
@@ -204,6 +260,15 @@ It does not load the Google Identity Services script or use a direct Google ID-t
 The official branding reference is listed below. No third-party font request is added.
 
 ## Verification
+
+Email-invitation implementation checks on 2026-11-07:
+
+- Backend: 423 tests passed on temporary SQLite databases with real Alembic migrations. All 31 PostgreSQL-only checks were skipped.
+- Frontend: 50 tests passed. Ruff, ESLint, Prettier, TypeScript, and the production build passed.
+- Browser: creation and cancellation passed against a disposable local database. Light/dark themes and a 390-pixel mobile viewport were checked.
+- PostgreSQL integration remains unverified for this change. No local PostgreSQL server was available, and the installed Docker application could not start.
+- The new invitation flow was not tested with live Google identities or physical phones. Auth HTTP responses were mocked in automated tests.
+- No personal database migration, cloud modification, real invitation, or deployment was performed for this implementation.
 
 Tests use generated EC/RSA signatures, mocked JWKS HTTP responses, and real Alembic migrations on disposable databases.
 They check malformed, expired, forged, wrong-project, wrong-audience, anonymous, and privileged-role tokens.
