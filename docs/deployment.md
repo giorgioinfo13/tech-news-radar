@@ -349,6 +349,34 @@ and [PostgreSQL read-only transactions](https://www.postgresql.org/docs/17/sql-s
 First verify Vercel account/project availability. Select stable domains and
 nearby supported regions; no hostname in a template is a provisioned service.
 
+#### Configure without deployment
+
+Render's new Web Service form has no separate save-only action. The final
+**Deploy web service** button creates the service and starts its first deployment.
+Setting **Auto-Deploy** to **Off** does not prevent that first deployment.
+Prepare the form, but leave it unsubmitted until deployment is approved.
+Keep a private record of its values because an open form is not persistent configuration.
+Do not treat the proposed service name as a confirmed hostname.
+
+Vercel's New Project page offers **Create an empty project** below the import options.
+This creates a project without a deployment or Git connection.
+Rename the project, then save its build settings and Production environment variables.
+Keep the Git repository disconnected during this phase.
+Set **Ignored Build Step → Behavior** to **Don't build anything** (`exit 0`).
+This setting skips Git builds but does not block every manual deployment method.
+Do not use Deploy, CLI deployment, or file uploads during configuration.
+Verify **No Production Deployment** and **No Preview Deployments** in the project overview.
+
+Before an approved deployment, connect the intended repository and verify the production branch.
+Review the ignored-build setting before changing it, including its effect on preview builds.
+Keep preview credentials unset and approve the intended deployment method separately.
+Record account-specific settings and credential paths outside Git.
+
+References: [Render service creation](https://render.com/docs/web-services)
+and [Vercel project management](https://vercel.com/docs/projects/managing-projects).
+
+#### Deployment settings and verification
+
 Render: use the repository root, Python 3.13 from `.python-version`, and the
 commands in the template. `pip install -r backend/requirements.txt` uses pinned
 requirements. The start command binds `$PORT` on `0.0.0.0`, with one Uvicorn
