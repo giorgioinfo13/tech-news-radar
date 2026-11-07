@@ -33,6 +33,7 @@ worker caches API responses or tokens.
 | --- | --- |
 | `deploy/render.yaml.example` | Python service settings; importing a Blueprint is a deploy operation |
 | `deploy/vercel.json.example` | API proxy, cache policy and response headers; replace the backend hostname first |
+| `frontend/vercel.json` | Prepared Vercel configuration for the verified Render hostname; automatic Git deployments disabled |
 | `backend/sql/create_app_role.sql` | One-time, separately authorized database-role setup after migrations |
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
 | `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
@@ -40,9 +41,10 @@ worker caches API responses or tokens.
 | `backend/app/transfer_supabase.py` | Offline transfer plan, read-only remote checks, and explicit execution against a pinned Supabase target |
 | `frontend/public/privacy.html` | Public explanation of authentication, personal data and deletion requests |
 
-The templates are deliberately not active hosting configuration files. Do not
-import them into a provider or connect Git for automatic deployment in this
-phase. No new Alembic revision is needed: the current head is `0004`.
+The `.example` templates are not active hosting configuration files.
+`frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
+does not mean that a frontend deployment exists. Do not deploy without separate
+approval. No new Alembic revision is needed: the current head is `0004`.
 
 ## Environment map
 
@@ -372,8 +374,15 @@ Review the ignored-build setting before changing it, including its effect on pre
 Keep preview credentials unset and approve the intended deployment method separately.
 Record account-specific settings and credential paths outside Git.
 
+The repository configuration also sets `git.deploymentEnabled` to `false`.
+This disables automatic Git deployments for all branches, including previews.
+Keep this setting until automatic publication is separately approved.
+It does not prohibit an explicitly requested manual deployment.
+
 References: [Render service creation](https://render.com/docs/web-services)
 and [Vercel project management](https://vercel.com/docs/projects/managing-projects).
+See [Vercel Git configuration](https://vercel.com/docs/project-configuration/git-configuration)
+for the repository-level deployment switch.
 
 #### Deployment settings and verification
 
@@ -387,12 +396,19 @@ template, but initial Blueprint creation still deploys. Keep it manual.
 Vercel: set Root Directory to `frontend`, framework Vite, Node 24.x, install
 `npm ci`, build `npm run build`, output `dist`. Enable inclusion of files outside
 the Root Directory: the frontend imports branding assets from `docs/assets`.
-Copy `deploy/vercel.json.example` to `frontend/vercel.json` and replace
-`REPLACE_BACKEND` with the verified Render service hostname. This file contains
-no secrets and can be committed after review. Static JSON does not interpolate
+The prepared `frontend/vercel.json` routes `/api/:path*` to
+`https://tech-news-radar-api.onrender.com/api/:path*`.
+For another installation, copy `deploy/vercel.json.example` and replace its backend placeholder.
+This file contains no secrets and can be committed after review. Static JSON does not interpolate
 an environment variable into the rewrite. The app uses hash navigation; OAuth
 returns to `/`, so there is no need for a blanket rewrite of missing assets to
 HTML. Keep Git deployments/previews disabled until their publication is approved.
+
+Before the first frontend deployment, commit and push the reviewed configuration.
+Verify that the selected remote commit contains `frontend/vercel.json`.
+Confirm the assigned frontend domain before updating the OAuth allowlist.
+A local Vite build does not execute Vercel rewrites or verify its CDN behavior.
+After deployment, test the proxy with authenticated requests and verify cache headers.
 
 Use HTTPS on both provider domains. Verify HTTP redirects to HTTPS at the edge,
 the proxy preserves Authorization, and responses to two users are never cache
