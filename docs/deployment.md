@@ -134,14 +134,17 @@ must be reviewed and tested in that phase; this guide does not authorize a copy.
    the SQLite backup below and record its SHA-256, Alembic head, and counts for
    all seven application tables. Verify no collection is still `running`.
 2. Apply the real migrations to an isolated temporary PostgreSQL database. It
-   must contain only the migration-created owner and no imported user data.
+   must contain only the reserved owner and the eight default categories created
+   by the migrations. All other application tables must be empty.
 3. Transfer with typed SQLAlchemy values in one transaction: `app_users`,
    `categories`, `sources`, `articles`, `collection_runs`, `subscriptions`, then
    `article_read_states`. Keep UUIDs, Supabase subjects, primary keys, UTC times,
    active/role flags, source state and personal rows. Update the **same reserved
    owner row** from the snapshot, rather than creating another administrator.
-4. Reject conflicting or nonempty target data. Reset the four integer sequences
-   to their imported maxima (or initial value for empty tables). Do not copy
+   Reconcile the default categories with the snapshot before inserting sources;
+   preserve the snapshot's category IDs and values.
+4. Reject target data other than the unchanged migration seeds. Reset the four
+   integer sequences to their imported maxima (or initial value for empty tables). Do not copy
    SQLite DDL, internal sequences, or run a `.dump` directly on PostgreSQL.
 5. Compare every normalized row, table count, relationship and identity mapping,
    including revoked users, subscriptions and read states. Counts alone are not
