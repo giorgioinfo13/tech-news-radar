@@ -148,6 +148,8 @@ TNR_TEST_POSTGRES_URL='postgresql+psycopg://postgres:tnr-local-test-only@127.0.0
 
 Docker is an optional way to supply that server. These commands use a disposable container without a persistent volume:
 
+If Docker Desktop is installed but stopped, start it with `docker desktop start` before these commands.
+
 ```sh
 docker run --detach --rm --name tnr-postgres-check \
   --publish 127.0.0.1:55439:5432 \
@@ -178,3 +180,19 @@ The PostgreSQL-support step validation on 2026-11-06 used Python 3.13.3, Psycopg
 - No generated test databases remained. The disposable container was removed after validation.
 
 No personal SQLite database or Supabase project was migrated during these checks.
+
+### Email invitation validation
+
+The isolated PostgreSQL run on 2026-11-07 tested commit `a0bcd9d` with PostgreSQL 17.11.
+
+- The full backend suite passed: **453 passed, 1 skipped** in 38.79 seconds.
+- The skipped test covers SQLite backup only. All 31 PostgreSQL-only checks passed.
+- The suite applied real Alembic migrations, including `0005`, to separate temporary databases.
+- Checks covered invitation claims, concurrent requests, revocation, data preservation, transfers, and runtime role restrictions.
+- The runtime role could create invited readers but could not create administrators, reactivate profiles, or apply schema changes.
+- The container exposed only `127.0.0.1:55439` and stored PostgreSQL data in memory through a `tmpfs` mount.
+- Final inspection found no remaining test databases or `tnr_app` role. The temporary container was removed.
+- No application code needed changes. No personal SQLite database, Supabase database, or cloud configuration was modified. No deployment occurred.
+
+Live Google invitation acceptance and production rollout remain separate checks.
+These local results do not validate hosted pooler connections, production grants, or cloud configuration.

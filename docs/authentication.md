@@ -266,7 +266,7 @@ Email-invitation implementation checks on 2026-11-07:
 - Backend: 423 tests passed on temporary SQLite databases with real Alembic migrations. All 31 PostgreSQL-only checks were skipped.
 - Frontend: 50 tests passed. Ruff, ESLint, Prettier, TypeScript, and the production build passed.
 - Browser: creation and cancellation passed against a disposable local database. Light/dark themes and a 390-pixel mobile viewport were checked.
-- PostgreSQL integration remains unverified for this change. No local PostgreSQL server was available, and the installed Docker application could not start.
+- Subsequent isolated PostgreSQL 17.11 validation passed: 453 tests, with only the SQLite backup test skipped. See the [PostgreSQL verification record](postgresql.md#email-invitation-validation).
 - The new invitation flow was not tested with live Google identities or physical phones. Auth HTTP responses were mocked in automated tests.
 - No personal database migration, cloud modification, real invitation, or deployment was performed for this implementation.
 
