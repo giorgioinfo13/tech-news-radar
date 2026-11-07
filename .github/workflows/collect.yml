@@ -1,0 +1,32 @@
+name: Collect feeds
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collect-feeds
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    # Remains inert until the owner configures the deployed backend and opts in.
+    if: >-
+      github.repository == 'giorgioinfo13/tech-news-radar' &&
+      github.ref == 'refs/heads/main' &&
+      vars.TNR_COLLECTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Wake backend and collect due feeds
+        env:
+          TNR_BACKEND_URL: ${{ vars.TNR_BACKEND_URL }}
+          TNR_COLLECTION_TRIGGER_SECRET: ${{ secrets.TNR_COLLECTION_TRIGGER_SECRET }}
+        run: python3 scripts/trigger_collection.py
