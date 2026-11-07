@@ -1,0 +1,28 @@
+# Preparation only. Creating a Blueprint triggers a first deployment even with
+# automatic deployments disabled. Obtain separate approval before importing it.
+services:
+  - type: web
+    name: tech-news-radar-api
+    runtime: python
+    plan: free
+    branch: main
+    autoDeployTrigger: "off"
+    # Repository root: .python-version pins Python 3.13; no Docker required.
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:create_app --factory --host 0.0.0.0 --port "$PORT" --workers 1 --no-access-log
+    healthCheckPath: /api/health
+    envVars:
+      - key: TNR_ENVIRONMENT
+        value: production
+      - key: TNR_DOCS_ENABLED
+        value: "false"
+      - key: TNR_SCHEDULER_ENABLED
+        value: "false"
+      - key: TNR_SUPABASE_URL
+        sync: false
+      - key: TNR_DATABASE_URL
+        sync: false
+# Add supabase-ca.crt as a secret file before the authorized deploy.
+# TNR_DATABASE_URL uses /etc/secrets/supabase-ca.crt with sslmode=verify-full.
+# Add TNR_COLLECTION_TRIGGER_SECRET only when activating external collection.
+# No migration/pre-deploy command; never supply TNR_MIGRATION_DATABASE_URL here.

@@ -106,6 +106,9 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
         <div className="sidebar-note">
           <p>Il tuo spazio di lettura.</p>
           <a href="#sources">Scegli le fonti da seguire</a>
+          <p>
+            <a href="/privacy.html">Privacy e dati personali</a>
+          </p>
         </div>
       </aside>
       <main id="main-content" tabIndex={-1}>

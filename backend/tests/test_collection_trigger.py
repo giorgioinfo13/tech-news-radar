@@ -80,7 +80,7 @@ async def test_auth_rejected_before_database_access(trigger, headers, monkeypatc
     monkeypatch.setattr(app.state.collection_trigger, "run", lambda: pytest.fail("Scan reached"))
     response = await client.post(PATH, headers=headers)
     assert response.status_code == 401
-    assert response.headers["cache-control"] == "no-store"
+    assert "no-store" in response.headers["cache-control"].split(", ")
     assert SECRET not in response.text
     assert requests == []
 
@@ -102,7 +102,7 @@ async def test_scan_cooldown_and_restart_preserve_due_times(trigger, database, m
     response = await client.post(PATH, headers=AUTH)
     assert response.status_code == 200
     assert response.json() == {"collected": 1, "failed": 0, "skipped": 0, "deferred": False}
-    assert response.headers["cache-control"] == "no-store"
+    assert "no-store" in response.headers["cache-control"].split(", ")
     limited = await client.post(PATH, headers=AUTH)
     assert limited.status_code == 429
     assert limited.headers["retry-after"] == "300"

@@ -141,6 +141,12 @@ No command silently replaces or transfers an identity link.
 
 ## Browser sessions and source selection
 
+For permanent removal of an inactive reader, see the
+[deletion procedure](deployment.md#backup-restore-and-deletion). The operator-only
+`delete-reader` command requires the verified subject twice, refuses the owner,
+and removes the reader's personal rows. Revocation alone keeps those rows.
+Supabase Auth deletion remains a separate cloud operation.
+
 The frontend uses `@supabase/supabase-js` with OAuth authorization code flow and PKCE.
 The Google button starts `signInWithOAuth` with the current origin and pathname as the return URL.
 It does not accept a return URL from query parameters. Callback codes are exchanged once and removed from browser history.

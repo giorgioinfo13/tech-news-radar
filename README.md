@@ -22,6 +22,7 @@ delle fonti personali; la configurazione dei servizi online e la pubblicazione
 sono ancora da completare.
 
 Per installazione e dettagli tecnici, consulta la [guida di sviluppo](docs/development.md)
-e le [note di architettura](docs/architecture.md).
+e le [note di architettura](docs/architecture.md). La [guida alla pubblicazione](docs/deployment.md)
+descrive le configurazioni preparate e i controlli ancora necessari.
 
 Distribuito con [licenza MIT](LICENSE). Le risorse di terze parti mantengono le rispettive licenze.

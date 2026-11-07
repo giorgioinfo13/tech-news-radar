@@ -87,7 +87,8 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const signal = AbortSignal.any([
     identitySignal,
     ...(options.signal ? [options.signal] : []),
-    AbortSignal.timeout(15000),
+    // Render Free can take about a minute to wake. Stay below the proxy's 120s limit.
+    AbortSignal.timeout(90000),
   ])
   let response: Response
   try {
@@ -115,7 +116,12 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     if (error instanceof ApiError) throw error
     if (identitySignal.aborted || options.signal?.aborted)
       throw new DOMException('Aborted', 'AbortError')
-    throw new ApiError('Impossibile contattare il server. Controlla la connessione e riprova.', 0)
+    throw new ApiError(
+      options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase())
+        ? 'Esito non confermato. Aggiorna la pagina per verificare prima di ripetere l’operazione.'
+        : 'Impossibile contattare il server: potrebbe essere in avvio. Attendi un minuto e riprova.',
+      0,
+    )
   }
   if (response.status === 401 || (response.status === 403 && path !== '/me'))
     access.failure(response.status)
@@ -124,10 +130,15 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
       401: 'La sessione è scaduta. Accedi di nuovo.',
       403: 'Accesso non autorizzato per questo account.',
       503: 'Il servizio è temporaneamente non disponibile. Riprova tra poco.',
+      504: 'Il server sta impiegando troppo tempo. Attendi un minuto e aggiorna la pagina.',
       404: 'Questo elemento non esiste più. Aggiorna la pagina.',
       409: 'Operazione non disponibile: verifica eventuali duplicati, fonti disabilitate o un refresh in corso.',
       422: 'Controlla i dati inseriti: uno o più valori non sono validi.',
-      502: 'Il refresh non è riuscito. Consulta lo stato della fonte e la cronologia per i dettagli.',
+      502:
+        path.endsWith('/refresh') &&
+        response.headers.get('Content-Type')?.includes('application/json')
+          ? 'Il refresh non è riuscito. Consulta lo stato della fonte e la cronologia per i dettagli.'
+          : 'Il server non risponde. Attendi un minuto e aggiorna la pagina.',
     }
     const delay = response.headers.get('Retry-After')
     const retry =

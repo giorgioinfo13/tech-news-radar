@@ -11,6 +11,7 @@ function AccessLayout({ children }: { children: ReactNode }) {
         <img className="access-logo" src={logo} alt="Tech News Radar" />
         {children}
         <ThemeSelector />
+        <a href="/privacy.html">Privacy e dati personali</a>
       </div>
     </main>
   )
@@ -27,6 +28,9 @@ export function Login({ controller, state }: { controller: AuthController; state
     return (
       <AccessLayout>
         <p role="status">Verifica dell’accesso…</p>
+        <p className="muted">
+          Al primo accesso il server può richiedere circa un minuto per avviarsi.
+        </p>
       </AccessLayout>
     )
   if (state.status === 'unconfigured')

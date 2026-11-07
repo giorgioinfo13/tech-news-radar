@@ -54,16 +54,30 @@ def set_access(session: Session, subject: UUID, *, active: bool) -> UUID:
     return user.id
 
 
+def delete_reader(session: Session, subject: UUID) -> UUID:
+    user = session.scalar(
+        select(AppUser).where(AppUser.supabase_subject == subject).with_for_update()
+    )
+    if user is None or user.role != "reader" or user.active or user.id == LOCAL_OWNER_ID:
+        raise ValueError("Deletion requires an existing, revoked reader")
+    user_id = user.id
+    session.delete(user)
+    session.flush()
+    return user_id
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Explicitly approve or revoke application access")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("link-owner", "invite", "revoke", "activate"):
+    for name in ("link-owner", "invite", "revoke", "activate", "delete-reader"):
         command = commands.add_parser(name)
         command.add_argument(
             "--subject", type=UUID, required=True, help="Verified Supabase user UUID"
         )
         if name == "invite":
             command.add_argument("--name", required=True)
+        if name == "delete-reader":
+            command.add_argument("--confirm-subject", type=UUID, required=True)
     args = parser.parse_args(argv)
     engine = None
     try:
@@ -76,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
                 user_id = link_owner(session, args.subject)
             elif args.command == "invite":
                 user_id = invite_reader(session, args.subject, args.name)
+            elif args.command == "delete-reader":
+                if args.subject != args.confirm_subject:
+                    raise ValueError("Identity confirmation does not match")
+                user_id = delete_reader(session, args.subject)
             else:
                 user_id = set_access(session, args.subject, active=args.command == "activate")
         print(f"Access operation completed for application user {user_id}")

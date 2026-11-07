@@ -75,6 +75,11 @@ PostgreSQL rolls back that migration transaction. A downgrade to `base` removes 
 
 ## Data API and database privileges
 
+Reviewed setup and inspection SQL is in `backend/sql/`. See the
+[publication guide](deployment.md#1-database-configuration-and-schema) for the
+separate migration, role-setup and data-transfer approval gates, and the
+[backup/restore procedure](deployment.md#backup-restore-and-deletion).
+
 Keep `tnr` out of the Supabase Data API's exposed schemas. If no feature needs the Data API, disable it during an authorized setup.
 Supabase Auth does not require exposing these application tables.
 Revision `0002` revokes schema, table, and sequence privileges from `PUBLIC` and existing `anon`, `authenticated`, and `service_role` roles.

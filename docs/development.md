@@ -447,6 +447,7 @@ Enable the local identity explicitly for local data access. Restart the developm
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `TNR_APP_NAME` | `Tech News Radar` | Backend OpenAPI title |
+| `TNR_ENVIRONMENT` | `development` | `production` requires Supabase, PostgreSQL with verified TLS and `tnr_app`, and disabled API docs |
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_LOCAL_USER_ID` | unset | Explicit local-only identity, incompatible with `TNR_SUPABASE_URL` |
 | `TNR_SUPABASE_URL` | unset | HTTPS project origin for Supabase access-token verification |

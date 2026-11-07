@@ -1,4 +1,4 @@
-"""Application factory for local development and isolated tests."""
+"""Application factory with explicit configuration and no startup migrations."""
 
 from asyncio import to_thread
 from collections.abc import AsyncIterator
@@ -23,6 +23,8 @@ from app.db import create_database_engine
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings if settings is not None else Settings()
+    if config.environment == "production" and config.migration_database_url is not None:
+        raise ValueError("Do not give the web service operator database credentials")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -60,6 +62,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = config
     app.state.auth_verifier = SupabaseVerifier(config.supabase_url) if config.supabase_url else None
+
+    @app.middleware("http")
+    async def private_responses(request, call_next):
+        response = await call_next(request)
+        # Applies to authenticated data and denials alike, including the external proxy.
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["CDN-Cache-Control"] = "no-store"
+        response.headers["Vercel-CDN-Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
     app.include_router(health_router, prefix="/api")
     app.include_router(collection_router, prefix="/api")
     for router in (categories_router, sources_router, articles_router, personal_router):

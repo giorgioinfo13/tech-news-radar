@@ -2,11 +2,13 @@
 
 import re
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.exc import ArgumentError
 
 
 class Settings(BaseSettings):
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Tech News Radar"
+    environment: Literal["development", "production"] = "development"
     docs_enabled: bool = True
     database_url: str = Field(default="sqlite:///data/news.db", repr=False)
     migration_database_url: str | None = Field(default=None, repr=False)
@@ -71,4 +74,31 @@ class Settings(BaseSettings):
     def separate_identity_modes(self):
         if self.local_user_id is not None and self.supabase_url is not None:
             raise ValueError("Local identity and Supabase authentication are mutually exclusive")
+        return self
+
+    @model_validator(mode="after")
+    def validate_production(self):
+        if self.environment != "production":
+            return self
+        if self.local_user_id is not None or not self.supabase_url:
+            raise ValueError("Production requires Supabase authentication without a local identity")
+        if self.docs_enabled:
+            raise ValueError("Disable API documentation in production")
+        # Parse without connecting, creating directories, or disclosing credentials.
+        from app.db import resolve_database_url
+
+        try:
+            url = resolve_database_url(self.database_url)
+            valid = (
+                url.get_backend_name() == "postgresql"
+                and url.query.get("sslmode") == "verify-full"
+                and bool(url.query.get("sslrootcert"))
+                and bool(re.fullmatch(r"tnr_app(?:\.[a-z0-9]+)?", url.username or ""))
+            )
+        except (ArgumentError, ValueError, TypeError):
+            valid = False
+        if not valid:
+            raise ValueError(
+                "Production requires PostgreSQL with verified TLS and the tnr_app role"
+            )
         return self

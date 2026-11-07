@@ -21,6 +21,7 @@ are available locally. The interface includes Google login and personal source
 selection; online service configuration and deployment are still to come.
 
 For setup and technical details, see the [development guide](docs/development.md)
-and [architecture notes](docs/architecture.md).
+and [architecture notes](docs/architecture.md). The [publication guide](docs/deployment.md)
+describes the prepared configuration and the checks still required.
 
 Distributed under the [MIT License](LICENSE). Third-party resources retain their respective licenses.
