@@ -36,6 +36,7 @@ worker caches API responses or tokens.
 | `backend/sql/create_app_role.sql` | One-time, separately authorized database-role setup after migrations |
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
 | `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
+| `backend/app/transfer.py` | Local-only SQLite-to-PostgreSQL rehearsal with row verification and transactional rollback |
 | `frontend/public/privacy.html` | Public explanation of authentication, personal data and deletion requests |
 
 The templates are deliberately not active hosting configuration files. Do not
@@ -129,6 +130,8 @@ Do not start with an empty online account and discard the local owner's data.
 Prepare a transfer against a **copy** first. Approval must name the source
 snapshot, exact target, expected counts, and rollback plan. The importer itself
 must be reviewed and tested in that phase; this guide does not authorize a copy.
+The current rehearsal command refuses remote targets. Remote execution needs a
+separate reviewed change and explicit authorization.
 
 1. Stop local writes and the collector during the final snapshot/cutover. Make
    the SQLite backup below and record its SHA-256, Alembic head, and counts for
@@ -156,6 +159,80 @@ must be reviewed and tested in that phase; this guide does not authorize a copy.
 Rollback before online writes can return to the unchanged local database. Once
 new online writes exist, do not switch back blindly: export/reconcile them first.
 Never reset a remote database or overwrite its data as a deployment retry.
+
+#### Local transfer rehearsal
+
+Use an isolated PostgreSQL server on literal `127.0.0.1` or `::1`, with an explicit
+port. An existing local installation is sufficient. Docker is optional.
+Create a new database from `template0` with a name such as
+`tnr_transfer_20261107`. The command also accepts the test suite's `tnr_test_`
+names. Both prefixes require 8–32 lowercase letters or digits after the prefix.
+Use a local database owner that can run migrations and restart sequences.
+
+Create a SQLite copy with `scripts/backup_sqlite.py` as described below. Record
+its SHA-256. Use a closed copy without WAL or journal sidecars. Never supply the
+working database as the rehearsal input. Keep the backup and reports private.
+
+In a dedicated local shell, set `TNR_TRANSFER_DATABASE_URL` privately. Do not
+put passwords in shell history. Its format is:
+
+```text
+postgresql+psycopg://LOCAL_OWNER:ENCODED_LOCAL_PASSWORD@127.0.0.1:LOCAL_PORT/tnr_transfer_20261107?sslmode=disable
+```
+
+This variable is only for the local operator command. Do not set it in hosting
+or the application's `.env`. The command does not use `TNR_DATABASE_URL` or
+`TNR_MIGRATION_DATABASE_URL`. Remove libpq routing/session overrides such as
+`PGHOSTADDR`, `PGSERVICE`, `PGSERVICEFILE`, and `PGOPTIONS` from that shell.
+
+From `backend/`, apply the real migrations to this explicit local target:
+
+```bash
+.venv/bin/python - <<'PY'
+import os
+from alembic import command
+from alembic.config import Config
+from app.transfer import local_target_url
+
+url = local_target_url(os.environ["TNR_TRANSFER_DATABASE_URL"])
+config = Config("alembic.ini")
+config.set_main_option("sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%"))
+command.upgrade(config, "head")
+PY
+```
+
+Run the rehearsal with the recorded checksum and a new private report path:
+
+```bash
+umask 077
+.venv/bin/python -m app.transfer --snapshot /PRIVATE/PATH/snapshot.db --sha256 RECORDED_SHA256 > /PRIVATE/PATH/new-report.json
+```
+
+Choose a nonexistent report filename. Shell redirection can overwrite a file.
+Exit status zero and a complete JSON report indicate success. The report contains
+the snapshot hash, revision, and counts/hashes for all seven tables. It contains
+no credentials, account identifiers, or record contents. A failed command can
+leave an empty report. Inspect the disposable target before a retry.
+
+The importer reads the source in read-only mode. It requires revision `0004`,
+valid SQLite integrity/foreign keys, and no unfinished collection. It checks
+the target's unchanged migration seeds under table locks. It copies typed rows
+in batches and compares every column before commit. It reads the snapshot into
+memory, so this procedure targets a small personal database, not bulk archives.
+
+The owner retains the reserved UUID and all imported identity fields. Only
+unused, unchanged category seeds are replaced. Integer sequences restart at
+`max(id) + 1`, or `1` for empty tables. The importer uses transactional
+[`ALTER SEQUENCE RESTART`](https://www.postgresql.org/docs/17/sql-altersequence.html),
+so a failure rolls back both data and sequence changes. A populated target is
+refused. Rehearse again in a new disposable database instead of clearing one.
+
+Run `tests/test_transfer.py` with `--postgres` using the isolated test setup in
+[PostgreSQL](postgresql.md#isolated-postgresql-tests). Tests cover complete
+row preservation, subsequent inserts, rollback, concurrent-write exclusion,
+personal reads/subscriptions, reader permissions, revoked users, and unapproved
+users. These API tests substitute verified identities. They do not repeat Google
+OAuth or establish behavior on hosted services or installed mobile apps.
 
 ### 3. Render and Vercel deployment, separately authorized
 
