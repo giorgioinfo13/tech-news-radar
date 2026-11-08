@@ -18,6 +18,7 @@
       }
       a {
         color: light-dark(#075985, #7dd3fc);
+        overflow-wrap: anywhere;
       }
     </style>
   </head>
@@ -25,53 +26,119 @@
     <a href="/">Torna a Tech News Radar</a>
     <main>
       <h1>Privacy e dati personali</h1>
+      <p>Ultimo aggiornamento: <time datetime="2026-11-08">8 novembre 2026</time>.</p>
       <p>
-        Tech News Radar è un lettore di notizie personale, riservato alle persone approvate
-        dall’amministratore che ti ha invitato. Per informazioni sui tuoi dati o per chiederne la
-        cancellazione, contattalo tramite il canale dell’invito.
+        Tech News Radar è un lettore di notizie privato, riservato alle persone approvate
+        dall’amministratore. Il gestore è Giorgio. Per informazioni, accesso ai tuoi dati,
+        correzioni o cancellazione, scrivi a
+        <a href="mailto:giorgioinfo13@gmail.com">giorgioinfo13@gmail.com</a>.
       </p>
-      <h2>Dati necessari al servizio</h2>
+      <h2>Accesso con Google e uso dei dati</h2>
       <p>
-        Google e Supabase gestiscono il login: Supabase può conservare l’indirizzo email, il nome,
-        l’immagine e gli identificativi forniti da Google, oltre alle sessioni. L’app conserva un
-        identificativo collegato all’account, un nome visualizzato, il ruolo, lo stato dell’accesso,
-        le fonti seguite e gli articoli segnati come letti. Per gli inviti conserva inoltre il nome,
-        l’email Google inserita dall’amministratore e le date di creazione e utilizzo dell’invito.
-        Questi inviti non sono visibili agli altri lettori.
-      </p>
-      <p>
-        Fonti, categorie e articoli sono condivisi. Le preferenze e le letture sono associate al tuo
-        profilo e non sono mostrate agli altri lettori. Non ci sono pubblicità né strumenti di
-        analisi del comportamento integrati nell’app.
-      </p>
-      <h2>Browser e fornitori</h2>
-      <p>
-        Il browser conserva la sessione di accesso e la scelta del tema. L’app non offre una copia
-        offline delle notizie. Il logout elimina la sessione locale; puoi cancellare i dati del sito
-        dalle impostazioni del browser.
+        L’accesso avviene tramite Google e Supabase. Sono richiesti soltanto l’indirizzo email e le
+        informazioni di base del profilo Google: nome, eventuale immagine e identificativi
+        dell’account. Supabase gestisce questi dati, la verifica dell’identità e le sessioni di
+        accesso. Tech News Radar non riceve la tua password Google e non richiede accesso a Gmail,
+        Drive, contatti o calendario.
       </p>
       <p>
-        La configurazione di hosting prevista usa Vercel per il sito, Render per le API e Supabase
-        per autenticazione e database. I servizi possono trattare indirizzi IP e dati tecnici
-        necessari al funzionamento. Aprendo un articolo visiti il sito della fonte, che applica la
-        propria informativa.
+        I dati di identità servono a riconoscerti, verificare l’invito e i permessi, mantenere la
+        sessione e collegare al tuo profilo le fonti seguite e lo stato di lettura. Non sono usati
+        per pubblicità, venduti o impiegati per addestrare modelli di intelligenza artificiale.
+        L’app non integra strumenti di analisi del comportamento o tracciamento pubblicitario.
       </p>
-      <h2>Conservazione e cancellazione</h2>
+      <h2>Inviti e dati conservati nell’app</h2>
       <p>
-        Un invito in attesa rimane finché l’amministratore non lo annulla. Un invito utilizzato
-        rimane associato all’account e viene rimosso insieme al profilo su richiesta di
-        cancellazione.
-      </p>
-      <p>
-        Le preferenze rimangono finché il profilo non viene cancellato. La revoca dell’accesso o il
-        logout non cancellano i dati. Su richiesta, l’amministratore può revocare l’accesso e
-        rimuovere profilo, preferenze, letture, inviti e account di autenticazione. Le notizie
-        condivise rimangono disponibili agli altri lettori.
+        Prima del tuo primo accesso, l’amministratore può registrare il tuo nome e indirizzo email
+        Google per invitarti. L’invito contiene anche chi lo ha creato, la data di creazione e, dopo
+        l’utilizzo, la data e l’identificativo dell’account che lo ha accettato. Non viene inviata
+        automaticamente alcuna email. Gli inviti sono visibili soltanto all’amministratore.
       </p>
       <p>
-        Eventuali copie di sicurezza sono conservate separatamente. L’amministratore ti comunica i
-        tempi per la loro eliminazione e applica le richieste di cancellazione prima di rimettere in
-        servizio una copia ripristinata.
+        Il database dell’app conserva l’identificativo del profilo e il collegamento all’account
+        Supabase, il nome visualizzato, il ruolo, lo stato dell’accesso e la data di creazione.
+        Conserva inoltre le fonti che scegli di seguire, la data della scelta e gli articoli segnati
+        come letti con la relativa data. Il profilo di un nuovo lettore viene creato dopo la
+        verifica dell’invito; un login Google senza approvazione può comunque creare un account di
+        autenticazione in Supabase, senza dare accesso alle notizie.
+      </p>
+      <h2>Chi può accedere ai dati</h2>
+      <p>
+        Fonti, categorie, articoli e cronologia della raccolta sono condivisi tra gli utenti
+        autorizzati. Le fonti seguite e gli stati di lettura sono personali e non vengono mostrati
+        agli altri lettori. Il gestore può accedere ai dati attraverso gli strumenti di
+        amministrazione e database per assistenza, manutenzione, backup e gestione delle richieste
+        sui dati.
+      </p>
+      <p>
+        Il servizio usa Vercel per ospitare il sito e inoltrare le richieste, Render per elaborare
+        le richieste alle API e Supabase per autenticazione e database. Questi fornitori trattano i
+        dati necessari alle rispettive funzioni e possono registrare indirizzi IP, orari delle
+        richieste, informazioni sul browser e altri dati tecnici per funzionamento e sicurezza.
+        Google gestisce l’autenticazione secondo le proprie condizioni.
+      </p>
+      <p>
+        Puoi consultare le informative dei fornitori:
+        <a href="https://policies.google.com/privacy?hl=it">Google</a>,
+        <a href="https://supabase.com/privacy">Supabase</a>,
+        <a href="https://vercel.com/legal/privacy-notice">Vercel</a> e
+        <a href="https://render.com/privacy">Render</a>. Aprendo un articolo visiti il sito della
+        fonte, che riceve la tua richiesta e applica la propria informativa. La raccolta dei feed da
+        parte del server non trasmette alle fonti il tuo account Google o il tuo elenco personale di
+        letture.
+      </p>
+      <h2>Browser e app installata</h2>
+      <p>
+        Il browser conserva i dati e i token della sessione per mantenere l’accesso, oltre alla
+        scelta del tema. Il logout riguarda la sessione di quel browser o dell’app installata: non
+        disconnette automaticamente gli altri dispositivi e non cancella i dati conservati sul
+        server. La scelta del tema rimane dopo il logout. Puoi eliminare i dati locali dalle
+        impostazioni del browser o dell’app installata.
+      </p>
+      <p>
+        Browser e app installata possono avere sessioni separate. L’app richiede una connessione e
+        non offre una copia offline delle notizie. Non imposta cookie pubblicitari; Google e gli
+        altri fornitori possono usare cookie o tecnologie analoghe nelle proprie pagine.
+      </p>
+      <h2>Conservazione dei dati</h2>
+      <p>
+        Non è prevista una scadenza automatica dei profili e degli inviti. Un invito in attesa
+        rimane fino al suo utilizzo o annullamento; un invito utilizzato rimane associato
+        all’account fino alla cancellazione. I dati del profilo e dell’autenticazione rimangono fino
+        alla loro rimozione da parte del gestore, anche se l’accesso è revocato.
+      </p>
+      <p>
+        Puoi modificare le fonti seguite e segnare gli articoli come non letti. Smettere di seguire
+        una fonte non cancella i tuoi stati di lettura. Questi ultimi vengono eliminati quando segni
+        l’articolo come non letto, quando l’articolo viene rimosso dal catalogo oppure quando viene
+        cancellato il profilo.
+      </p>
+      <p>
+        Le copie di sicurezza sono conservate separatamente e possono contenere dati personali. Non
+        è attualmente impostata una scadenza automatica per queste copie. I tempi di conservazione
+        dei registri tecnici dei fornitori dipendono dal servizio e dalla sua configurazione. Per
+        conoscere i tempi applicabili ai tuoi dati, contatta il gestore.
+      </p>
+      <h2>Richieste e cancellazione</h2>
+      <p>
+        Puoi chiedere informazioni, una copia dei tuoi dati, la correzione o la cancellazione
+        scrivendo al contatto indicato sopra, anche se non riesci ad accedere. Il gestore verifica
+        che la richiesta provenga dalla persona interessata; non inviare password o token di
+        accesso.
+      </p>
+      <p>
+        La cancellazione richiede interventi separati sul profilo dell’app e sull’account di
+        autenticazione Supabase. Il gestore revoca l’accesso e rimuove profilo, fonti seguite, stati
+        di lettura, inviti associati e account di autenticazione, controllando anche eventuali
+        inviti ancora in attesa. Le notizie condivise restano disponibili agli altri lettori. La
+        cancellazione non elimina il tuo account Google.
+      </p>
+      <p>
+        La rimozione dal servizio attivo non elimina automaticamente i dati dalle copie di sicurezza
+        già create. Il gestore ti comunica i tempi per la loro eliminazione e riapplica le richieste
+        di cancellazione prima di rimettere in servizio una copia ripristinata. Revocare il
+        collegamento a Tech News Radar nelle impostazioni dell’account Google non sostituisce la
+        richiesta di cancellazione dei dati già conservati nell’app.
       </p>
     </main>
   </body>
