@@ -33,7 +33,7 @@ worker caches API responses or tokens.
 | --- | --- |
 | `deploy/render.yaml.example` | Python service settings; importing a Blueprint is a deploy operation |
 | `deploy/vercel.json.example` | API proxy, cache policy and response headers; replace the backend hostname first |
-| `frontend/vercel.json` | Prepared Vercel configuration for the verified Render hostname; automatic Git deployments disabled |
+| `frontend/vercel.json` | Vercel configuration for the verified Render hostname; automatic Git deployments enabled only for `main` |
 | `backend/sql/create_app_role.sql` | One-time, separately authorized database-role setup after migrations |
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
 | `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
@@ -376,10 +376,30 @@ Review the ignored-build setting before changing it, including its effect on pre
 Keep preview credentials unset and approve the intended deployment method separately.
 Record account-specific settings and credential paths outside Git.
 
-The repository configuration also sets `git.deploymentEnabled` to `false`.
-This disables automatic Git deployments for all branches, including previews.
-Keep this setting until automatic publication is separately approved.
-It does not prohibit an explicitly requested manual deployment.
+#### Automatic frontend deployment from `main`
+
+The owner approved automatic Vercel publication from `main` on November 8, 2026.
+This replaces the initial manual-only setup above for the existing frontend project.
+Render deployments and database migrations still require separate authorization.
+
+The repository sets `git.deploymentEnabled` to `{ "**": false, "main": true }`.
+This enables automatic Git deployments only for `main`, including pushes that change documentation or backend files.
+Other branches do not create automatic preview deployments with this configuration.
+
+In the existing Vercel project, connect `giorgioinfo13/tech-news-radar` and keep `main` as the Production Branch.
+Set **Ignored Build Step → Behavior** to **Automatic**.
+Keep **Skip deployments when there are no changes to the root directory or its dependencies** disabled.
+The owner must commit and push this configuration to activate the repository rule.
+Local commits alone do not deploy anything.
+
+After each push, check that Vercel reports **Ready**, **Production**, and the expected commit.
+Check the public site after the build succeeds.
+The build includes TypeScript checks, but does not run the full test suite. Run the development checks before pushing.
+Coordinate frontend changes that require new API behavior with the separately authorized backend deployment.
+
+To stop automatic publication, set **Ignored Build Step → Behavior** to **Don't build anything** (`exit 0`).
+Also set `git.deploymentEnabled` to `false` in the repository and have the owner commit and push that change.
+This does not cancel a deployment that has already started.
 
 References: [Render service creation](https://render.com/docs/web-services)
 and [Vercel project management](https://vercel.com/docs/projects/managing-projects).
