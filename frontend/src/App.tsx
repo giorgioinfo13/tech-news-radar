@@ -1,3 +1,4 @@
+import { Proposals } from './pages/Proposals'
 import { useLanguage } from './language-context'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { type Category, type Source, type Subscription, type AppUser } from './api'
@@ -18,7 +19,9 @@ import { AccountMenu } from './AccountMenu'
 import { LanguageProvider } from './Language'
 
 function currentPage() {
-  return ['sources', 'catalog', 'categories', 'invitations'].includes(location.hash.slice(1))
+  return ['sources', 'catalog', 'categories', 'invitations', 'proposals'].includes(
+    location.hash.slice(1),
+  )
     ? location.hash.slice(1)
     : 'news'
 }
@@ -53,6 +56,24 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
   const [page, setPage] = useState(currentPage)
   const subscriptions = useQuery<Subscription>('/subscriptions', true)
   const admin = user.role === 'admin'
+  const pendingProposals = useQuery<never>('/proposals?status=pending&limit=1')
+  const reloadPendingProposals = pendingProposals.reload
+  useEffect(() => {
+    let lastRefresh = 0
+    const refresh = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastRefresh < 30000) return
+      lastRefresh = Date.now()
+      reloadPendingProposals()
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('pageshow', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('pageshow', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [reloadPendingProposals])
   const categories = useQuery<Category>('/categories', true)
   const sources = useQuery<Source>('/sources', true)
   useEffect(() => {
@@ -66,11 +87,19 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
     categories.reload()
     sources.reload()
     subscriptions.reload()
+    pendingProposals.reload()
   }
   const ready = categories.data && sources.data && subscriptions.data
   const pages = [
     { id: 'news', label: t('News'), icon: 'news' },
     { id: 'sources', label: t('My sources'), icon: 'sources' },
+    {
+      id: 'proposals',
+      label: admin
+        ? `${t('Proposals')} (${pendingProposals.error ? '?' : (pendingProposals.data?.total ?? '…')})`
+        : t('Suggest a source'),
+      icon: 'invite',
+    },
     { id: 'catalog', label: t('Catalog'), icon: 'sources' },
     { id: 'categories', label: t('Categories'), icon: 'categories' },
     { id: 'invitations', label: t('Invitations'), icon: 'invite' },
@@ -163,6 +192,10 @@ function Workspace({
     location.hash = '#news'
   }
   if (admin && page === 'invitations') return <Invitations />
+  if (page === 'proposals')
+    return (
+      <Proposals admin={admin} sources={sources} categories={categories} onChange={reloadCatalog} />
+    )
   if (onboarding)
     return (
       <Subscriptions

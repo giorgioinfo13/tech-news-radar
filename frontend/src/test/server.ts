@@ -1,5 +1,13 @@
 import { vi } from 'vitest'
-import type { AppUser, Article, Category, CollectionRun, ReaderInvitation, Source } from '../api'
+import type {
+  AppUser,
+  Article,
+  Category,
+  CollectionRun,
+  ReaderInvitation,
+  Source,
+  SourceProposal,
+} from '../api'
 
 export const category: Category = {
   id: 1,
@@ -47,6 +55,8 @@ export function mockServer() {
     failRead: false,
     invitations: [] as ReaderInvitation[],
     failInvitation: 0,
+    proposals: [] as SourceProposal[],
+    failProposal: 0,
   }
   const calls: {
     path: string
@@ -74,6 +84,38 @@ export function mockServer() {
     if (state.accessStatus !== 200) return response({}, state.accessStatus)
     if (path === '/me') return response(state.user)
     const id = Number(path.split('/')[2])
+    if (path.startsWith('/proposals') && method === 'POST') {
+      if (state.failProposal) return response({}, state.failProposal)
+      if (path === '/proposals') {
+        const proposal = {
+          id: state.proposals.length + 1,
+          name: String(body.name),
+          url: body.url ?? null,
+          note: body.note ?? null,
+          category_id: body.category_id ?? null,
+          follow_on_approval: body.follow_on_approval ?? false,
+          status: 'pending',
+          created_at: '2026-11-09T10:00:00Z',
+          decided_at: null,
+          reason: null,
+          source_id: null,
+          approved_name: null,
+          approved_feed_url: null,
+          user: { ...state.user },
+        } as SourceProposal
+        state.proposals.unshift(proposal)
+        return response(proposal, 201)
+      }
+      const proposal = state.proposals.find((p) => p.id === id)!
+      proposal.status = path.endsWith('/approve')
+        ? 'approved'
+        : path.endsWith('/reject')
+          ? 'rejected'
+          : 'cancelled'
+      proposal.reason = body.reason ? String(body.reason) : null
+      proposal.decided_at = '2026-11-09T11:00:00Z'
+      return response(proposal)
+    }
     if (path.startsWith('/invitations') && method !== 'GET') {
       if (state.failInvitation) return response({}, state.failInvitation)
       if (method === 'POST') {
@@ -101,6 +143,12 @@ export function mockServer() {
           .filter((item) => state.subscriptions.includes(item.id))
           .map((item) => ({ source_id: item.id, source: item, created_at: '2026-01-01T00:00:00Z' }))
       else if (path === '/categories') items = state.categories
+      else if (path === '/proposals')
+        items = state.proposals.filter(
+          (p) =>
+            (!url.searchParams.get('status') || p.status === url.searchParams.get('status')) &&
+            (state.user.role === 'admin' || p.user.id === state.user.id),
+        )
       else if (path === '/invitations') items = state.invitations
       else if (path === '/sources') items = state.sources
       else if (path.endsWith('/runs')) items = state.runs.filter((run) => run.source_id === id)

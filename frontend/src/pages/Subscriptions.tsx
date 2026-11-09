@@ -96,6 +96,9 @@ export function Subscriptions({
               : t('Follow what interests you.')}
           </p>
         </div>
+        <a className="text-button" href="#proposals">
+          {t('Suggest a source')}
+        </a>
       </header>
       {error && (
         <Notice error>

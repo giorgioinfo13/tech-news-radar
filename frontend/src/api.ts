@@ -221,3 +221,20 @@ export function formatDate(value: string | null, locale = 'it-IT'): string {
 export function errorMessage(error: unknown): UiMessage {
   return error instanceof ApiError ? error.uiMessage : message('The action failed. Try again.')
 }
+
+export interface SourceProposal {
+  id: number
+  name: string
+  url: string | null
+  note: string | null
+  category_id: number | null
+  follow_on_approval: boolean
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  created_at: string
+  decided_at: string | null
+  reason: string | null
+  source_id: number | null
+  approved_name: string | null
+  approved_feed_url: string | null
+  user: AppUser
+}

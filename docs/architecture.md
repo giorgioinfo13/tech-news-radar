@@ -195,7 +195,7 @@ See [activation, timing, and provider limits](development.md#collection-on-rende
 
 ## Frontend
 
-The interface has five hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, `#categories`, and `#invitations`.
+The interface has six hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, `#categories`, `#invitations`, and `#proposals`.
 Catalog, category, and invitation controls are visible only to administrators. The backend checks permissions independently.
 
 Italian is the default language. The account menu also offers English before and after sign-in.
@@ -232,7 +232,7 @@ Opening an original article does not automatically mark it read. Read state chan
 only through the explicit control. The frontend does not fetch feed URLs directly.
 
 Filters and unsaved forms are local to the current view and reset on navigation.
-There is no offline cache, polling, or UI language switch yet.
+There is no offline cache or interval polling. The account menu provides the UI language switch.
 The web app manifest supplies a stable root identity, standalone launch mode, and standard 192/512-pixel icons.
 An Apple touch icon supports Home Screen installation. The app requires a network connection and registers no service worker.
 Installation adds no cache of API responses, tokens, or personal data; Supabase session persistence remains unchanged.
@@ -268,3 +268,8 @@ external database service is required for the planned MVP.
 
 Before server deployment, validate real Google login and complete cloud configuration, HTTPS, backups, and process
 management in separate tasks. Loopback defaults alone are not a public deployment design.
+
+## Source proposals
+
+[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
+The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.

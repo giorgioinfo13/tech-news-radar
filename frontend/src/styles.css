@@ -101,6 +101,7 @@ a {
 }
 button,
 input,
+textarea,
 select {
   font: inherit;
 }
@@ -193,6 +194,7 @@ button:disabled {
   vertical-align: middle;
 }
 input,
+textarea,
 select {
   width: 100%;
   min-width: 0;
@@ -1297,4 +1299,22 @@ dialog p {
 .invitation-details {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.proposal-card {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.proposal-card p {
+  max-width: 75ch;
+}
+.proposal-card .editor-panel {
+  margin-top: 1rem;
+}
+textarea {
+  width: 100%;
+  max-width: 100%;
+  resize: vertical;
+  font: inherit;
 }
