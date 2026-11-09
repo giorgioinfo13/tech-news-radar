@@ -16,7 +16,14 @@ from sqlalchemy.orm import Session
 
 from app.ai_briefs import BriefService
 from app.ai_content import AIUnavailable
-from app.ai_gemini import MODEL, MONTHLY_NANO_USD, RESERVATION_NANO_USD, Gemini, payload_for
+from app.ai_gemini import (
+    MODEL,
+    MONTHLY_NANO_USD,
+    RESERVATION_NANO_USD,
+    Gemini,
+    payload_for,
+    validate_usage,
+)
 from app.api.dependencies import get_identity
 from app.config import Settings
 from app.main import create_app
@@ -205,6 +212,87 @@ async def test_exact_token_boundary(gemini):
 
 
 @pytest.mark.anyio
+async def test_omitted_zero_thoughts_saves_digest_without_repeating_request(gemini, database):
+    service, calls, mode = gemini
+
+    def change(data):
+        usage = data["usageMetadata"]
+        del usage["thoughtsTokenCount"]
+        usage["totalTokenCount"] = usage["promptTokenCount"] + usage["candidatesTokenCount"]
+
+    mode["mutate"] = change
+    state = await service.generate(None, None)
+    assert state["code"] == "cached"
+    assert service.read(None, LOCAL_OWNER_ID)["briefs"] == state["briefs"]
+    await service.generate(None, None)
+    assert len(calls) == 2
+    assert ledger(database)[0][1] == RESERVATION_NANO_USD
+
+
+@pytest.mark.parametrize("thoughts", [None, True, -1, "0", 0.0, {}, []])
+def test_present_invalid_thought_count_is_not_defaulted_to_zero(thoughts):
+    data = {
+        "modelVersion": MODEL,
+        "usageMetadata": {
+            "promptTokenCount": 570,
+            "candidatesTokenCount": 264,
+            "totalTokenCount": 834,
+            "thoughtsTokenCount": thoughts,
+        },
+    }
+    with pytest.raises(AIUnavailable) as caught:
+        validate_usage(data, 570)
+    assert caught.value.diagnostics["contract_issue"] == "invalid_usage"
+
+
+@pytest.mark.parametrize(
+    "patch,issue",
+    [
+        ({"totalTokenCount": 835}, "total_mismatch"),
+        ({"totalTokenCount": None}, "invalid_usage"),
+        ({"promptTokenCount": 571, "totalTokenCount": 835}, "input_count_mismatch"),
+        ({"candidatesTokenCount": 501, "totalTokenCount": 1071}, "output_limit"),
+        ({"toolUsePromptTokenCount": 1}, "unexpected_cache_or_tools"),
+        ({"cachedContentTokenCount": 1}, "unexpected_cache_or_tools"),
+        ({"promptTokensDetails": "secret-value"}, "unexpected_modality"),
+        ({"candidatesTokensDetails": [None]}, "unexpected_modality"),
+    ],
+)
+def test_omitted_thoughts_preserves_all_usage_guards(patch, issue):
+    data = {
+        "modelVersion": MODEL,
+        "usageMetadata": {
+            "promptTokenCount": 570,
+            "candidatesTokenCount": 264,
+            "totalTokenCount": 834,
+            **patch,
+        },
+    }
+    with pytest.raises(AIUnavailable) as caught:
+        validate_usage(data, 570)
+    assert caught.value.diagnostics["contract_issue"] == issue
+    assert caught.value.diagnostics["model_matches"] == 1
+    assert caught.value.diagnostics["thoughts_missing"] == 1
+    assert "secret-value" not in json.dumps(caught.value.diagnostics)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("model", ["gemini-3.8-flash", MODEL + "-preview", "secret-value", None])
+async def test_model_mismatch_persists_safe_precise_diagnostics(gemini, database, model):
+    service, calls, mode = gemini
+    mode["mutate"] = lambda data: data.update(modelVersion=model)
+    assert (await service.generate(None, None))["code"] == "safety_stop"
+    with Session(database) as session:
+        job = session.scalars(select(AIBriefJob)).one()
+        assert job.diagnostics["contract_issue"] == "model_mismatch"
+        assert job.diagnostics["model_matches"] == 0
+        assert job.diagnostics["counted_tokens"] == 800
+        assert "secret-value" not in json.dumps(job.diagnostics)
+    assert (await service.generate(None, None))["code"] == "safety_stop"
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "bad", ["output", "input", "total", "negative", "missing", "model", "tools", "cache", "bool"]
 )
@@ -235,6 +323,24 @@ async def test_usage_violations_persist_across_month_restart(gemini, database, c
     mode["mutate"] = change
     assert (await service.generate(None, None))["code"] == "safety_stop"
     assert len(calls) == 2
+    expected_issue = {
+        "output": "output_limit",
+        "input": "input_count_mismatch",
+        "total": "total_mismatch",
+        "negative": "invalid_usage",
+        "missing": "total_mismatch",
+        "model": "model_mismatch",
+        "tools": "unexpected_cache_or_tools",
+        "cache": "unexpected_cache_or_tools",
+        "bool": "invalid_usage",
+    }[bad]
+    with Session(database) as session:
+        diagnostic = session.scalars(select(AIBriefJob)).one().diagnostics
+        assert diagnostic["contract_issue"] == expected_issue
+        assert diagnostic["counted_tokens"] == 800
+        assert diagnostic["model_matches"] == int(bad != "model")
+        if bad == "missing":
+            assert diagnostic["thoughts_missing"] == 1
     clock[0] = datetime(2026, 12, 1, 12, tzinfo=UTC)
     restarted = BriefService(database, service.settings, service.provider)
     assert (await restarted.generate(None, None))["code"] == "safety_stop"

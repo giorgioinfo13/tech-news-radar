@@ -442,13 +442,24 @@ class BriefService:
                         "output_tokens",
                         "thought_tokens",
                         "total_tokens",
+                        "counted_tokens",
+                        "model_matches",
+                        "thoughts_missing",
                     }
                     and type(value) is int
                     and 0 <= value <= 10_000_000
                 }
                 for key, allowed in {
                     "contract_issue": {
-                        "usage_or_model_mismatch",
+                        "usage_or_model_mismatch",  # Retain compatibility with older jobs.
+                        "model_mismatch",
+                        "invalid_usage",
+                        "input_count_mismatch",
+                        "output_limit",
+                        "total_mismatch",
+                        "unexpected_cache_or_tools",
+                        "unexpected_modality",
+                        "reservation_exceeded",
                         "oversized_response",
                         "invalid_envelope",
                         "invalid_token_count",

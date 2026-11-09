@@ -77,38 +77,45 @@ def validate_usage(data: dict, counted: int) -> dict:
             value = usage.get(source)
             if type(value) is int and 0 <= value <= 10_000_000:
                 diagnostics[target] = value
-    try:
-        if data["modelVersion"] != MODEL:
-            raise ValueError
-        usage = data["usageMetadata"]
-        names = (
-            "promptTokenCount",
-            "candidatesTokenCount",
-            "thoughtsTokenCount",
-            "totalTokenCount",
-        )
-        prompt, visible, thoughts, total = (usage[name] for name in names)
-        if not all(type(v) is int and v >= 0 for v in (prompt, visible, thoughts, total)):
-            raise ValueError
-        if not 0 < prompt <= counted <= INPUT_TOKENS or not 0 < visible + thoughts <= OUTPUT_TOKENS:
-            raise ValueError
-        if total != prompt + visible + thoughts:
-            raise ValueError
-        for name in ("cachedContentTokenCount", "toolUsePromptTokenCount"):
-            value = usage.get(name, 0)
-            if type(value) is not int or value != 0:
-                raise ValueError
-        for name in ("promptTokensDetails", "candidatesTokensDetails"):
-            for item in usage.get(name, []):
-                if item.get("modality") != "TEXT":
-                    raise ValueError
-        cost = prompt * INPUT_NANO_USD + (visible + thoughts) * OUTPUT_NANO_USD
-        if cost > RESERVATION_NANO_USD:
-            raise ValueError
-    except (KeyError, TypeError, ValueError, AttributeError):
-        raise AIUnavailable(
-            "safety_stop", diagnostics={**diagnostics, "contract_issue": "usage_or_model_mismatch"}
-        ) from None
+    diagnostics["model_matches"] = int(data.get("modelVersion") == MODEL)
+    if type(counted) is int and 0 <= counted <= 10_000_000:
+        diagnostics["counted_tokens"] = counted
+
+    def reject(issue: str) -> None:
+        raise AIUnavailable("safety_stop", diagnostics={**diagnostics, "contract_issue": issue})
+
+    if not diagnostics["model_matches"]:
+        reject("model_mismatch")
+    if not isinstance(usage, dict):
+        reject("invalid_usage")
+    diagnostics["thoughts_missing"] = int("thoughtsTokenCount" not in usage)
+    prompt = usage.get("promptTokenCount")
+    visible = usage.get("candidatesTokenCount")
+    total = usage.get("totalTokenCount")
+    # Google makes this field optional. Omission is accepted as zero ONLY when
+    # the mandatory total reconciles exactly; null/bool/negative remain invalid.
+    thoughts = usage.get("thoughtsTokenCount", 0)
+    if not all(type(v) is int and v >= 0 for v in (prompt, visible, thoughts, total)):
+        reject("invalid_usage")
+    if type(counted) is not int or not 0 < prompt <= counted <= INPUT_TOKENS:
+        reject("input_count_mismatch")
+    if not 0 < visible + thoughts <= OUTPUT_TOKENS:
+        reject("output_limit")
+    if total != prompt + visible + thoughts:
+        reject("total_mismatch")
+    for name in ("cachedContentTokenCount", "toolUsePromptTokenCount"):
+        value = usage.get(name, 0)
+        if type(value) is not int or value != 0:
+            reject("unexpected_cache_or_tools")
+    for name in ("promptTokensDetails", "candidatesTokensDetails"):
+        items = usage.get(name, [])
+        if not isinstance(items, list) or any(
+            not isinstance(item, dict) or item.get("modality") != "TEXT" for item in items
+        ):
+            reject("unexpected_modality")
+    cost = prompt * INPUT_NANO_USD + (visible + thoughts) * OUTPUT_NANO_USD
+    if cost > RESERVATION_NANO_USD:
+        reject("reservation_exceeded")
     return {"input_tokens": prompt, "output_tokens": visible, "thought_tokens": thoughts}
 
 

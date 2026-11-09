@@ -126,12 +126,22 @@ Reported usage on HTTP errors must also stay within the actual preflight count, 
 An accounting anomaly persists `safety_stop`; later calls remain blocked across restarts and period changes.
 These checks cannot retroactively prevent provider consumption.
 
+Google's [usage metadata types](https://googleapis.github.io/js-genai/release_docs/interfaces/types.UsageMetadata.html)
+make `thoughtsTokenCount` optional. The adapter accepts an omitted field as zero only when
+the required integer total equals prompt plus candidate tokens exactly, with no tool or cache usage.
+An explicit null, invalid type, negative value, or unexplained difference still causes a persistent safety stop.
+This reconciliation describes reported usage; it does not prove that MINIMAL disables reasoning.
+The exact `modelVersion` must still equal `gemini-3.1-flash-lite`; other versions are rejected.
+Safe failure diagnostics distinguish model mismatch, invalid usage, input/count mismatch,
+output limit, total mismatch, unexpected tools/cache, and unexpected modalities.
+They retain bounded numeric counts and a model-match flag, never raw model strings or response bodies.
+
 ### Evidence and accepted limitations
 
 | Requirement | Evidence and remaining work |
 | --- | --- |
-| Fixed model and structured JSON | The [model page](https://aistudio.google.com/docs/models/gemini-3.1-flash-lite) lists structured output and thinking support. The [REST example](https://aistudio.google.com/docs/structured-output?generate-content=true) uses `responseFormat.text.schema`. Account availability remains untested. |
-| Direct output ceiling | The GenerateContent guide documents a combined cutoff. The payload sets 500, and simulated tests reject 501 or inconsistent totals. No live output has been checked. |
+| Fixed model and structured JSON | The [model page](https://aistudio.google.com/docs/models/gemini-3.1-flash-lite) lists structured output and thinking support. The [REST example](https://aistudio.google.com/docs/structured-output?generate-content=true) uses `responseFormat.text.schema`. Verify account availability for the configured project. |
+| Direct output ceiling | The GenerateContent guide documents a combined cutoff. The payload sets 500, and simulated tests reject 501 or inconsistent totals. A passing live sample verifies only that sample. |
 | Standard text tariff | The pricing table lists USD 0.25/million input and USD 1.50/million output including thinking. The reservation uses these rates as an estimate, without a complete billable-input guarantee. |
 | Complete direct input bound | Unresolved: schema coverage has conflicting statements for other models. No complete billable-input upper bound was established for 3.1 Flash-Lite. |
 
@@ -228,7 +238,8 @@ No new queue service, paid cron, or additional infrastructure is introduced.
 Tests require no key. Do not connect a key merely to run the suite.
 Transfer tools now require a `0009` snapshot and preserve monthly reservations.
 A database restore must not roll back the current ledger and reopen spent budget. Keep generation off until reconciliation.
-Cloud migration, runtime grants, connectivity, billing balance, and live inference checks remain unexecuted.
+Verify cloud migrations, runtime grants, connectivity, billing balance, and live inference for each deployment.
+Local tests do not establish these production prerequisites.
 
 ### First authorized live attempt
 
