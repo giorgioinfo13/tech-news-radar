@@ -11,7 +11,7 @@ from alembic import command
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, insert, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -345,13 +345,15 @@ def test_0004_preserves_profiles_and_personal_data(migration_config):
         with engine.begin() as connection:
             connection.exec_driver_sql("UPDATE app_users SET display_name = 'Existing owner'")
         with Session(engine) as session, session.begin():
-            source = Source(name="Existing", feed_url="https://example.org/rss")
-            session.add(source)
-            session.flush()
-            article = Article(source_id=source.id, title="Existing", url="https://example.org/a")
+            source_id = session.scalar(
+                insert(Source)
+                .values(name="Existing", feed_url="https://example.org/rss")
+                .returning(Source.id)
+            )
+            article = Article(source_id=source_id, title="Existing", url="https://example.org/a")
             session.add(article)
             session.flush()
-            source_id, article_id = source.id, article.id
+            article_id = article.id
             session.add_all(
                 [
                     Subscription(user_id=LOCAL_OWNER_ID, source_id=source_id),

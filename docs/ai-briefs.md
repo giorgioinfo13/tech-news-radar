@@ -224,7 +224,7 @@ No new queue service, paid cron, or additional infrastructure is introduced.
 
 1. Keep generation and workflow flags false. Review the [accepted budget limitations](#token-and-provider-contract).
 2. In a separately authorized release, record the target and make a verified backup.
-3. Inspect the actual remote Alembic head. The local chain is `0006 → 0007 → 0008 → 0009`.
+3. Inspect the actual remote Alembic head. The local chain is `0006 → 0007 → 0008 → 0009 → 0010`. Revision `0010` adds RSS attempt tracking.
 4. Apply only missing migrations. Existing revisions are unchanged in this Gemini phase.
 5. Review `backend/sql/enable_ai_briefs.sql` with the owner connection after `0009`.
 6. Grant SELECT/UPDATE on control, CRUD on jobs, and SELECT/INSERT/UPDATE on budget to `tnr_app`.
@@ -236,7 +236,7 @@ No new queue service, paid cron, or additional infrastructure is introduced.
 12. Enable scheduling only after budget-risk acceptance, privacy, model, billing, and real-output checks pass.
 
 Tests require no key. Do not connect a key merely to run the suite.
-Transfer tools now require a `0009` snapshot and preserve monthly reservations.
+Transfer tools now require a `0010` snapshot and preserve monthly reservations.
 A database restore must not roll back the current ledger and reopen spent budget. Keep generation off until reconciliation.
 Verify cloud migrations, runtime grants, connectivity, billing balance, and live inference for each deployment.
 Local tests do not establish these production prerequisites.

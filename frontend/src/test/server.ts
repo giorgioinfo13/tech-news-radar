@@ -53,6 +53,14 @@ export function mockServer() {
     articles: [structuredClone(article)],
     runs: [] as CollectionRun[],
     failRefresh: 0,
+    newsRefresh: {
+      checked: 1,
+      added: 2,
+      failed: 0,
+      skipped: 0,
+      deferred: 0,
+      retry_after: null as number | null,
+    },
     failRead: false,
     invitations: [] as ReaderInvitation[],
     failInvitation: 0,
@@ -197,6 +205,10 @@ export function mockServer() {
       if (method === 'DELETE')
         state.subscriptions = state.subscriptions.filter((value) => value !== id)
       return response(null, 204)
+    }
+    if (path === '/sources/refresh') {
+      if (state.failRefresh) return response({}, state.failRefresh, { 'Retry-After': '900' })
+      return response(state.newsRefresh)
     }
     if (path.endsWith('/refresh')) {
       if (state.failRefresh === 429) return response({}, 429, { 'Retry-After': '42' })

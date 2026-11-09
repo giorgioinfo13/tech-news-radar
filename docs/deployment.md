@@ -44,7 +44,7 @@ worker caches API responses or tokens.
 The `.example` templates are not active hosting configuration files.
 `frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
 does not mean that a frontend deployment exists. Do not deploy without separate
-approval. The current local head is `0009`.
+approval. The current local head is `0010`.
 For an existing `0006` deployment, use the [AI brief rollout](ai-briefs.md#coordinated-publication-plan--not-executed).
 For an existing `0005` deployment, follow the [source proposal rollout](deployment.md#source-proposal-rollout).
 For an existing `0004` deployment, follow the [invitation rollout](authentication.md#invite-friends-by-email) before deploying this version.
@@ -222,7 +222,7 @@ the snapshot hash, revision, and counts/hashes for all application tables. It co
 no credentials, account identifiers, or record contents. A failed command can
 leave an empty report. Inspect the disposable target before a retry.
 
-The importer reads the source in read-only mode. It requires revision `0009`,
+The importer reads the source in read-only mode. It requires revision `0010`,
 valid SQLite integrity/foreign keys, and no unfinished collection. It checks
 the target's unchanged migration seeds under table locks. It copies typed rows
 in batches and compares every column before commit. It reads the snapshot into
@@ -262,7 +262,7 @@ Never print it or pass its password through a command-line argument.
 The URL must use `postgres.PROJECT_REF`, a Supabase session-pooler hostname,
 port `5432`, database `postgres`, `sslmode=verify-full`, and an absolute CA path.
 The plan pins the exact project reference, host, username, and CA checksum.
-It also pins the snapshot path/checksum, revision `0009`, and every table's
+It also pins the snapshot path/checksum, revision `0010`, and every table's
 count and normalized-row checksum. It contains no connection password or
 Auth subject values. Store it privately because it includes local paths.
 
@@ -558,11 +558,11 @@ Official references: [Vercel rewrites and caching](https://vercel.com/docs/routi
 
 ## Shared AI briefs — local implementation
 
-The [AI release plan](ai-briefs.md#coordinated-publication-plan--not-executed) coordinates backup, migrations through `0009`, and minimal runtime grants.
+The [AI release plan](ai-briefs.md#coordinated-publication-plan--not-executed) coordinates backup, migrations through `0010`, and minimal runtime grants.
 No remote migration, grant, key configuration, deployment, or activation is part of the local Gemini phase.
 The backend and workflow stay disabled. `TNR_AI_BUDGET_RISK_ACCEPTED` also defaults to false.
 A later authorized release must verify the remote revision, accepted budget limitations, privacy, and billing state before enabling generation.
-Transfer tools require a `0009` snapshot and preserve the monthly money ledger.
+Transfer tools require a `0010` snapshot and preserve the monthly money ledger.
 Do not reset, discard, or restore an older ledger to repeat an uncertain request.
 
 ## PostgreSQL configuration
@@ -634,7 +634,7 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0009 (head)`. Applying these commands to Supabase requires separate owner authorization.
+The expected revision is `0010 (head)`. Applying these commands to Supabase requires separate owner authorization.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 
@@ -683,7 +683,7 @@ See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-y
 2. Record the remote revision and current grants with a read-only operator check. Confirm the existing target and backups.
 3. Obtain and verify a recoverable database backup. Preserve existing identities, invitations, subscriptions, and reading states.
 4. Coordinate collector inactivity and apply only missing migrations for the reviewed release with the operator connection.
-   Source proposals require `0006`; the current release also includes `0007 → 0008 → 0009`.
+   Source proposals require `0006`; the current release also includes `0007 → 0008 → 0009 → 0010`.
    Follow the [AI release procedure](ai-briefs.md#coordinated-publication-plan--not-executed) for those revisions, keeping AI disabled.
 5. Apply `backend/sql/enable_source_proposals.sql` and any missing grants required by the reviewed release, then inspect `backend/sql/check_app_role.sql` results.
 6. Confirm `tnr_app` has SELECT/INSERT/UPDATE on proposals and USAGE on its sequence, without DELETE or role-management privileges.
@@ -704,5 +704,15 @@ Render deployment and migrations remain manual. Never initialize or reimport the
 
 For rollback, revert application releases while keeping the additive table and grants for investigation.
 Do not downgrade the production database: dropping `source_proposals` destroys proposal history.
-The transfer utilities require the current release revision (`0009`) at both ends and include proposals and their sequence.
+The transfer utilities require the current release revision (`0010`) at both ends and include proposals and their sequence.
 They remain operator-only tools, not part of this rollout. Do not run them against the existing populated Supabase database.
+
+### RSS news refresh rollout — not executed
+
+Stop collection traffic before the coordinated backend release. Apply revision `0010` with the existing migration connection.
+This revision adds `sources.last_attempt_at` and backfills attempt times from collection history. It does not delete data or change retention.
+Existing table-level application grants cover the new column. No new role or cloud service is required.
+Deploy the matching backend and frontend together after migration. Keep one backend worker.
+Verify approved-reader scope, revoked access, cooldowns, HTTP 304, and the mobile gesture after release.
+Check cold starts and a disconnected response on Render separately. Local tests do not measure those conditions.
+Do not change the operator trigger secret, hourly workflows, or Gemini activation for this release.

@@ -1,5 +1,20 @@
 // English message keys keep both languages complete at compile time.
 export const italian = {
+  'Refresh sources': 'Aggiorna fonti',
+  'Refreshing sources…': 'Aggiornamento fonti…',
+  'Pull down to refresh sources': 'Trascina verso il basso per aggiornare le fonti',
+  'Release to refresh sources': 'Rilascia per aggiornare le fonti',
+  'Checking RSS sources. This may take a moment.':
+    'Controllo delle fonti RSS in corso. Potrebbe richiedere qualche istante.',
+  'A collection is already in progress. No new collection was started.':
+    'Una raccolta è già in corso. Non è stata avviata una nuova raccolta.',
+  'New articles: {added} · Sources checked: {checked} · Skipped: {skipped} · Failed: {failed}.':
+    'Nuovi articoli: {added} · Fonti controllate: {checked} · Saltate: {skipped} · Non riuscite: {failed}.',
+  'Partial update: {count} sources remain. No automatic retry.':
+    'Aggiornamento parziale: restano {count} fonti. Nessun nuovo tentativo automatico.',
+  'Sources were checked recently or are waiting after errors. Next check in at least {seconds} seconds.':
+    'Le fonti sono state controllate di recente o sono in attesa dopo errori. Prossimo controllo tra almeno {seconds} secondi.',
+  'No enabled sources are available to refresh.': 'Non ci sono fonti abilitate da aggiornare.',
   'AI digest': 'Rassegna AI',
   'Last 24 hours digest': 'Rassegna delle ultime 24 ore',
   'One shared digest across the catalog, independent of the sources you follow.':

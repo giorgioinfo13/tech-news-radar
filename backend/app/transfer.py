@@ -31,7 +31,7 @@ from app.models import (
     Subscription,
 )
 
-REVISION = "0009"
+REVISION = "0010"
 TABLES = tuple(
     model.__table__
     for model in (
@@ -111,7 +111,7 @@ def check_layout(connection: Connection) -> None:
     if connection.execute(text("SELECT version_num FROM alembic_version")).scalars().all() != [
         REVISION
     ]:
-        raise TransferError("Both databases must use migration revision 0009.")
+        raise TransferError(f"Both databases must use migration revision {REVISION}.")
     for table in TABLES:
         if {column["name"] for column in inspector.get_columns(table.name, schema=schema)} != set(
             table.c.keys()

@@ -80,6 +80,15 @@ export interface CollectionRun {
   error_message: string | null
 }
 
+export interface RefreshSummary {
+  checked: number
+  added: number
+  failed: number
+  skipped: number
+  deferred: number
+  retry_after: number | null
+}
+
 export class ApiError extends Error {
   readonly status: number
   constructor(

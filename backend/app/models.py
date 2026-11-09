@@ -152,6 +152,7 @@ class Source(Base):
     refresh_interval_minutes: Mapped[int] = mapped_column(default=60, server_default="60")
     etag: Mapped[str | None] = mapped_column(Text)
     last_modified: Mapped[str | None] = mapped_column(Text)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_success_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_error: Mapped[str | None] = mapped_column(Text)

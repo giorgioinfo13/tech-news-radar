@@ -95,6 +95,15 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                 Collector(runtime, Settings(_env_file=None)),
             )
             assert approved.status == "approved" and approved.source_id == source_id
+        from app.collection.download import Download
+
+        collector = Collector(runtime, Settings(_env_file=None))
+        collector.downloader.fetch = lambda *args, **kwargs: Download(
+            b'<rss version="2.0"><channel><title>News</title></channel></rss>',
+            "https://example.org/existing",
+        )
+        assert collector.refresh_news(user_id).checked == 1
+        assert collector.refresh_news(LOCAL_OWNER_ID).skipped == 1
         from app.ai_briefs import BriefService
         from app.models import Article
 

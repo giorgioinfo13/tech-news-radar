@@ -16,7 +16,7 @@ from app.api.dependencies import (
     require_admin,
     source_write_guard,
 )
-from app.collection.service import RefreshRejected
+from app.collection.service import RefreshRejected, RefreshSummary
 from app.models import Category, CollectionRun, Source, Subscription
 from app.schemas import CollectionRunRead, Page, SourceCreate, SourceRead, SourceUpdate
 
@@ -64,10 +64,12 @@ def update_source(source_id: ResourceId, data: SourceUpdate, session: SessionDep
         # Validators and diagnostics describe the old URL, not the replacement.
         source.etag = None
         source.last_modified = None
+        # URL edits clear diagnostics, but must not bypass shared attempt limits/backoff.
+        dates = [date for date in (source.last_attempt_at, source.last_checked_at) if date]
+        source.last_attempt_at = max(dates) if dates else None
         source.last_checked_at = None
         source.last_success_at = None
         source.last_error = None
-        source.consecutive_failures = 0
     for field, value in changes.items():
         setattr(source, field, value)
     commit_or_conflict(session, CONFLICT)
@@ -97,6 +99,17 @@ def list_collection_runs(source_id: ResourceId, session: SessionDep, pagination:
     return paginate(session, statement, pagination)
 
 
+@router.post("/refresh", response_model=RefreshSummary)
+def refresh_news(collector: CollectorDep, user: UserDep, session: SessionDep):
+    """Authenticated RSS-only collection. No operator secret or AI dispatch."""
+    user_id = user.id
+    session.rollback()
+    try:
+        return collector.refresh_news(user_id)
+    except RefreshRejected as exc:
+        raise reject_refresh(exc) from exc
+
+
 @router.post(
     "/{source_id}/refresh",
     response_model=CollectionRunRead,
@@ -121,9 +134,10 @@ def refresh_source(
     if user.role != "admin" and session.get(Subscription, (user.id, source_id)) is None:
         raise HTTPException(status_code=403, detail="Follow this source before refreshing it")
     # Authorization must not keep a transaction open during the guarded download.
+    user_id = user.id
     session.rollback()
     try:
-        run = collector.refresh(source_id)
+        run = collector.refresh(source_id, user_id=user_id)
     except RefreshRejected as exc:
         raise reject_refresh(exc) from exc
     if run.status == "error":

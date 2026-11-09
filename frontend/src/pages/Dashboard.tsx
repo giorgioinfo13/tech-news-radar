@@ -1,18 +1,22 @@
 import type { UiMessage } from '../messages'
 import { useLanguage } from '../language-context'
-import { useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   errorMessage,
+  ApiError,
   formatDate,
   mutate,
   safeArticleUrl,
   type Article,
   type Category,
   type Source,
+  type RefreshSummary,
 } from '../api'
 import { Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
 import { Icon } from '../Icon'
+import { usePullToRefresh } from '../usePullToRefresh'
+import { message } from '../messages'
 
 export function Dashboard({ categories, sources }: { categories: Category[]; sources: Source[] }) {
   const { t, locale } = useLanguage()
@@ -28,6 +32,53 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
   if (filters.read) params.set('is_read', filters.read)
   if (filters.q) params.set('q', filters.q)
   const articles = useQuery<Article>(`/articles?${params}`)
+  const [refreshing, setRefreshing] = useState(false)
+  const [cooling, setCooling] = useState(false)
+  const [refreshResult, setRefreshResult] = useState<RefreshSummary | null>(null)
+  const [refreshError, setRefreshError] = useState<UiMessage | null>(null)
+  const refreshLock = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const reload = articles.reload
+  const refresh = useCallback(async () => {
+    if (refreshLock.current) return
+    refreshLock.current = true
+    setRefreshing(true)
+    setRefreshError(null)
+    setRefreshResult(null)
+    try {
+      const result = await mutate<RefreshSummary>('/sources/refresh', 'POST')
+      if (mounted.current) setRefreshResult(result)
+    } catch (error) {
+      if (mounted.current)
+        setRefreshError(
+          error instanceof ApiError && error.status === 409
+            ? message('A collection is already in progress. No new collection was started.')
+            : errorMessage(error),
+        )
+    } finally {
+      // A short UI debounce also covers gestures immediately after the response.
+      if (mounted.current) {
+        setRefreshing(false)
+        setCooling(true)
+        reload()
+      }
+    }
+  }, [reload])
+  useEffect(() => {
+    if (!cooling) return
+    const timer = window.setTimeout(() => {
+      refreshLock.current = false
+      setCooling(false)
+    }, 3000)
+    return () => window.clearTimeout(timer)
+  }, [cooling])
+  const { surface: pullSurface, pulling, ready } = usePullToRefresh(refresh, refreshing || cooling)
   function filter(key: 'category' | 'source' | 'read' | 'q', value: string) {
     setFilters((previous) => ({ ...previous, [key]: value, offset: 0 }))
   }
@@ -56,16 +107,61 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
   }
   const activeFilters = filters.category || filters.source || filters.read || filters.q
   return (
-    <>
+    <div ref={pullSurface} className="news-refresh-surface">
       <header className="page-header">
         <div>
           <h1>{t('News')}</h1>
           <p>{t('Your sources, one read at a time.')}</p>
         </div>
-        <a href="#sources" className="button header-action">
-          {t('Choose sources')}
-        </a>
+        <div className="actions header-action">
+          <button onClick={() => void refresh()} disabled={refreshing || cooling}>
+            <Icon name="refresh" />
+            {refreshing ? t('Refreshing sources…') : t('Refresh sources')}
+          </button>
+          <a href="#sources" className="button">
+            {t('Choose sources')}
+          </a>
+        </div>
       </header>
+      {pulling && (
+        <p className="pull-feedback" role="status">
+          {ready ? t('Release to refresh sources') : t('Pull down to refresh sources')}
+        </p>
+      )}
+      {refreshing && <Notice>{t('Checking RSS sources. This may take a moment.')}</Notice>}
+      {refreshError && <Notice error>{t(refreshError)}</Notice>}
+      {refreshResult && (
+        <Notice error={refreshResult.failed > 0}>
+          {t(
+            'New articles: {added} · Sources checked: {checked} · Skipped: {skipped} · Failed: {failed}.',
+            {
+              added: refreshResult.added,
+              checked: refreshResult.checked,
+              skipped: refreshResult.skipped,
+              failed: refreshResult.failed,
+            },
+          )}
+          {refreshResult.deferred > 0 && (
+            <>
+              {' '}
+              {t('Partial update: {count} sources remain. No automatic retry.', {
+                count: refreshResult.deferred,
+              })}
+            </>
+          )}
+          {refreshResult.checked === 0 && refreshResult.deferred === 0 && (
+            <>
+              {' '}
+              {refreshResult.retry_after
+                ? t(
+                    'Sources were checked recently or are waiting after errors. Next check in at least {seconds} seconds.',
+                    { seconds: refreshResult.retry_after },
+                  )
+                : t('No enabled sources are available to refresh.')}
+            </>
+          )}
+        </Notice>
+      )}
       <section className="filter-panel" aria-label={t('News filters')}>
         <form className="search" onSubmit={submitSearch}>
           <label className="sr-only" htmlFor="search">
@@ -254,6 +350,6 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           onChange={(offset) => setFilters((previous) => ({ ...previous, offset }))}
         />
       )}
-    </>
+    </div>
   )
 }

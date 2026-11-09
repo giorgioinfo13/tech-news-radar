@@ -24,6 +24,9 @@ L’italiano è la lingua predefinita. Nel menu in alto a destra puoi scegliere
 **Lingua → English**; la preferenza rimane nel browser anche dopo il logout.
 Articoli e nomi delle fonti mantengono la lingua originale.
 
+**Aggiorna fonti**, implementato in locale e da rilasciare, controlla le fonti consentite dalla pagina **Notizie**, anche con trascinamento verso il basso su mobile.
+Rispetta limiti condivisi e aggiorna l’elenco senza cambiare filtri o letture. Non genera rassegne AI.
+
 Con **Proponi una fonte** i lettori suggeriscono nuove fonti e l’amministratore
 le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architecture.md#source-proposals).
 

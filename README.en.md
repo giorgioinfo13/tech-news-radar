@@ -24,6 +24,9 @@ Italian is the default interface language. In the top-right menu, select
 **Lingua → English**. The browser keeps this preference after sign-out.
 Articles and source names keep their original language.
 
+**Refresh sources**, implemented locally and pending release, checks permitted sources from **News**, including with a downward pull on mobile.
+It respects shared limits and reloads the list without changing filters or read states. It does not generate AI digests.
+
 With **Suggest a source**, readers suggest new sources and the administrator
 approves or rejects them. See [how source proposals work](docs/architecture.md#source-proposals).
 

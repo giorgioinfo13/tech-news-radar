@@ -1,15 +1,72 @@
 """Bounded HTTP requests pinned to validated public IP addresses."""
 
+import asyncio
 import ipaddress
+import json
 import socket
-import time
+import sys
 import zlib
+from asyncio import create_subprocess_exec
 from collections.abc import Callable
 from dataclasses import dataclass
+from threading import Thread
+from time import monotonic
 
 import httpx
 
 from app.config import Settings
+
+# Isolated Python, standard library only, no inherited environment or application imports.
+# Host and port are separate arguments, never interpolated into executable code.
+_DNS_SCRIPT = """
+import json, socket, sys
+try:
+    rows = socket.getaddrinfo(sys.argv[1], int(sys.argv[2]), type=socket.SOCK_STREAM)
+    addresses = list(dict.fromkeys(row[4][0] for row in rows))
+    if len(addresses) > 64:
+        raise ValueError()
+    print(json.dumps(addresses))
+except (OSError, ValueError):
+    sys.exit(1)
+"""
+
+
+async def resolve_public_host_bounded(host: str, port: int, timeout: float) -> str:
+    """Kill and reap slow OS DNS resolution before allowing the next feed."""
+    process = None
+    try:
+        async with asyncio.timeout(timeout):
+            process = await create_subprocess_exec(
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                _DNS_SCRIPT,
+                host,
+                str(port),
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+                env={},
+            )
+            output, _ = await process.communicate()
+        if process.returncode != 0:
+            raise FeedError("Feed hostname could not be resolved")
+        addresses = json.loads(output)
+        if not addresses or not all(public_address(address) for address in addresses):
+            raise FeedError("Feed destination must resolve only to public IP addresses")
+        return addresses[0]
+    except TimeoutError as exc:
+        raise FeedError("Feed hostname resolution timed out") from exc
+    except (OSError, ValueError) as exc:
+        raise FeedError("Feed hostname could not be resolved") from exc
+    finally:
+        if process is not None and process.returncode is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+            await process.wait()
 
 
 class FeedError(Exception):
@@ -82,31 +139,90 @@ class FeedDownloader:
         self,
         settings: Settings,
         *,
-        resolver: Callable[[str, int], str] = resolve_public_host,
-        transport: httpx.BaseTransport | None = None,
+        resolver: Callable[[str, int], str] | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.settings = settings
         self.resolver = resolver
         self.transport = transport
 
-    def fetch(self, value: str, etag: str | None, last_modified: str | None) -> Download:
+    def fetch(
+        self,
+        value: str,
+        etag: str | None,
+        last_modified: str | None,
+        *,
+        deadline: float | None = None,
+    ) -> Download:
+        # Sync API routes run outside an event loop. A few direct callers (including
+        # tests) already have one; bridge them without nesting asyncio.run().
+        async def bounded():
+            seconds = min(30, self.settings.feed_timeout_seconds * 3)
+            if deadline is not None:
+                seconds = min(seconds, deadline - monotonic())
+            if seconds <= 0:
+                raise FeedError("Feed download exceeded its time budget")
+            try:
+                async with asyncio.timeout(seconds):
+                    return await self._fetch(value, etag, last_modified, deadline=deadline)
+            except TimeoutError as exc:
+                raise FeedError("Feed download exceeded its time budget") from exc
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(bounded())
+        outcome = []
+
+        def run():
+            try:
+                outcome.append(asyncio.run(bounded()))
+            except Exception as exc:
+                outcome.append(exc)
+
+        worker = Thread(target=run, name="feed-download")
+        worker.start()
+        worker.join()
+        if isinstance(outcome[0], Exception):
+            raise outcome[0]
+        return outcome[0]
+
+    async def _fetch(
+        self,
+        value: str,
+        etag: str | None,
+        last_modified: str | None,
+        *,
+        deadline: float | None = None,
+    ) -> Download:
         url = checked_url(value)
         conditional = {}
         if cached := cache_header(etag):
             conditional["If-None-Match"] = cached
         if cached := cache_header(last_modified):
             conditional["If-Modified-Since"] = cached
-        deadline = time.monotonic() + self.settings.feed_timeout_seconds * 3
+        deadline = min(
+            deadline if deadline is not None else float("inf"),
+            monotonic() + min(30, self.settings.feed_timeout_seconds * 3),
+        )
         try:
             # A fresh client per hop prevents cookies and TLS connections crossing origins.
             for hop in range(4):
                 hostname = url.raw_host.decode("ascii")
-                address = self.resolver(
-                    hostname, url.port or (443 if url.scheme == "https" else 80)
+                port = url.port or (443 if url.scheme == "https" else 80)
+                address = (
+                    # Explicit synchronous resolver injection is reserved for offline tests.
+                    self.resolver(hostname, port)
+                    if self.resolver is not None
+                    else await resolve_public_host_bounded(
+                        hostname,
+                        port,
+                        min(10, self.settings.feed_timeout_seconds, deadline - monotonic()),
+                    )
                 )
                 if not public_address(address):
                     raise FeedError("Feed destination is not a public IP address")
-                if time.monotonic() >= deadline:
+                if monotonic() >= deadline:
                     raise FeedError("Feed download exceeded its time budget")
                 target = url.copy_with(host=address)
                 headers = {
@@ -117,15 +233,17 @@ class FeedDownloader:
                     "Accept-Encoding": "identity",
                     **conditional,
                 }
-                with httpx.Client(
+                async with httpx.AsyncClient(
                     transport=self.transport,
                     trust_env=False,
                     follow_redirects=False,
-                    timeout=self.settings.feed_timeout_seconds,
+                    timeout=min(10, self.settings.feed_timeout_seconds, deadline - monotonic()),
                 ) as client:
-                    with client.stream(
+                    async with client.stream(
                         "GET", target, headers=headers, extensions={"sni_hostname": hostname}
                     ) as response:
+                        if monotonic() >= deadline:
+                            raise FeedError("Feed download exceeded its time budget")
                         if response.status_code in {301, 302, 303, 307, 308}:
                             if hop == 3 or "location" not in response.headers:
                                 raise FeedError("Feed redirect limit exceeded or target missing")
@@ -164,8 +282,8 @@ class FeedDownloader:
                             raise FeedError("Feed exceeds the download size limit")
                         body = bytearray()
                         received = 0
-                        for chunk in response.iter_raw(chunk_size=65536):
-                            if time.monotonic() >= deadline:
+                        async for chunk in response.aiter_raw():
+                            if monotonic() >= deadline:
                                 raise FeedError("Feed download exceeded its time budget")
                             received += len(chunk)
                             if received > self.settings.feed_max_bytes:
@@ -186,6 +304,8 @@ class FeedDownloader:
                             body.extend(chunk)
                         if decoder is not None and not decoder.eof:
                             raise FeedError("Feed contains incomplete gzip data")
+                        if monotonic() >= deadline:
+                            raise FeedError("Feed download exceeded its time budget")
                         return Download(
                             bytes(body),
                             str(url),

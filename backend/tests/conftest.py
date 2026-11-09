@@ -1,4 +1,5 @@
 import os
+import socket
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from uuid import uuid4
@@ -103,5 +104,7 @@ def isolated_settings_and_http(monkeypatch):
     async def denied_async(*args, **kwargs):
         denied()
 
+    monkeypatch.setattr(socket, "getaddrinfo", denied)
+    monkeypatch.setattr("app.collection.download.create_subprocess_exec", denied_async)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", denied)
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", denied_async)

@@ -1385,3 +1385,14 @@ textarea {
     justify-content: center;
   }
 }
+
+/* Scope native overscroll suppression to the reader, keeping horizontal navigation. */
+html.news-pull-refresh {
+  overscroll-behavior-y: contain;
+}
+
+.pull-feedback {
+  color: var(--muted);
+  text-align: center;
+  padding: 0.75rem;
+}

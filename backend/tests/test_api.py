@@ -369,7 +369,7 @@ async def test_feed_url_change_resets_diagnostics_but_preserves_content(
     assert result.status_code == 200
     for field in ["last_checked_at", "last_success_at", "last_error"]:
         assert result.json()[field] is None
-    assert result.json()["consecutive_failures"] == 0
+    assert result.json()["consecutive_failures"] == 2
     with Session(database) as session:
         source = session.get(Source, news["first"])
         assert source.etag is None

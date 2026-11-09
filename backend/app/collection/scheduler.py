@@ -50,16 +50,18 @@ class CollectionScheduler:
                 # Keep the worker alive after storage failures. Do not log DB URLs.
                 logger.error("Scheduled collection scan failed (%s)", type(exc).__name__)
 
-    def run_once(
-        self, *, max_sources: int | None = None, max_seconds: float | None = None
-    ) -> ScanResult:
+    def run_once(self, *, max_sources: int = 25, max_seconds: float = 240) -> ScanResult:
         result = ScanResult()
         started = monotonic()
         with Session(self.collector.engine) as session:
             source_ids = session.scalars(
                 select(Source.id)
                 .where(Source.enabled.is_(True))
-                .order_by(Source.last_checked_at.asc().nullsfirst(), Source.id)
+                .order_by(
+                    Source.last_attempt_at.asc().nullsfirst(),
+                    Source.last_checked_at.asc().nullsfirst(),
+                    Source.id,
+                )
             ).all()
         # No session or transaction is held while another source downloads.
         for source_id in source_ids:

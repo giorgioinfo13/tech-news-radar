@@ -199,12 +199,12 @@ def test_international_hostname_uses_ascii_for_dns_and_tls():
 def test_size_limit_accumulates_streamed_chunks_and_closes_stream():
     closed = []
 
-    class Chunks(httpx.SyncByteStream):
-        def __iter__(self):
+    class Chunks(httpx.AsyncByteStream):
+        async def __aiter__(self):
             yield b"x" * 600
             yield b"x" * 600
 
-        def close(self):
+        async def aclose(self):
             closed.append(True)
 
     with pytest.raises(FeedError, match="size limit"):
@@ -215,10 +215,16 @@ def test_size_limit_accumulates_streamed_chunks_and_closes_stream():
 
 
 def test_body_stream_deadline(monkeypatch):
-    ticks = iter([0, 0, 31])
-    monkeypatch.setattr("app.collection.download.time.monotonic", lambda: next(ticks))
+    clock = [0]
+    monkeypatch.setattr("app.collection.download.monotonic", lambda: clock[0])
+
+    class LateBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            clock[0] = 31
+            yield b"<rss/>"
+
     with pytest.raises(FeedError, match="time budget"):
-        downloader(lambda request: httpx.Response(200, stream=httpx.ByteStream(b"<rss/>"))).fetch(
+        downloader(lambda request: httpx.Response(200, stream=LateBody())).fetch(
             "https://example.org", None, None
         )
 
@@ -250,3 +256,121 @@ def test_invalid_or_excessive_gzip_is_rejected(body, message):
         downloader(lambda request: gzip_response(body), feed_max_bytes=1024).fetch(
             "https://example.org/feed", None, None
         )
+
+
+def test_absolute_timeout_cancels_slow_headers_and_closes_transport():
+    import asyncio
+    from time import monotonic
+
+    closed = []
+
+    class SlowHeaders(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            await asyncio.sleep(60)
+            raise AssertionError("Timed-out request resumed")
+
+        async def aclose(self):
+            closed.append(True)
+
+    fetcher = FeedDownloader(
+        Settings(feed_timeout_seconds=0.02),
+        resolver=lambda *args: PUBLIC_IP,
+        transport=SlowHeaders(),
+    )
+    started = monotonic()
+    with pytest.raises(FeedError, match="time budget"):
+        fetcher.fetch("https://example.org/feed", None, None)
+    assert monotonic() - started < 1
+    assert closed == [True]
+
+
+def test_absolute_timeout_cancels_slow_body_without_waiting_for_a_full_chunk():
+    import asyncio
+    from time import monotonic
+
+    closed = []
+
+    class SlowBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            while True:
+                await asyncio.sleep(0.01)
+                yield b"x"
+
+        async def aclose(self):
+            closed.append(True)
+
+    fetcher = downloader(
+        lambda request: httpx.Response(200, stream=SlowBody()), feed_timeout_seconds=0.02
+    )
+    started = monotonic()
+    with pytest.raises(FeedError, match="time budget"):
+        fetcher.fetch("https://example.org/feed", None, None)
+    assert monotonic() - started < 1
+    assert closed == [True]
+
+
+@pytest.mark.anyio
+async def test_stuck_dns_is_killed_and_next_resolution_can_succeed(monkeypatch):
+    import asyncio
+
+    from app.collection import download
+
+    processes = []
+
+    class DNSProcess:
+        returncode = None
+        killed = False
+        reaped = False
+
+        async def communicate(self):
+            if len(processes) == 1:
+                await asyncio.sleep(60)
+            self.returncode = 0
+            return b'["93.184.215.14"]', b""
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        async def wait(self):
+            self.reaped = True
+
+    async def spawn(*args, **kwargs):
+        assert args[-2:] == ("example.org", "443")
+        assert kwargs["env"] == {}
+        process = DNSProcess()
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(download, "create_subprocess_exec", spawn)
+    with pytest.raises(FeedError, match="resolution timed out"):
+        await download.resolve_public_host_bounded("example.org", 443, 0.02)
+    assert processes[0].killed and processes[0].reaped
+    assert await download.resolve_public_host_bounded("example.org", 443, 1) == PUBLIC_IP
+    assert len(processes) == 2
+
+
+@pytest.mark.anyio
+async def test_dns_worker_start_failure_does_not_leave_a_lock(monkeypatch):
+    from app.collection import download
+
+    async def cannot_start(*args, **kwargs):
+        raise OSError("Cannot start a new process")
+
+    monkeypatch.setattr(download, "create_subprocess_exec", cannot_start)
+    for _ in range(2):
+        with pytest.raises(FeedError, match="could not be resolved"):
+            await download.resolve_public_host_bounded("example.org", 443, 1)
+
+
+@pytest.mark.anyio
+async def test_isolated_dns_process_resolves_numeric_address_without_network(monkeypatch):
+    import asyncio
+
+    from app.collection import download
+
+    # A numeric address is resolved locally by libc, without a DNS/provider request.
+    monkeypatch.setattr(download, "create_subprocess_exec", asyncio.create_subprocess_exec)
+    assert await download.resolve_public_host_bounded(PUBLIC_IP, 443, 2) == PUBLIC_IP
+    with pytest.raises(FeedError, match="public"):
+        await download.resolve_public_host_bounded("127.0.0.1", 443, 2)

@@ -2,7 +2,7 @@ from io import StringIO
 from pathlib import Path
 
 from alembic import command
-from sqlalchemy import inspect, select
+from sqlalchemy import MetaData, Table, insert, inspect, select
 from sqlalchemy.orm import Session
 
 from app.db import resolve_database_url
@@ -69,22 +69,24 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
     command.downgrade(migration_config, "0004")
     with Session(database) as session, session.begin():
         session.get(AppUser, LOCAL_OWNER_ID).display_name = "Existing owner"
-        source = Source(name="Preserved source", feed_url="https://example.org/preserved")
-        session.add(source)
-        session.flush()
+        source_id = session.scalar(
+            insert(Source)
+            .values(name="Preserved source", feed_url="https://example.org/preserved")
+            .returning(Source.id)
+        )
         article = Article(
-            source_id=source.id, title="Preserved article", url="https://example.org/a"
+            source_id=source_id, title="Preserved article", url="https://example.org/a"
         )
         session.add(article)
         session.flush()
         session.add_all(
             [
-                Subscription(user_id=LOCAL_OWNER_ID, source_id=source.id),
+                Subscription(user_id=LOCAL_OWNER_ID, source_id=source_id),
                 ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id),
             ]
         )
     tables = [
-        table
+        Table(table.name, MetaData(), autoload_with=database)
         for table in TABLES
         if table.name
         not in {
@@ -124,3 +126,29 @@ def test_offline_sql_does_not_create_a_database(migration_config):
     else:
         assert "CREATE SCHEMA IF NOT EXISTS tnr" in output.getvalue()
         assert "TIMESTAMP WITH TIME ZONE" in output.getvalue()
+
+
+def test_attempt_migration_preserves_content_and_backfills_interrupted_runs(
+    database, migration_config
+):
+    from datetime import UTC, datetime
+
+    from app.models import CollectionRun
+
+    command.downgrade(migration_config, "0009")
+    started = datetime(2026, 11, 9, tzinfo=UTC)
+    with Session(database) as session, session.begin():
+        source_id = session.scalar(
+            insert(Source)
+            .values(name="Existing", feed_url="https://example.org/rss")
+            .returning(Source.id)
+        )
+        session.add(CollectionRun(source_id=source_id, started_at=started))
+        session.add(Article(source_id=source_id, title="Preserved", url="https://example.org/a"))
+    command.upgrade(migration_config, "head")
+    command.upgrade(migration_config, "head")
+    command.check(migration_config)
+    with Session(database) as session:
+        assert session.get(Source, source_id).last_attempt_at == started
+        assert session.scalar(select(CollectionRun)).status == "running"
+        assert session.scalar(select(Article)).title == "Preserved"

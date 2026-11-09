@@ -95,7 +95,7 @@ Article lists default to personal subscriptions. Browsing the full shared archiv
 
 Source URLs accept HTTP/HTTPS, exclude embedded credentials and fragments, and use
 Pydantic URL normalization. Saving a source does not check feed availability or
-destination addresses. Only the manual refresh endpoint makes outbound requests.
+destination addresses. Only collection paths use the guarded downloader for outbound feed requests.
 
 Changing a feed URL clears its cache validators and current diagnostics. Existing
 articles and collection history remain attached to the source. Disabling a source
@@ -109,25 +109,40 @@ new articles and the final outcome together. A failure rolls back article insert
 and records an error in a separate transaction. Storage outages can prevent that
 last write. Interrupted runs are closed on the next refresh of the same source.
 
-An application-wide lock rejects concurrent refreshes and source PATCH/DELETE requests.
-It does not hold a database transaction during network access. Run exactly one backend
-process/worker against the database. The lock does not coordinate separate processes
-or external database edits. The scheduler uses this same collector and lock.
+An application gate rejects concurrent collections and source PATCH/DELETE requests.
+A PostgreSQL session advisory lock or SQLite OS file lock also coordinates separate collector instances.
+Network access holds no database transaction. PostgreSQL reserves one pool connection for the session lock.
+Locks release on process/connection closure and remain held during suspension, without expiring lease overlap.
+Keep one backend process/worker. External SQL edits do not participate in this gate.
 
-Refreshes have a 30-second cooldown after success. After consecutive failures, the
-cooldown doubles from 60 seconds to a maximum of one hour. Rejected refreshes do not
-create runs. Automatic collection also respects each source interval.
+Revision `0010` adds `sources.last_attempt_at` and backfills it from collection history.
+The collector commits that timestamp and increments the failure counter before HTTP. Success resets the counter.
+The shared minimum is 900 seconds after the later of the latest attempt and completed check.
+Error backoff is `max(900, min(3600, 30 × 2^min(failures, 7)))` seconds, including interrupted attempts.
+Source URL changes preserve these limits. Rejected requests create no collection runs.
+Automatic collection also respects each source's configured interval.
+
+`POST /api/sources/refresh` selects authorized sources on the backend and returns aggregate counts.
+Administrators can refresh the enabled catalog. Readers can refresh only followed sources.
+Active access and subscription checks repeat before each download. Never-attempted and oldest sources have priority.
+The request holds the shared gate for up to 10 sequential attempts with a 45-second collection budget.
+Remaining time bounds each download. Parsing and database work can extend response time.
+The frontend reloads its current article query even when no source is eligible or the request fails.
+There is no queue, automatic frontend retry, AI dispatch, or retention change.
+See [exact rules and UI behavior](development.md#refresh-from-news).
 
 The downloader uses HTTPX, public IP checks, and at most three redirects. Each hop
 connects to an already validated IP, with the original Host header and TLS hostname.
 This uses HTTPX's documented [SNI extension](https://www.python-httpx.org/advanced/extensions/#sni_hostname).
 Mixed public/private DNS answers, special IP ranges, nonstandard ports, and HTTPS
 downgrades are rejected. Environment proxies and credentials are not used.
-Only the first validated DNS address is attempted. DNS timing follows the OS resolver.
+Only the first validated DNS address is attempted. DNS runs in a bounded child process with no inherited environment. Timeout terminates and reaps it before the next feed.
 
-HTTP operations default to a 10-second timeout. A 30-second elapsed-time budget is
-checked between download operations. It does not interrupt an active OS DNS call
-or socket operation. Downloads are streamed and limited to 2 MB by default.
+HTTP operations and DNS waits have a maximum timeout of 10 seconds.
+An absolute HTTP deadline of at most 30 seconds cancels slow headers and bodies.
+A manual batch supplies its remaining budget when that is shorter.
+The DNS child cannot start HTTP. Timed-out DNS work is terminated, and HTTP work is cancelled before the collector advances.
+Downloads are streamed and limited to 2 MB by default.
 The client requests uncompressed content but also accepts gzip with bounded decompression.
 The same size limit applies separately to transferred and decoded bytes. Invalid,
 truncated, trailing, or concatenated gzip streams are rejected. Other encodings,
@@ -135,7 +150,7 @@ authentication, private networks, and nonstandard ports
 are not supported in this version.
 
 ETag and Last-Modified support conditional requests. A `304` preserves articles and
-records `not_modified`. Cache headers change only after successful collection.
+records `not_modified`. Without conditional support, the server can send the full feed for local deduplication. Cache headers change only after successful collection.
 Validators are not forwarded across redirects or saved from redirected responses.
 Configure the final feed URL to benefit from conditional requests.
 
@@ -167,19 +182,19 @@ This periodic loop needs no APScheduler dependency or persistent job store.
 See [Python event objects](https://docs.python.org/3.13/library/threading.html#event-objects)
 and [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/).
 
-After each poll delay, the worker reads enabled source IDs, ordered by oldest check time.
+After each poll delay, the worker reads enabled source IDs, ordered by never-attempted and oldest attempt time.
 It closes that session before collection. `Collector.refresh_if_due` acquires the shared
 lock and rereads source settings before it calls the existing collection path.
-A source is due when its last check plus the greater of its interval and cooldown is reached.
+A source is due after the later of its latest attempt and completed check, plus the greater of its interval and cooldown.
 Never-checked sources are due immediately. Missing, disabled, and unexpired sources are skipped.
 The source interval defaults to 60 minutes. The poll delay defaults to 30 seconds.
 
 Each pass is sequential. A busy collector defers the remaining pass. Source failures
 leave other sources available, and scan failures are logged without stopping the worker.
 The next pass starts after the current pass and poll delay. Missed intervals do not create jobs.
-Stored check times preserve the schedule across restarts without new database fields.
+Stored check and attempt times preserve the schedule across restarts.
 Normal shutdown signals the worker, waits for its active feed, then disposes the engine.
-The lifespan waits for that join outside the event loop. OS DNS resolution can delay it.
+The lifespan waits for that join outside the event loop. DNS waiting and HTTP work have separate bounds.
 
 Set `TNR_SCHEDULER_ENABLED=false` to disable the worker. Change the scan delay with
 `TNR_SCHEDULER_POLL_SECONDS` (1–300 seconds). Run one backend process per database.

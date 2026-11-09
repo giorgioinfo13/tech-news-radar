@@ -44,7 +44,7 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0009 (head)`, with no pending schema changes. Revision `0003` adds personal subscriptions and read states.
+`0010 (head)`, with no pending schema changes. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
 It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
 Revision `0004` adds explicit Supabase identity links without changing existing profiles or personal data.
 Revision `0005` adds administrator email invitations. It preserves existing profiles, subscriptions, and read states.
@@ -117,7 +117,8 @@ Only administrators can create, edit, or delete categories and sources.
 | `PATCH`, `DELETE` | `/api/categories/{id}` | Edit or delete a category |
 | `GET`, `POST` | `/api/sources` | List or create source configurations |
 | `PATCH`, `DELETE` | `/api/sources/{id}` | Edit or delete a source |
-| `POST` | `/api/sources/{id}/refresh` | Collect an enabled source and return the result |
+| `POST` | `/api/sources/{id}/refresh` | Collect an enabled, authorized source within shared limits |
+| `POST` | `/api/sources/refresh` | Collect eligible authorized sources and return aggregate counts |
 | `GET` | `/api/sources/{id}/runs` | List a source's collection history |
 | `GET` | `/api/articles` | List, filter, and search articles |
 | `PATCH` | `/api/articles/{id}` | Set read/unread status |
@@ -146,7 +147,7 @@ Slugs use lowercase ASCII letters, digits, and single hyphens between groups.
 Create a source with `{"name":"Example","feed_url":"https://example.org/feed.xml"}`.
 This is a placeholder URL, not a verified feed. Optional source fields are `category_id`,
 `enabled` (default `true`), and `refresh_interval_minutes` (default 60, range 1–10080).
-The scheduler uses this interval after the last completed check, including manual refreshes.
+The scheduler uses the greater of this interval, 15 minutes, and error backoff after the latest attempt or completed check.
 Change it through `/docs` or the REST API. The frontend does not yet expose this field.
 
 PATCH changes only supplied fields. An empty category/source PATCH preserves all values.
@@ -159,7 +160,7 @@ Creation returns `201`, updates return `200`, and deletion returns `204` without
 
 Deleting a category leaves its sources uncategorized and preserves articles.
 Deleting a source permanently deletes its articles and collection history.
-Changing a source URL preserves that history but clears cache validators and current errors.
+Changing a source URL preserves history and rate limits but clears cache validators and current errors.
 URLs must use HTTP/HTTPS without credentials or fragments. Saving a URL does not
 verify that it provides a feed. Use manual refresh to collect its articles.
 
@@ -192,9 +193,12 @@ Errors appear in both the run history and the source's `last_error` field.
 After a failure, `last_success_at` retains the previous successful check time.
 If the process stops during collection, its run stays `running` until that source is refreshed again.
 
-Wait at least 30 seconds between successful refreshes of the same source. Failure
-cooldowns start at 60 seconds and double up to one hour. Refresh does not wait or queue
-another job when the collector is busy. Source edits and deletions also return `409`
+Wait at least 15 minutes after the latest attempt or completed check of the same source.
+All users, single-source buttons, news refreshes, and scheduled scans share this limit.
+Error backoff is `max(900, min(3600, 30 × 2^min(failures, 7)))` seconds.
+An attempt increments the failure counter before network access. Success resets it to zero.
+Interrupted attempts therefore retain their timestamp and backoff after restart.
+Refresh does not wait or queue another job when the collector is busy. Source edits and deletions also return `409`
 during collection. Creating sources and reading articles remain available.
 
 Only public HTTP/HTTPS destinations on ports 80/443 are supported. The collector checks
@@ -202,24 +206,60 @@ DNS answers and redirects, verifies TLS certificates, and ignores environment pr
 It requests uncompressed content and also accepts gzip within the same decoded-size limit.
 Other compression formats and concatenated gzip streams are rejected.
 Malformed XML, DTDs, entities, excessive nesting, and oversized feeds are rejected.
-An HTTP timeout does not impose a hard deadline on the OS DNS resolver.
+An absolute timeout cancels HTTP work, including slow headers and bodies. DNS waiting is bounded separately.
 See [collection architecture](architecture.md#manual-collection) for limits and tradeoffs.
 
 Sources are not installed automatically. The optional catalog command below imports verified feeds.
 New sources are not followed automatically. Select them in **Le mie fonti**, or use `PUT /api/subscriptions/{source_id}` in `/docs`.
 Existing sources are followed once for the local owner during migration `0003`.
 Automatic collection uses the same guarded collector and history as manual refresh.
-The frontend uses these endpoints and does not require a new database migration.
+The news refresh requires revision `0010`. Apply it during a separately authorized release.
+
+### Refresh from News
+
+Select **Aggiorna fonti** in **Notizie**. On touch devices, pull down at least 90 pixels from the top and release.
+The button also works with a keyboard. The gesture excludes controls, links, multiple touches, horizontal movement, and the screen edges.
+Opening or returning to News never starts collection. Both actions send one authenticated `POST /api/sources/refresh`.
+Administrators can check all enabled catalog sources. Readers can check only followed sources.
+The backend rechecks active access and subscriptions before each download. Browser filters do not select the collection scope.
+
+A manual request can advance a source's configured schedule after the shared 15-minute minimum and error backoff expire.
+Scheduled collection also waits for the configured interval. Every completed manual check restarts that interval, including HTTP 304.
+Never-attempted sources come first, followed by the oldest attempts. A recent source does not block other eligible sources.
+No global manual cooldown postpones untouched sources.
+
+Each news request attempts at most **10 sources** with a **45-second collection budget**.
+The downloader receives the remaining budget. Each feed has an absolute HTTP deadline of `min(30, 3 × TNR_FEED_TIMEOUT_SECONDS)` seconds.
+Individual network and DNS waits are capped at `min(10, TNR_FEED_TIMEOUT_SECONDS)` seconds.
+Parsing and database commits add local processing time. These budgets are not a guaranteed end-to-end response deadline during process suspension or database outages.
+DNS runs in one short-lived child process, without inherited environment variables or application imports.
+A timeout terminates and reaps that child before the next feed. A stuck hostname therefore cannot block other sources or accumulate workers.
+
+The result contains `checked`, `added`, `failed`, `skipped`, `deferred`, and optional `retry_after` counts/seconds.
+`checked` includes failed attempts. `skipped` includes disabled, recent, and backoff sources within the authorized scope.
+`deferred` counts eligible sources left by the operation limits. The UI reports partial results and does not retry automatically.
+After each request, including cooldowns and errors, the UI reloads articles from the database with the current filters and read states.
+It disables repeated input while a request runs and for three seconds afterward. A disconnected response has an unconfirmed outcome, never a success notice.
+An active backend request can finish after the browser disconnects. Persistent limits prevent a repeated download.
+
+Conditional requests use saved ETag and Last-Modified values. HTTP 304 adds no articles.
+A server without conditional support can send the full feed. Existing GUID/URL deduplication then discards already stored articles.
+Article pages are never fetched. This path never calls Gemini or changes AI budgets, digest schedules, or retention.
+
+A shared nonblocking gate coordinates all collector instances and source changes.
+PostgreSQL uses a session advisory lock on one connection, with no open transaction during HTTP.
+SQLite uses an OS file lock beside the database. Crash/connection closure releases these locks without an expiring lease or stale lock row.
+Suspension retains a live lock. An HTTP deadline is checked when execution resumes. Keep the supported one-process, one-worker deployment.
 
 ## Automatic collection
 
 Apply migrations before you start the backend. Use one process and one worker per database.
 The scheduler starts with the backend and waits 30 seconds before its first scan.
 It checks enabled sources, with never-checked and older sources first.
-Each source has a default interval of 60 minutes, measured from its last completed check.
+Each source has a default interval of 60 minutes, measured from its latest attempt or completed check, subject to the shared minimum and backoff.
 New enabled sources become eligible on the next scan.
 
-Each pass collects sources sequentially. The next scan starts after the pass finishes and the poll interval expires.
+Each pass attempts at most 25 sources sequentially, with a 240-second budget checked between feeds. The next scan starts after the pass finishes and the poll interval expires.
 Slow feeds can delay later sources. A busy collector defers the pass until the next scan.
 The scheduler does not queue missed runs or repeat every interval missed while the computer was off.
 After restart, it uses the stored check times. Collection stops while the backend is off or the computer sleeps.
@@ -230,13 +270,13 @@ Manual refreshes use the same lock and reset the automatic interval when they fi
 Source edits and manual refreshes can return `409` while an automatic download is active.
 
 As an administrator, open **Catalogo → Dettagli e azioni** to inspect check times and collection history.
-Reload the browser to see new articles and results. The frontend does not update automatically.
+Use **Aggiorna fonti** in **Notizie** to collect eligible feeds and reload articles. The frontend does not poll automatically.
 History uses the same statuses for automatic and manual runs and does not label their origin.
 Scan failures appear in backend error logs. Completed downloads use the existing collector logs and database records.
 Standard Python logging controls informational scheduler messages.
 
 To test a shorter interval, use `PATCH /api/sources/{id}` with `{"refresh_interval_minutes":1}` in `/docs`.
-Wait for the interval and a subsequent scan, then inspect `/api/sources/{id}/runs`.
+Wait for the shared 15-minute minimum and a subsequent scan, then inspect `/api/sources/{id}/runs`.
 A failed source can take longer because of its cooldown. Restore the desired interval after the test.
 This test downloads the configured feed and writes articles to your local database.
 
@@ -245,7 +285,7 @@ Without an external trigger secret, this leaves manual collection only.
 Set `TNR_SCHEDULER_POLL_SECONDS` to change scan frequency, not the individual source interval.
 Restart the backend after configuration changes.
 On normal shutdown, the worker finishes the active feed and skips remaining sources before the database closes.
-An OS DNS call can delay shutdown because the HTTP timeout does not bound that call.
+The downloader bounds HTTP work and DNS waiting. A timed-out DNS child is terminated before the next feed.
 
 ### Collection on Render Free
 
@@ -261,7 +301,7 @@ A POST timeout leaves completion unknown; the script does not repeat the POST.
 
 The backend reuses the existing collector, downloader, persisted due times, and source lock.
 Each scan permits up to 25 feed attempts and checks a 240-second budget between feeds.
-An active feed finishes first, so DNS or slow reads can exceed that budget.
+An active feed finishes within its own network budget. Parsing and database work can extend the scan budget.
 Scans cannot overlap. A 300-second cooldown follows every scan, including empty or failed scans.
 This scan cooldown resets on restart; persisted source intervals and backoff do not.
 No new timer thread runs in external-trigger mode. One backend process per database remains mandatory.
@@ -433,7 +473,7 @@ explain which data is removed. Canceling a dialog does not change stored data.
 The layout supports desktop and mobile widths. Labels, keyboard focus indicators,
 loading/empty/error states, and retry controls are included. Unsaved forms and
 filters reset when you leave a view. The browser does not poll for new articles.
-Reload the page to see automatic collection results. Offline access is not available.
+Use **Aggiorna fonti** in **Notizie** to reload articles and check eligible sources. Offline access is not available.
 
 Open the top-right menu and use **Tema** to select **Sistema**, **Chiaro**, or **Scuro**.
 The default is **Sistema**, which follows operating-system changes while the page is open.

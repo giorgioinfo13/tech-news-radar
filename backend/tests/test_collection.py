@@ -82,9 +82,9 @@ async def test_refresh_persists_articles_then_uses_conditional_304(setup, databa
     await client.patch(f"/api/articles/{articles[0]['id']}", json={"is_read": True})
     immediate = await client.post(path)
     assert immediate.status_code == 429
-    assert immediate.headers["retry-after"] == "30"
+    assert immediate.headers["retry-after"] == "900"
     assert len(requests) == 1
-    clock[0] += timedelta(seconds=31)
+    clock[0] += timedelta(seconds=901)
     replies.append(httpx.Response(304))
     cached = await client.post(path)
     assert cached.status_code == 200
@@ -117,7 +117,7 @@ async def test_repeat_and_changed_guid_or_url_deduplicate_without_overwriting(se
         RSS.replace(b"#section", b"#other"),
     ]
     for body in variations:
-        clock[0] += timedelta(seconds=31)
+        clock[0] += timedelta(seconds=901)
         replies.append(reply(body))
         result = await client.post(path)
         assert result.status_code == 200
@@ -175,7 +175,7 @@ async def test_failures_record_diagnostics_keep_cache_and_backoff_then_recover(
     replies.append(reply(etag='"good"'))
     await client.post(path)
     success_time = clock[0]
-    clock[0] += timedelta(seconds=31)
+    clock[0] += timedelta(seconds=901)
     replies.append(
         {
             "timeout": httpx.ReadTimeout("https://secret.invalid/?token=private"),
@@ -200,8 +200,8 @@ async def test_failures_record_diagnostics_keep_cache_and_backoff_then_recover(
     assert (await client.get("/api/articles")).json()["total"] == 2
     blocked = await client.post(path)
     assert blocked.status_code == 429
-    assert blocked.headers["retry-after"] == "60"
-    clock[0] += timedelta(seconds=61)
+    assert blocked.headers["retry-after"] == "900"
+    clock[0] += timedelta(seconds=901)
     replies.append(reply(etag='"recovered"'))
     assert (await client.post(path)).json()["status"] == "success"
     assert requests[-1].headers["if-none-match"] == '"good"'
@@ -293,6 +293,6 @@ async def test_partial_insert_failure_rolls_back_and_releases_lock(setup, databa
     assert result.json()["error_message"] == "Unexpected collection failure"
     assert (await client.get("/api/articles")).json()["total"] == 0
     assert result.json()["articles_added"] == 0
-    clock[0] += timedelta(seconds=61)
+    clock[0] += timedelta(seconds=901)
     replies.append(reply())
     assert (await client.post(f"/api/sources/{source_id}/refresh")).json()["articles_added"] == 2

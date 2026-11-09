@@ -172,8 +172,10 @@ async def test_reader_refresh_requires_subscription_and_uses_shared_cooldown(peo
 
     def fetch(*args):
         calls.append(True)
-        # Identity lookup must release its connection before HTTP I/O.
-        assert app.state.database_engine.pool.checkedout() == 0
+        # Identity lookup releases its transaction/connection. PostgreSQL retains
+        # only the AUTOCOMMIT advisory-lock connection during HTTP I/O.
+        engine = app.state.database_engine
+        assert engine.pool.checkedout() == (1 if engine.dialect.name == "postgresql" else 0)
         return Download(b"", "https://example.org/feed", not_modified=True)
 
     app.state.collector.downloader.fetch = fetch

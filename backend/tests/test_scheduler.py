@@ -95,7 +95,7 @@ def test_disabled_deleted_and_changed_intervals_are_rechecked(setup, database):
         source.enabled = True
         session.commit()
     scheduler.run_once()
-    clock[0] += timedelta(minutes=2)
+    clock[0] += timedelta(minutes=15)
     with Session(database) as session:
         source = session.get(Source, source_id)
         source.refresh_interval_minutes = 1

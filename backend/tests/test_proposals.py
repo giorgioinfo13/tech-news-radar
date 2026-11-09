@@ -6,7 +6,7 @@ import pytest
 from alembic import command
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select
+from sqlalchemy import MetaData, Table, func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_identity
@@ -278,7 +278,7 @@ def test_proposal_migration_preserves_prior_data(database, migration_config):
 
     command.downgrade(migration_config, "0005")
     tables = [
-        table
+        Table(table.name, MetaData(), autoload_with=database)
         for table in TABLES
         if table.name
         not in {"source_proposals", "ai_brief_control", "ai_brief_jobs", "ai_brief_budget"}
