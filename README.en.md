@@ -16,21 +16,25 @@ friends with restricted access. An administrator curates the source catalog
 and categories; each reader chooses which sources to follow and keeps their
 own reading status.
 
-**The project is in development.** News collection and the reading interface
-are available locally. The interface includes Google login and personal source
-selection; online service configuration and deployment are still to come.
+**The project is in development.** The reader is published with Google sign-in
+restricted to approved users and personal source selection. Local development
+remains available; new features require a coordinated release.
 
 Italian is the default interface language. In the top-right menu, select
 **Lingua → English**. The browser keeps this preference after sign-out.
 Articles and source names keep their original language.
 
-For setup and technical details, see the [development guide](docs/development.md)
-and [architecture notes](docs/architecture.md). The [publication guide](docs/deployment.md)
-describes the prepared configuration and the checks still required.
+With **Suggest a source**, readers suggest new sources and the administrator
+approves or rejects them. See [how source proposals work](docs/architecture.md#source-proposals).
 
-With **Suggest a source**, readers submit proposals and the
-administrator approves or rejects them. Deployment requires migration `0006` and
-its runtime grants. See the [workflow and release plan](docs/source-proposals.md).
-AI summaries remain a [feasibility proposal](docs/ai-brief-feasibility.md), not an active feature.
+**AI digest** is an experimental feature, implemented locally and not yet active.
+It provides one shared digest of the last 24 hours, updated at most hourly
+when new material and Gemini 3.1 Flash-Lite are available.
+It is prepared for Gemini through OpenRouter BYOK, with a paid API and a shared
+local budget of USD 2.00 per month.
+Activation remains blocked until token and cost verification is complete.
+See [behavior and limits](docs/ai-briefs.md).
+
+Documentation: [Architecture and features](docs/architecture.md) · [Development and tests](docs/development.md) · [Authentication and permissions](docs/authentication.md) · [Deployment and database](docs/deployment.md) · [AI digest and budget](docs/ai-briefs.md)
 
 Distributed under the [MIT License](LICENSE). Third-party resources retain their respective licenses.

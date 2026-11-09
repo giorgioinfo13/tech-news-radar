@@ -23,7 +23,13 @@ See [architecture](docs/architecture.md) for the intended scope.
 - Do not implement future integrations merely to prepare for them.
 - Keep code and identifiers in English. Preserve each document's language.
 - Update both README versions when their shared content changes.
+- Keep READMEs focused on the product. Put database revision numbers and release-specific instructions in `docs/`.
 - Distinguish available features from planned features in documentation and UI.
+- Keep agent work logs, investigation notes, trial history, and release-specific reports in `docs/agent-notes/`.
+  This local directory is excluded through `.git/info/exclude`; recreate the exclusion in a new checkout.
+  Do not put secrets there. Update existing notes rather than creating a report for each turn.
+- Keep reusable product, architecture, setup, security, and operating requirements in tracked `docs/` files.
+  Prefer updating an existing guide. Tracked files must not depend on excluded agent notes.
 - Keep secrets, databases, virtual environments, build artifacts, and personal paths out of Git.
 - Use environment configuration where needed. Never put secrets in `VITE_*` variables.
 - Keep development servers on loopback. Public deployment and authentication need a separate task.
@@ -75,7 +81,7 @@ For UI work, preserve Italian sentence case and the existing API behavior. Revie
 guidelines are a checklist, not authorization to add libraries, URL state, new
 business behavior, or unrelated features. Keep the fonts local and preserve their licenses.
 
-Source revision and adoption limits are in [skill provenance](docs/agent-skills.md).
+Source revision and adoption limits are in [skill provenance](.agents/PROVENANCE.md).
 
 Read the PostgreSQL skill before PostgreSQL database work. Apply only guidance
 relevant to the approved phase; keep SQLAlchemy and Alembic as the project's
@@ -98,7 +104,8 @@ news services. Use fixtures and mocked HTTP for future collection tests.
 - Work directly on `main` for now, as requested by the owner. Create other branches only when requested.
 - Do not create commits or push without explicit authorization for that action.
 - Do not force-push or overwrite history.
-- Before stopping, report completed scope, checks, deviations, Git status, and a proposed commit message.
+- Before stopping, report completed scope, checks, deviations, and Git status when relevant.
+- Propose a commit message only when the change is ready for the owner's push, not after every response.
 - Use English commit messages in the form `<type>: <emoji> - <summary>`.
 - Use `feat: 🎉 - ...` for initialization, `feat: ✨ - ...` for features, `fix: 🐛 - ...` for fixes,
   `refactor: 📦 - ...` for refactors, `docs: 📝 - ...` for documentation, and `chore: 🔧 - ...` for tooling.

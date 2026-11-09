@@ -30,7 +30,7 @@ SQLite remains the local default. PostgreSQL uses Psycopg 3, verified TLS for re
 and a bounded SQLAlchemy pool with direct or session-pooler connections.
 Alembic revision `0002` adapts PostgreSQL dates, collations, and long-key constraints without changing SQLite tables.
 PostgreSQL tables live in the private `tnr` schema, with Data API role grants revoked.
-See [PostgreSQL configuration and tests](postgresql.md) for privilege boundaries and isolated validation.
+See [PostgreSQL configuration and tests](deployment.md#postgresql-configuration) for privilege boundaries and isolated validation.
 No existing data is transferred, and no Supabase configuration is applied automatically.
 
 Revision `0004` adds a unique Supabase identity link. Operator commands approve readers or link the reserved owner.
@@ -42,7 +42,7 @@ Revision `0003` adds `AppUser`, `Subscription`, and `ArticleReadState`.
 It moves existing read flags to the reserved local owner and removes the global article flag.
 Sources and categories belong to the catalog. Only administrators can change them.
 Subscriptions and read states belong to individual users, including administrators.
-See [multiuser ownership and permissions](multiuser.md) for the complete contract and migration behavior.
+See [multiuser ownership and permissions](authentication.md#user-roles-and-personal-data) for the complete contract and migration behavior.
 
 The initial entities are `Category`, `Source`, `Article`, and `CollectionRun`.
 Each source has at most one category. Articles inherit that category. A null
@@ -271,5 +271,167 @@ management in separate tasks. Loopback defaults alone are not a public deploymen
 
 ## Source proposals
 
-[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
-The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.
+### Reader workflow
+
+Open **Le mie fonti → Proponi una fonte**, or use the navigation entry.
+Enter a name. The website/feed URL, note, and suggested category are optional.
+Select **Segui questa fonte se approvata** only if you want that personal subscription.
+The checkbox is initially clear. Submission does not create a source or start collection.
+The list shows only your proposals, including decisions and rejection reasons.
+Cancel a pending proposal with **Annulla proposta**. Cancellation preserves its record.
+Italian and English are available through the existing account menu.
+
+Limits are 200 characters for names, 2,048 for URLs, and 500 for notes and rejection reasons.
+Each user can have at most five pending proposals. Completed proposals do not count toward this limit.
+A normalized, case-insensitive name cannot appear twice among the same user's pending proposals.
+The database enforces this duplicate rule. The transaction gate enforces the pending limit during concurrent requests.
+The API applies these limits to administrators who submit proposals directly, too.
+
+### Administrator workflow
+
+Open **Proposte**. Its counter comes from the database, rather than browser storage.
+The counter loads at sign-in and refreshes after operations and on focus, visibility return, or page restoration.
+Return events have a 30-second debounce. There is no interval polling or realtime service.
+A failed counter request displays `?`; it does not assert that no proposals exist.
+Use **Aggiorna elenco** to refresh the list and counter explicitly.
+
+The initial filter shows pending proposals. Select another status to inspect previous decisions.
+Each entry includes the proposer, original name, optional URL and note, suggested category, date, and status.
+Select **Valuta proposta**, then choose one of these actions:
+
+- Correct the name, supply an RSS/Atom feed, choose the category, and explicitly approve.
+- Link an existing catalog source. Its settings, including disabled collection, remain unchanged.
+- Reject with a required reason, visible to the proposer.
+
+New-source approval validates downloaded bytes with the existing protected downloader and RSS/Atom parser.
+It uses the existing redirect, address, TLS, timeout, size, XML, and entry limits.
+Submission performs URL syntax checks only. It does not resolve DNS, fetch a website, or discover feeds.
+As with collection, the operating system's DNS resolution has no hard application deadline.
+No articles are imported during approval. A new enabled source becomes eligible for normal collection.
+An exact existing feed URL links its source without another download or configuration change.
+
+### State, ownership, and transactions
+
+`pending` can become `approved`, `rejected`, or `cancelled`. Terminal states cannot change.
+Repeating an approval returns the original approved result, even if the repeated payload names another target.
+Repeating cancellation or the same rejection is also harmless. Conflicting terminal operations return `409`.
+The decision records its time and actor. Approval retains the approved name and feed URL as a historical snapshot.
+Source deletion clears the live reference but preserves that snapshot and the decision.
+Category deletion clears the suggestion. An explicitly selected category that disappeared causes `404` without partial approval.
+A revoked proposer cannot be approved. The administrator can reject the proposal instead.
+The backend rechecks proposer access after validation, before committing approval.
+
+PostgreSQL uses one transaction-scoped advisory lock for proposal writes and operator
+revocation, activation, and profile deletion. The lock is held through commit or rollback.
+If approval acquires it first, approval finishes before revocation can commit.
+If revocation acquires it first, approval waits, reads the revoked state, and returns `409`
+without creating a source, decision, or subscription. Network validation holds no such lock.
+SQLite first executes an empty UPDATE to acquire a write reservation before reads in its PEP 249 transaction.
+These gates serialize pending counts and decisions. Constraints independently prevent duplicate feeds and subscriptions.
+Approval stores the source, decision, and optional personal subscription in one transaction.
+HTTP validation runs outside that transaction. Approval also uses the collector's existing source-operation gate.
+Concurrent HTTP approvals can receive `409` while that gate is occupied; a later retry returns the saved result.
+Use one backend worker and instance, as required by the collector.
+Run access commands from this release too: an older operator checkout or a direct SQL
+UPDATE does not participate in the shared advisory lock. No runtime role privileges are added.
+
+Authorization uses the existing Google/Supabase identity and active application profile.
+Readers cannot approve, reject, inspect another reader's proposals, or modify another person's subscriptions.
+The optional subscription belongs only to the proposer and never changes other users' choices.
+No endpoint grants a role or changes identity links, invitations, or read states.
+Private SQL connections do not carry an end-user identity: ownership checks remain in FastAPI.
+The new table is not exposed through Supabase's Data API.
+
+### Proposal API
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/api/proposals?status=pending&limit=20&offset=0` | Own records for readers, all records for administrators |
+| POST | `/api/proposals` | Active users; name required |
+| POST | `/api/proposals/{id}/cancel` | Proposer only, pending state |
+| POST | `/api/proposals/{id}/approve` | Administrator; existing `source_id`, or `name`, `feed_url`, optional `category_id` |
+| POST | `/api/proposals/{id}/reject` | Administrator; required `reason` |
+
+Lists use existing pagination, with a maximum page size of 100.
+Unknown fields are rejected. Client-supplied user IDs, statuses, or decision timestamps cannot set ownership or decisions.
+Notifications consist of in-app feedback and the persistent result list. No email, push, or external messaging is used.
+Proposal records have no automatic expiry in this release. Deleting a reader cascades deletion of their proposals.
+The public privacy pages describe these fields, access, cancellation, and retention in both languages.
+
+Publication and grants are covered in [deployment](deployment.md#source-proposal-rollout).
+
+## Shared hourly AI digest — local implementation
+
+The optional [hourly digest](ai-briefs.md) shares saved public RSS summaries across the catalog.
+The fixed model is paid Gemini 3.1 Flash-Lite, prepared through OpenRouter BYOK or an explicit direct Google transport.
+Both live contract gates remain closed; no automatic fallback exists.
+Revision `0007` adds jobs and control, `0008` adds unique hourly editions, and `0009` adds the exact monthly monetary ledger.
+Admission, quota, money, and dispatch ownership use persistent database transactions.
+The budget is USD 2.00 per calendar month UTC, distinct from the Google EUR cap.
+Reads never call a provider. Personal subscriptions, identities, and reading states never enter prompts.
+The inactive workflow uses an operator credential. No new queue infrastructure or local LLM is added.
+
+## Starter sources
+
+Verification date: **2026-11-05**. Each included URL returned RSS/Atom with usable
+articles through the application's guarded downloader and parser. Availability can change.
+This catalog stores source metadata only. Article content retains the publisher's rights.
+
+| Source | Verified feed | Initial category |
+| --- | --- | --- |
+| OpenAI | <https://openai.com/news/rss.xml> | Artificial intelligence |
+| Google DeepMind | <https://deepmind.google/blog/rss.xml> | Artificial intelligence |
+| Hugging Face | <https://huggingface.co/blog/feed.xml> | Open models |
+| Mistral AI | <https://mistral.ai/news/rss> | Open models |
+| Salvatore Sanfilippo (antirez) | <https://antirez.com/rss> | Software engineering |
+| Simon Willison | <https://simonwillison.net/atom/everything/> | AI agents |
+| Hacker News | <https://news.ycombinator.com/rss> | Software engineering |
+| arXiv — Artificial Intelligence | <https://rss.arxiv.org/rss/cs.AI> | Research |
+| MacRumors | <https://feeds.macrumors.com/MacRumors-All> | Technology companies |
+| TechCrunch | <https://techcrunch.com/feed/> | Technology companies |
+| Wired Italia | <https://www.wired.it/feed/rss> | International technology |
+
+The arXiv feed covers `cs.AI`, not all arXiv subjects. Hacker News links to submitted
+articles, which can come from other publishers. Category assignments are editable suggestions.
+The antirez source covers his blog. GitHub and YouTube integrations remain future work.
+
+### Sources not imported
+
+- **Anthropic:** [News](https://www.anthropic.com/news) is accessible, but no working official RSS/Atom feed was verified.
+  The checked `/news/rss.xml` and `/rss.xml` endpoints returned HTTP 404.
+- **Reuters Technology:** [Technology](https://www.reuters.com/technology/) remains a requested source.
+  The legacy `https://feeds.reuters.com/reuters/technologyNews` hostname did not resolve during the check.
+  No working public replacement was verified. Thomson Reuters investor feeds cover a different subject.
+
+These observations do not prove that no feed exists. A Feedly subscription can use a
+different integration. An exported Feedly OPML file or exact feed URL can support a later check.
+No third-party scraper, paid feed service, or unofficial replacement is included.
+
+### Import and edit
+
+Follow the [local setup instructions](development.md#use-the-interface).
+The catalog is in [source_catalog.json](../backend/app/source_catalog.json).
+Import is explicit and matches feed URLs. Existing settings remain unchanged.
+Use **Fonti** to edit, disable, delete, or refresh imported sources.
+
+To propose another default, verify its URL through the collector first.
+Record the verification date and category, then update the catalog and this table.
+Automated tests use local fixtures and mocked HTTP. They do not require these sites.
+
+## Database behavior
+
+- Dates use PostgreSQL `timestamptz` or SQLite naive UTC storage. Python and API responses use aware UTC on both databases.
+- Migration `0002` interprets earlier PostgreSQL timestamps as UTC explicitly. Naive Python datetime input remains invalid.
+- Booleans, foreign keys, check constraints, null GUIDs, and cascade behavior retain the existing contract.
+- PostgreSQL `C` collations preserve SQLite's byte ordering and ASCII case behavior for searchable and ordered text.
+- Search remains a literal substring search. Wildcards are escaped. Non-ASCII case variants remain distinct.
+- Article order still uses publication time, then acquisition time when absent, with descending IDs for ties.
+- Existing foreign-key and date indexes remain. Leading-wildcard text search does not gain an index in this step.
+- PostgreSQL uses exact hash exclusion constraints for feed URLs and source-scoped article GUIDs and URLs.
+  These constraints recheck original values, including hash collisions. They permit long UTF-8 values without B-tree size failures.
+  SQLite keeps its existing unique constraints. No hash extension or alternate collector implementation is required.
+- Alembic does not automatically compare exclusion constraints. Dedicated tests check their presence and duplicate rejection.
+  Review changes to these three constraints manually in future migrations.
+
+See [PostgreSQL B-tree limits](https://www.postgresql.org/docs/17/btree.html) and
+[exclusion constraints](https://www.postgresql.org/docs/17/sql-createtable.html#SQL-CREATETABLE-EXCLUDE).

@@ -44,8 +44,9 @@ worker caches API responses or tokens.
 The `.example` templates are not active hosting configuration files.
 `frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
 does not mean that a frontend deployment exists. Do not deploy without separate
-approval. The current head is `0006`.
-For an existing `0005` deployment, follow the [source proposal rollout](source-proposals.md#coordinated-publication-plan--not-executed).
+approval. The current local head is `0009`.
+For an existing `0006` deployment, use the [AI brief rollout](ai-briefs.md#coordinated-publication-plan--not-executed).
+For an existing `0005` deployment, follow the [source proposal rollout](deployment.md#source-proposal-rollout).
 For an existing `0004` deployment, follow the [invitation rollout](authentication.md#invite-friends-by-email) before deploying this version.
 
 ## Environment map
@@ -91,7 +92,7 @@ role grants or the certificate's validity; those need the checks below.
 
 ### 1. Database configuration and schema
 
-Read [PostgreSQL](postgresql.md). Record the project, server version, region,
+Read [PostgreSQL](deployment.md#postgresql-configuration). Record the project, server version, region,
 current migration state and backup destination privately. Verify that Auth uses
 ES256/RS256. Do not create another project merely to deploy the app.
 
@@ -217,11 +218,11 @@ umask 077
 
 Choose a nonexistent report filename. Shell redirection can overwrite a file.
 Exit status zero and a complete JSON report indicate success. The report contains
-the snapshot hash, revision, and counts/hashes for all seven tables. It contains
+the snapshot hash, revision, and counts/hashes for all application tables. It contains
 no credentials, account identifiers, or record contents. A failed command can
 leave an empty report. Inspect the disposable target before a retry.
 
-The importer reads the source in read-only mode. It requires revision `0005`,
+The importer reads the source in read-only mode. It requires revision `0009`,
 valid SQLite integrity/foreign keys, and no unfinished collection. It checks
 the target's unchanged migration seeds under table locks. It copies typed rows
 in batches and compares every column before commit. It reads the snapshot into
@@ -235,7 +236,7 @@ so a failure rolls back both data and sequence changes. A populated target is
 refused. Rehearse again in a new disposable database instead of clearing one.
 
 Run `tests/test_transfer.py` with `--postgres` using the isolated test setup in
-[PostgreSQL](postgresql.md#isolated-postgresql-tests). Tests cover complete
+[PostgreSQL](development.md#isolated-postgresql-tests). Tests cover complete
 row preservation, subsequent inserts, rollback, concurrent-write exclusion,
 personal reads/subscriptions, reader permissions, revoked users, and unapproved
 users. These API tests substitute verified identities. They do not repeat Google
@@ -261,7 +262,7 @@ Never print it or pass its password through a command-line argument.
 The URL must use `postgres.PROJECT_REF`, a Supabase session-pooler hostname,
 port `5432`, database `postgres`, `sslmode=verify-full`, and an absolute CA path.
 The plan pins the exact project reference, host, username, and CA checksum.
-It also pins the snapshot path/checksum, revision `0005`, and every table's
+It also pins the snapshot path/checksum, revision `0009`, and every table's
 count and normalized-row checksum. It contains no connection password or
 Auth subject values. Store it privately because it includes local paths.
 
@@ -395,10 +396,6 @@ Local commits alone do not deploy anything.
 
 After each push, check that Vercel reports **Ready**, **Production**, and the expected commit.
 Check the public site after the build succeeds.
-On November 9, 2026, the owner push of backend commit `dab1c25` triggered an automatic
-Vercel deployment that reached **Ready / Production** for that commit. This verifies
-the Git trigger independently of the earlier manual recovery. The new proposal UI
-uses a separate publication push after the backend migration and manual Render release.
 The build includes TypeScript checks, but does not run the full test suite. Run the development checks before pushing.
 Coordinate frontend changes that require new API behavior with the separately authorized backend deployment.
 
@@ -558,3 +555,154 @@ Official references: [Vercel rewrites and caching](https://vercel.com/docs/routi
 [Supabase backups](https://supabase.com/docs/guides/platform/backups),
 [PostgreSQL restore](https://www.postgresql.org/docs/current/app-pgrestore.html),
 [GitHub scheduled events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+## Shared AI briefs — local implementation
+
+The [AI release plan](ai-briefs.md#coordinated-publication-plan--not-executed) coordinates backup, migrations through `0009`, and minimal runtime grants.
+No remote migration, grant, key configuration, deployment, or activation is part of the local Gemini phase.
+The backend and workflow stay disabled. The code-level contract gate cannot be overridden with an environment variable.
+A later authorized release must verify the remote revision, model contract, privacy, and billing state before enabling generation.
+Transfer tools require a `0009` snapshot and preserve the monthly money ledger.
+Do not reset, discard, or restore an older ledger to repeat an uncertain request.
+
+## PostgreSQL configuration
+
+SQLite remains the default database. PostgreSQL uses the same SQLAlchemy models, services, API routes, collector, and scheduler.
+No cloud account or Docker installation is necessary for SQLite development.
+Changing the database URL does not transfer existing data. Keep the local SQLite database intact.
+
+Database support includes the [multiuser data model and backend permissions](authentication.md#user-roles-and-personal-data).
+The backend supports [Supabase token verification and access approval](authentication.md).
+Frontend login is implemented. Cloud configuration, deployment, and data transfer require separate work.
+Keep the backend on loopback with one process and one worker. The collector lock is process-local on both databases.
+
+### Connection configuration
+
+The backend uses synchronous Psycopg 3 through SQLAlchemy.
+Install the generated backend dependency lock as described in the [development guide](development.md#setup).
+The binary driver includes libpq, so a PostgreSQL compiler or system client is not required.
+
+Set `TNR_DATABASE_URL` in private `.env` configuration or backend environment variables.
+URLs starting with `postgres://`, `postgresql://`, or `postgresql+psycopg://` select Psycopg 3.
+Use generic examples from `.env.example`. Never put a database password in Git or a `VITE_*` variable.
+Percent-encode reserved characters in the password and certificate path. Do not log the complete URL.
+
+For Supabase, copy the **Session pooler** endpoint from the project's Connect panel.
+Use port `5432`. The shared pooler supports IPv4 and session state.
+This application rejects port `6543`, because transaction pooling cannot preserve its session configuration.
+The driver keeps prepared statements enabled for direct connections and session pooling.
+
+Remote connections require `sslmode=verify-full`, which is also the default.
+Download the project's CA certificate through the Supabase dashboard and set `sslrootcert` to its absolute local path.
+The certificate must exist in the backend environment. Keep it outside tracked project files.
+The driver verifies the certificate chain and the endpoint hostname. Do not replace verification with `require` or `disable` after a certificate error.
+Local test connections can explicitly use `sslmode=disable` with a loopback hostname or address.
+
+Each application engine permits three connections with no overflow, a ten-second pool wait, and a default ten-second connection timeout.
+SQLAlchemy checks connections before reuse and recycles them after five minutes.
+The pool opens connections only when needed. Migration commands use a separate, short-lived engine.
+Review the project's actual Supabase connection quota before deployment. These settings do not represent a hosted-plan guarantee.
+
+Official references, checked on 2026-11-06:
+
+- [Supabase connection methods, session pooling, and TLS](https://supabase.com/docs/guides/database/connecting-to-postgres)
+- [Supabase SSL enforcement](https://supabase.com/docs/guides/platform/ssl-enforcement)
+- [SQLAlchemy Psycopg dialect](https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#psycopg)
+
+### Migrations and the private schema
+
+PostgreSQL application tables and `alembic_version` live in the fixed `tnr` schema.
+Connections set `search_path` to `tnr` and the session timezone to UTC.
+They do not fall back to `public` for application tables.
+Alembic creates the namespace in the migration transaction before it runs the unchanged revision `0001`.
+Revision `0002` adapts PostgreSQL types and constraints. It performs no SQLite table changes.
+Revision `0003` adds application users and personal data on both databases. It preserves the reserved local owner's existing read flags.
+Revision `0004` adds a unique identity link on the existing private user table. It does not grant new privileges.
+Revision `0005` adds `reader_invitations` and reader-only INSERT policies on `app_users`, without changing existing profiles.
+It revokes inherited Data API grants on the new table. Runtime grants remain a separate operator operation.
+
+Set `TNR_MIGRATION_DATABASE_URL` to an owner connection when the application uses a restricted database role.
+Alembic and the operator access commands use this URL for explicit database operations. If unset, it uses `TNR_DATABASE_URL`.
+Use a direct connection for migrations where reachable. Session pooling is the IPv4 alternative.
+Both connections must target the same database. The API never reads the migration URL to connect, creates tables, or applies migrations.
+
+For an authorized target, run these commands from `backend/`:
+
+```sh
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+.venv/bin/alembic check
+```
+
+The expected revision is `0009 (head)`. Applying these commands to Supabase requires separate owner authorization.
+This implementation does not move application tables from an existing PostgreSQL `public` schema.
+Do not use it to stamp or adopt an unrelated database. Review that case separately.
+
+Downgrades are for disposable databases. A downgrade to `0001` can reject long Unicode keys that do not fit a B-tree.
+Downgrading `0003` discards user accounts and subscriptions, and retains only the reserved owner's read flags in the single-user schema.
+PostgreSQL rolls back that migration transaction. A downgrade to `base` removes application data but retains the private namespace.
+
+### Data API and database privileges
+
+Reviewed setup and inspection SQL is in `backend/sql/`. See the
+[publication guide](deployment.md#1-database-configuration-and-schema) for the
+separate migration, role-setup and data-transfer approval gates, and the
+[backup/restore procedure](deployment.md#backup-restore-and-deletion).
+
+Keep `tnr` out of the Supabase Data API's exposed schemas. If no feature needs the Data API, disable it during an authorized setup.
+Supabase Auth does not require exposing these application tables.
+Revision `0002` revokes schema, table, and sequence privileges from `PUBLIC` and existing `anon`, `authenticated`, and `service_role` roles.
+Revision `0003` also revokes table privileges on the new personal tables, including inherited default grants to these API roles.
+It does not change the `public`, `auth`, or `storage` schemas or create cloud roles.
+The schema boundary remains necessary for future tables, including tables that inherit broad project default grants.
+
+Use a separate login role for the backend before deployment. It needs `USAGE` on `tnr` and `SELECT, INSERT` on `app_users`.
+It needs CRUD on catalog, collection, subscription, read-state, and invitation tables, plus `USAGE` on their sequences.
+The API can create only active readers through explicit invitations. Existing role and access changes remain privileged operator operations.
+It must not own the schema or tables, inherit privileged roles, or have `SUPERUSER`, `BYPASSRLS`, `CREATEROLE`, or `CREATEDB` privileges.
+Keep schema ownership and DDL permissions on the migration connection.
+Provisioning roles, passwords, grants, and Data API settings remains an explicit cloud-setup task.
+Do not run the application as the supplied Supabase `postgres` owner in a public deployment.
+
+RLS on `app_users` permits runtime reads and inserts of active readers with a matching consumed invitation.
+The runtime role cannot insert administrators or update/delete profiles. It cannot change these policies.
+These policies do not isolate individual users. API authorization remains the per-user access boundary.
+For an existing runtime role, review `backend/sql/enable_reader_invitations.sql` after migration `0005`.
+Both operations require separate authorization for a remote database.
+Owners and roles with `BYPASSRLS` can bypass RLS. SQL connections do not acquire end-user authorization from Supabase Auth automatically.
+FastAPI verifies Supabase tokens and checks approved, active profiles and application roles.
+Its alternative local identity adapter is not authentication.
+Real Google login validation and authorized cloud configuration remain necessary before public deployment.
+
+See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-your-api) and
+[PostgreSQL row security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
+
+## Source proposal rollout
+
+1. Review the local diff and tests. Authorize commit, push, migration, grants, and deployment separately when ready.
+2. Record the remote revision and current grants with a read-only operator check. Confirm the existing target and backups.
+3. Obtain and verify a recoverable database backup. Preserve existing identities, invitations, subscriptions, and reading states.
+4. Coordinate collector inactivity and apply only missing migrations for the reviewed release with the operator connection.
+   Source proposals require `0006`; the current release also includes `0007 → 0008 → 0009`.
+   Follow the [AI release procedure](ai-briefs.md#coordinated-publication-plan--not-executed) for those revisions, keeping AI disabled.
+5. Apply `backend/sql/enable_source_proposals.sql` and any missing grants required by the reviewed release, then inspect `backend/sql/check_app_role.sql` results.
+6. Confirm `tnr_app` has SELECT/INSERT/UPDATE on proposals and USAGE on its sequence, without DELETE or role-management privileges.
+7. Confirm PUBLIC, anon, authenticated, and service_role have no access to the new table or sequence.
+8. Deploy the backend manually on Render, using the reviewed revision. Verify health and authorized proposal endpoints.
+   Use that revision for operator access commands as well; do not run an old `app.access` during rollout.
+9. Publish the frontend on Vercel only after backend compatibility is confirmed.
+10. Check reader isolation, approval, cancellation, both languages, counter refresh, and the installed-app return path.
+
+A push to main can publish the frontend before a manual backend release.
+Prefer two owner-authorized publication steps: commit and push the backend/schema changes first, with the old frontend unchanged.
+Apply the migration and grants, deploy that backend revision manually, and verify it.
+Then commit and push the frontend changes. This preserves the automatic main-only Vercel path without exposing an incompatible UI.
+If the owner chooses a single combined commit, temporarily pausing Vercel deployment requires separate cloud-configuration authorization.
+Do not enable the new frontend while its API is unavailable.
+Continue to verify the expected commit and deployment status after each push.
+Render deployment and migrations remain manual. Never initialize or reimport the populated remote database.
+
+For rollback, revert application releases while keeping the additive table and grants for investigation.
+Do not downgrade the production database: dropping `source_proposals` destroys proposal history.
+The transfer utilities require the current release revision (`0009`) at both ends and include proposals and their sequence.
+They remain operator-only tools, not part of this rollout. Do not run them against the existing populated Supabase database.

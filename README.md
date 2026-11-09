@@ -16,22 +16,25 @@ gruppo di amici con accesso riservato. Un amministratore cura il catalogo delle
 fonti e le categorie; ogni lettore sceglie quali fonti seguire e mantiene il
 proprio stato di lettura.
 
-**Il progetto è in sviluppo.** La raccolta delle notizie e l’interfaccia di lettura
-sono disponibili in locale. L’interfaccia include il login Google e la scelta
-delle fonti personali; la configurazione dei servizi online e la pubblicazione
-sono ancora da completare.
+**Il progetto è in sviluppo.** Il lettore è pubblicato con accesso Google riservato
+agli utenti approvati e scelta delle fonti personali. Rimane disponibile anche
+lo sviluppo locale; le nuove funzioni richiedono un rilascio coordinato.
 
 L’italiano è la lingua predefinita. Nel menu in alto a destra puoi scegliere
 **Lingua → English**; la preferenza rimane nel browser anche dopo il logout.
 Articoli e nomi delle fonti mantengono la lingua originale.
 
-Per installazione e dettagli tecnici, consulta la [guida di sviluppo](docs/development.md)
-e le [note di architettura](docs/architecture.md). La [guida alla pubblicazione](docs/deployment.md)
-descrive le configurazioni preparate e i controlli ancora necessari.
+Con **Proponi una fonte** i lettori suggeriscono nuove fonti e l’amministratore
+le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architecture.md#source-proposals).
 
-Con **Proponi una fonte** i lettori inviano proposte e
-l’amministratore le approva o rifiuta. L’installazione richiede la
-migrazione `0006` e i relativi privilegi. Consulta il [flusso e piano di rilascio](docs/source-proposals.md).
-Le sintesi AI sono soltanto una [proposta di fattibilità](docs/ai-brief-feasibility.md), non una funzione attiva.
+**Rassegna AI** è una funzione sperimentale, sviluppata in locale e non ancora attiva.
+Prevede una rassegna condivisa delle ultime 24 ore, aggiornata al massimo ogni ora
+quando ci sono nuovi contenuti e Gemini 3.1 Flash-Lite è disponibile.
+È predisposta per Gemini tramite OpenRouter BYOK, con API a pagamento e budget locale
+condiviso di 2,00 USD al mese.
+L’attivazione resta bloccata fino alla verifica completa di token e costi.
+Consulta [comportamento e limiti](docs/ai-briefs.md).
+
+Documentazione: [Architettura e funzionalità](docs/architecture.md) · [Sviluppo e test](docs/development.md) · [Autenticazione e permessi](docs/authentication.md) · [Distribuzione e database](docs/deployment.md) · [Rassegna AI e budget](docs/ai-briefs.md)
 
 Distribuito con [licenza MIT](LICENSE). Le risorse di terze parti mantengono le rispettive licenze.

@@ -4,7 +4,7 @@ The backend verifies Supabase access tokens and accepts only explicitly approved
 The frontend provides Google sign-in, browser session recovery, logout, and personal source selection.
 Google provider setup and deployment still require separate authorization. Installing the code does not configure cloud accounts.
 
-Use the [local Google login procedure](local-google-login.md) to configure and verify the first real session with SQLite.
+Use the [local Google login procedure](authentication.md#local-google-login) to configure and verify the first real session with SQLite.
 
 ## Identity and permission boundary
 
@@ -125,11 +125,11 @@ A used invitation cannot create another account or restore a deleted profile aut
 The operator `delete-reader` command also removes that reader's used invitation and email.
 Cancel unrelated pending invitations separately when processing a deletion request.
 
-Before production rollout, run the [isolated PostgreSQL tests](postgresql.md#isolated-postgresql-tests), including the runtime role checks.
+Before production rollout, run the [isolated PostgreSQL tests](development.md#isolated-postgresql-tests), including the runtime role checks.
 For an existing production deployment, prepare a fresh backup and obtain authorization before remote changes.
 Apply migration `0005` with the operator connection. Review and apply `backend/sql/enable_reader_invitations.sql` separately.
 Set the public backend key on Render, then deploy and verify the backend before the frontend.
-Keep automatic deployment disabled unless separately authorized. See [database privileges](postgresql.md#data-api-and-database-privileges).
+Keep automatic deployment disabled unless separately authorized. See [database privileges](deployment.md#data-api-and-database-privileges).
 
 Reference: Supabase [server-verified user retrieval](https://supabase.com/docs/reference/javascript/auth-getuser)
 and [user identities](https://supabase.com/docs/guides/auth/identities).
@@ -265,15 +265,6 @@ The official branding reference is listed below. No third-party font request is 
 
 ## Verification
 
-Email-invitation implementation checks on 2026-11-07:
-
-- Backend: 423 tests passed on temporary SQLite databases with real Alembic migrations. All 31 PostgreSQL-only checks were skipped.
-- Frontend: 50 tests passed. Ruff, ESLint, Prettier, TypeScript, and the production build passed.
-- Browser: creation and cancellation passed against a disposable local database. Light/dark themes and a 390-pixel mobile viewport were checked.
-- Subsequent isolated PostgreSQL 17.11 validation passed: 453 tests, with only the SQLite backup test skipped. See the [PostgreSQL verification record](postgresql.md#email-invitation-validation).
-- The new invitation flow was not tested with live Google identities or physical phones. Auth HTTP responses were mocked in automated tests.
-- No personal database migration, cloud modification, real invitation, or deployment was performed for this implementation.
-
 Tests use generated EC/RSA signatures, mocked JWKS HTTP responses, and real Alembic migrations on disposable databases.
 They check malformed, expired, forged, wrong-project, wrong-audience, anonymous, and privileged-role tokens.
 They also check key rotation, cache behavior, upstream failure, owner preservation, explicit approval, personal isolation, and revocation.
@@ -281,17 +272,7 @@ Frontend tests mock the SDK and HTTP to check callback handling, session recover
 account isolation, administrative controls, and subscription changes, including interrupted saves.
 The tests do not use the personal Supabase project or live news services.
 
-The [local verification record](local-google-login.md#owner-login-check-on-2026-11-06) covers the first real Google login and owner link.
-Deployed session behavior remains unverified. Local checks do not establish production readiness.
-
-Frontend-step validation on 2026-11-06:
-
-- SQLite: 289 tests passed. Two PostgreSQL-only checks were skipped.
-- PostgreSQL was not rerun for this frontend change. The preceding backend step passed all 291 tests on isolated PostgreSQL 17.11.
-- Ruff lint and format checks passed.
-- Frontend: 35 tests passed; ESLint, TypeScript, Prettier, and production build passed.
-- Local Chrome screenshots checked the login and initial source-selection layout. Real Google sign-in remains unverified.
-- No personal database, Supabase project, Google account, or cloud configuration was changed.
+Live identity, hosted connectivity, and deployed session checks remain separate from the simulated suite.
 
 ## Official references
 
@@ -308,5 +289,264 @@ Frontend-step validation on 2026-11-06:
 
 ## Source proposals
 
-[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
-The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.
+See [source proposal behavior and API](architecture.md#source-proposals) and
+[publication and grants](deployment.md#source-proposal-rollout).
+
+## Shared hourly AI digest — local implementation
+
+[Digest reads](ai-briefs.md#api-authorization-and-durable-admission) use approved-user Google/Supabase authorization and respect revocation.
+The former category routes have been removed and return `404` for every user.
+The scheduled operator endpoint uses a separate trigger credential and exposes only operational status.
+That credential cannot read user data or impersonate a reader. The future OpenRouter key is backend-only.
+The Google BYOK credential would be configured privately in OpenRouter integrations.
+Roles, invitations, approvals, and revocations are unchanged. All generation flags and the live contract gate remain disabled.
+
+## User roles and personal data
+
+### Roles and access
+
+| Operation | Active reader | Active administrator |
+| --- | --- | --- |
+| Browse sources, categories, and shared articles | Yes | Yes |
+| Follow or unfollow a source | Own subscriptions only | Own subscriptions only |
+| Set an article's read status | Own state only | Own state only |
+| Create, change, disable, or delete sources | No | Yes |
+| Create, change, assign, or delete categories | No | Yes |
+| Refresh a source | Followed and globally enabled sources | Any globally enabled source |
+| View shared collection history | Yes | Yes |
+| Create, list, or cancel pending reader invitations | No | Yes |
+| Change existing application accounts or roles through HTTP | No endpoint | No endpoint |
+
+Unknown and inactive users cannot access data endpoints. New application records default to `reader` and inactive.
+Activation requires operator approval or an administrator email invitation claimed by a verified Google identity. No first-registration administrator rule exists.
+The backend loads role and active status from the application database on every request.
+It does not accept these values from client JSON, query parameters, headers, or Supabase user metadata.
+
+The automatic collector remains shared and processes enabled sources even when nobody follows them.
+Manual refreshes share the existing cooldown and collection lock across users.
+The authorization lookup releases its transaction before a download starts. Use one backend process and one worker per database.
+
+### Personal behavior
+
+`GET /api/articles` defaults to followed sources. `subscribed_only=false` includes the full shared archive.
+A subscription is a personal feed choice, not an access grant to an otherwise private article.
+Existing category, source, search, read-state, ordering, and pagination filters still combine.
+Every response and read-state filter uses the current user's state, including full-archive requests.
+
+An `article_read_states` row means read. A missing row means unread.
+Marking an article unread deletes only the current user's state row.
+Unfollowing a source leaves article read states intact. Following it again restores the same personal reading history.
+New readers receive no subscriptions or copied read states. The frontend proposes enabled catalog sources and saves only confirmed choices.
+Creating or importing a catalog source does not subscribe other users or the administrator automatically.
+
+Disabling a source stops collection globally but preserves existing articles, subscriptions, and read states.
+Deleting a category leaves its sources uncategorized. Deleting a source removes its articles, history, subscriptions, and associated read states.
+Deleting an application user removes only that user's subscriptions and read states. It does not delete shared content.
+Prefer source deactivation when permanent deletion is unnecessary.
+
+### Schema and migration
+
+The shared models work on SQLite and PostgreSQL:
+
+- `app_users`: UUID identity, display name, `admin`/`reader` role, active status, and creation timestamp.
+- `subscriptions`: composite primary key `(user_id, source_id)` and creation timestamp.
+- `article_read_states`: composite primary key `(user_id, article_id)` and read timestamp.
+- `reader_invitations`: unique normalized email, display name, inviting administrator, and one-time acceptance state.
+
+Foreign keys cascade personal data cleanup. Indexes on `source_id` and `article_id` support reverse lookups and deletion.
+The application uses conflict-safe inserts for repeated subscription and read requests.
+Preliminary reads finish before personal writes, so concurrent SQLite requests do not attempt competing read-to-write lock upgrades.
+
+Revision `0003` leaves shared catalog IDs, article data, category edits, and collection history intact.
+It explicitly creates the reserved local owner `00000000-0000-0000-0000-000000000001` as an active administrator.
+It follows all existing sources for that owner, including disabled sources, and copies only existing true read flags to personal rows.
+The migration then removes `articles.is_read`. It does not copy those flags to future readers.
+Timestamps on migrated subscriptions and read states record the migration time, not the original unknown action time.
+Repeated upgrades do not restore subscriptions the owner subsequently removed.
+
+The reserved owner initially has no Google account or Supabase identity attached.
+Revision `0004` adds identity links. The operator must explicitly link the owner's verified Supabase UUID to this profile.
+See [authentication and access approval](authentication.md). Do not assign this profile to the first person who signs in.
+
+SQLite requires version 3.35 or later for native `DROP COLUMN`.
+This avoids a table rebuild that could cascade deletion of related data.
+The new PostgreSQL tables remain in `tnr`. The migration revokes their privileges from `PUBLIC` and existing Data API roles.
+No Supabase project or personal database is changed merely by installing the code.
+
+Apply migrations explicitly with the [development commands](development.md#initialize-the-database).
+Back up the local database before upgrading existing data. Do not apply migrations while the backend is running.
+Downgrading to `0002` is destructive: it discards profiles and subscriptions, and restores only the reserved owner's flags to articles.
+Use downgrade tests only on disposable databases.
+
+## Local Google login
+
+This procedure connects the existing local application to hosted Supabase Auth.
+Application data stays in SQLite. Google and Supabase hold authentication data.
+It does not deploy the application or transfer its news database.
+
+Complete each checkpoint before the next section. Cloud changes require the owner's authorization.
+See [authentication](authentication.md) for identity checks and operator-command behavior.
+
+### 1. Check the local state
+
+1. Check the branch, working tree, and listeners on ports `8000` and `5173`.
+2. Confirm that each listener belongs to this repository before you stop or restart it.
+3. Check the configured database type without printing credentials.
+4. Check that the database schema matches this release, using the [migration procedure](development.md#initialize-the-database).
+5. Record the owner's profile ID, role, active status, identity-link status, subscriptions, and read-state counts privately.
+
+The reserved owner ID is `00000000-0000-0000-0000-000000000001`.
+An existing identity link must match the intended Supabase account. Do not replace a conflicting link.
+The access commands use `TNR_MIGRATION_DATABASE_URL` when present, otherwise `TNR_DATABASE_URL`.
+Both the API and operator commands must target the existing local database for this procedure.
+
+**Checkpoint:** The database and owner are identified. No migration or replacement database is necessary.
+
+### 2. Identify the Supabase project and current key
+
+1. Open the intended project in the Supabase dashboard.
+2. Copy its Project URL from the project connection or API settings.
+3. Open **JWT Keys** in the project settings.
+4. Inspect the **CURRENT** key's algorithm.
+
+`ECC (P-256)` corresponds to ES256. RSA signing with RS256 is also supported.
+HS256 is not supported. If the current key uses HS256, stop before changing keys.
+Prepare a separate migration decision that accounts for other applications using the project.
+
+The public endpoint is `https://PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json`.
+A compatible key in this response alone does not prove that Supabase currently signs tokens with it.
+The response can include standby or previously used keys.
+
+**Checkpoint:** The selected project has a compatible current key and an accessible public key set.
+
+### 3. Configure Google and Supabase manually
+
+Use one browser origin throughout the test: `http://127.0.0.1:5173/`.
+`localhost` and `127.0.0.1` have separate browser storage, including the PKCE verifier.
+Do not change the hostname between login and callback.
+
+Replace `PROJECT_REF` below with the verified project reference.
+
+| Setting | Value | Purpose |
+| --- | --- | --- |
+| Google OAuth client type | Web application | Supabase completes the Google server callback |
+| Google authorized JavaScript origin | `http://127.0.0.1:5173` | Frontend origin, without a path |
+| Google authorized redirect URI | `https://PROJECT_REF.supabase.co/auth/v1/callback` | Google returns to hosted Supabase Auth |
+| Supabase Site URL | `http://127.0.0.1:5173/` | Default application return URL for this local-only setup |
+| Supabase Redirect URLs entry | `http://127.0.0.1:5173/` | Exact return URL supplied by the frontend |
+
+1. Select the intended Google Cloud project and its Web application OAuth client.
+2. Add the origin and callback above without removing entries used by other applications.
+3. Check **Google Auth Platform → Audience** and **Data Access**.
+4. Use an external audience when accounts outside a Workspace organization need access.
+5. Keep only `openid`, `userinfo.email`, and `userinfo.profile` scopes for this login.
+6. Keep the existing testing status for this local validation.
+7. If you manage a test-user list, add the intended test accounts there.
+8. Open the Google provider under Supabase **Authentication → Sign In / Providers**.
+9. Enter the selected Web client's Client ID and Client Secret directly in that provider form.
+10. Enable the provider and save the form.
+11. Keep nonce-check bypass and email-less accounts disabled, if those options are available.
+12. Configure the Site URL and Redirect URLs under Supabase **Authentication → URL Configuration**.
+13. For a project shared with another application, review its existing Site URL before replacing it.
+14. Disable unused authentication providers and anonymous sign-in in the dedicated project.
+15. Keep new user signup enabled so a friend's first OAuth login can create a Supabase identity.
+
+Google documents an exception for basic identity scopes in testing mode.
+Those scopes do not require membership in the test-user list or expire authorization after seven days.
+The application approval list remains the access boundary, regardless of Google's testing settings.
+
+The Google Client Secret belongs in Supabase's provider configuration only.
+The backend and frontend do not need it. The callback on port `54321` applies to a local Supabase stack, not this setup.
+
+**Checkpoint:** Both saved redirect configurations match. Google is enabled, with only the required identity scopes.
+
+### 4. Switch the private local environment
+
+1. Copy the project's public `sb_publishable_` key from Supabase API Keys.
+2. Preserve all unrelated settings in the private root `.env`.
+3. Remove `TNR_LOCAL_USER_ID` and `VITE_LOCAL_MODE`.
+4. Set the following values together:
+
+```dotenv
+TNR_SUPABASE_URL=https://PROJECT_REF.supabase.co
+TNR_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
+VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
+```
+
+| Variable | Consumer | Classification |
+| --- | --- | --- |
+| `TNR_SUPABASE_URL` | FastAPI JWT verifier | Public project origin |
+| `TNR_SUPABASE_PUBLISHABLE_KEY` | FastAPI Google invitation verification | Same public API key as the frontend |
+| `VITE_SUPABASE_URL` | Browser Supabase SDK | Public project origin |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser Supabase SDK | Public API key, not an access token |
+
+5. Preserve the existing SQLite connection and operator connection settings.
+6. Restart the existing backend and frontend using the [development commands](development.md).
+7. Confirm that only one backend worker and one Vite server use those ports.
+8. Check `http://127.0.0.1:5173/api/health` for `{"status":"ok"}`.
+9. Open `http://127.0.0.1:5173/` and confirm that the Google login button appears.
+
+Environment changes require both processes to reload their configuration.
+If Vite returns dependency-cache errors, stop its server before restarting with `npm run dev -- --force`.
+Do not clear browser storage during an OAuth exchange.
+
+**Checkpoint:** Unauthenticated data requests return `401`, and the login page loads without application data.
+
+### 5. Link the owner explicitly
+
+1. Sign in through the application's Google button.
+2. Confirm that the return URL uses `127.0.0.1:5173` and no longer contains the authorization code.
+3. Expect **Accesso riservato** before approval.
+4. Verify that `GET /api/me` returns `403` in the browser Network panel.
+5. In Supabase **Authentication → Users**, verify the account, Google identity, and Supabase user UUID.
+6. Create a consistent SQLite backup with SQLite's backup API before the identity-link operation.
+7. Verify the backup with `PRAGMA integrity_check`.
+8. From `backend/`, run the following command with the verified UUID:
+
+```sh
+.venv/bin/python -m app.access link-owner --subject OWNER_SUPABASE_USER_UUID
+```
+
+9. Confirm that the original profile ID, role, active status, subscriptions, and read states remain unchanged.
+10. Select **Verifica di nuovo** in the application.
+
+**Checkpoint:** `/api/me` returns `200` with the existing administrator profile. The original sources and preferences remain available.
+
+### 6. Verify sessions and a reader
+
+Use a separate browser profile for the reader. Keep each OAuth exchange in the browser profile that started it.
+The reader test needs a second real Google account. Synthetic-token tests cannot replace this check.
+
+| Test | Expected result |
+| --- | --- |
+| Reload after owner login | The same administrator session and preferences return |
+| Session renewal | The SDK renews the session, and subsequent API requests succeed |
+| Logout, then reload | Login screen, with no previous account's application data |
+| Unapproved reader login | Approval screen and `403` from `/api/me` |
+| Direct API request with that reader's valid token | `403` from `/api/articles` and `/api/sources` before approval |
+| Explicit reader approval | `invite` creates an active reader with no copied subscriptions or read states |
+| Reader selects sources | Only the reader's subscriptions change |
+| Reader requests an administrative operation directly | `403`, with no catalog change |
+| Reader logout and owner login | Owner preferences return without the reader's interface state |
+| Reader revocation | Existing reader session receives `403` on its next protected request |
+
+Use the [operator commands](authentication.md#approve-the-administrator-and-friends) for approval, revocation, and explicit restoration.
+Run direct API probes locally with the current session token, without printing or saving it.
+Record only status codes and necessary nonsecret results. Do not export HAR files or copy bearer headers into shared logs.
+For renewal, observe an actual SDK token refresh and a subsequent successful API request.
+Do not report renewal from a page reload alone.
+
+**Checkpoint:** Record actual results privately, including untested renewal. Deployment is a separate operation.
+
+### Recovery and completion record
+
+For local-only recovery, stop both servers before changing authentication settings.
+Remove the four Supabase settings listed above and restore the reserved local user and `VITE_LOCAL_MODE=true`.
+Restart only on loopback. This does not delete identity links or personal data.
+Do not use this bypass after public deployment.
+
+Record the date, code revision, checks, manual settings, owner-link outcome, and remaining real-session tests.
+Keep user UUIDs, keys, tokens, and private database paths out of the committed record.
+Automated tests use mocked identity services and real Alembic migrations on temporary databases.
+They do not establish that Google, Supabase, or a real browser session works.
