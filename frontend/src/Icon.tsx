@@ -1,4 +1,5 @@
 type IconName =
+  | 'menu'
   | 'invite'
   | 'radar'
   | 'news'
@@ -11,6 +12,7 @@ type IconName =
   | 'check'
 
 const paths: Record<IconName, React.ReactNode> = {
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   invite: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

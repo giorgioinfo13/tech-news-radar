@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js'
 import { describe, expect, it, vi } from 'vitest'
@@ -79,6 +79,17 @@ describe('session and access', () => {
       },
     })
   })
+  it('starts Google OAuth from the account menu without fetching personal data', async () => {
+    const { calls } = mockServer()
+    const { controller, auth } = sdk()
+    open(controller)
+    await screen.findByRole('heading', { name: 'Un posto per le tue notizie.' })
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
+    const menu = screen.getByRole('region', { name: 'Account e tema' })
+    await userEvent.click(within(menu).getByRole('button', { name: 'Accedi con Google' }))
+    expect(auth.signInWithOAuth).toHaveBeenCalledOnce()
+    expect(calls).toHaveLength(0)
+  })
   it('restores a reader session, sends its bearer token and hides administrative controls', async () => {
     const { state, calls } = mockServer()
     state.user = { id: 'alice-app', display_name: 'Alice', role: 'reader' }
@@ -149,6 +160,7 @@ describe('session and access', () => {
         }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Da leggere' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.click(screen.getByRole('button', { name: 'Esci' }))
     await screen.findByRole('button', { name: 'Accedi con Google' })
     await act(async () =>
@@ -172,6 +184,7 @@ describe('session and access', () => {
     await act(async () => emit('SIGNED_IN', session('bob')))
     await screen.findByRole('heading', { name: 'Scegli da dove iniziare' })
     expect(screen.queryByRole('link', { name: /Una nuova idea/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     expect(screen.getByText('Bob')).toBeInTheDocument()
   })
   it('expires a rejected session and hides data after access is revoked', async () => {
@@ -213,6 +226,7 @@ describe('session and access', () => {
     })
     open(controller)
     await screen.findByRole('link', { name: /Una nuova idea/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.click(screen.getByRole('button', { name: 'Esci' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('chiusura della sessione remota')
     expect(screen.queryByRole('heading', { name: 'Notizie' })).not.toBeInTheDocument()
@@ -229,10 +243,13 @@ describe('session and access', () => {
     })
     open(controller)
     await screen.findByRole('heading', { name: 'Notizie' })
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.click(screen.getByRole('button', { name: 'Esci' }))
     await screen.findByRole('button', { name: 'Accedi con Google' })
     state.user = { id: 'bob-app', display_name: 'Bob', role: 'reader' }
     await act(async () => emit('SIGNED_IN', session('bob')))
+    await screen.findByRole('heading', { name: 'Notizie' })
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await screen.findByText('Bob')
     await act(async () => rejectLogout(new Error('offline')))
     expect(screen.getByText('Bob')).toBeInTheDocument()
@@ -301,6 +318,7 @@ describe('personal sources', () => {
         }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Segui 2 fonti e continua' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.click(screen.getByRole('button', { name: 'Esci' }))
     server.state.user.id = 'bob-app'
     await act(async () => emit('SIGNED_IN', session('bob')))

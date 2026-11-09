@@ -117,9 +117,11 @@ describe('appearance preference', () => {
     await screen.findByRole('link', { name: /Una nuova idea/ })
     await userEvent.type(screen.getByLabelText('Cerca nelle notizie'), 'My draft')
     const count = calls.length
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.selectOptions(screen.getByLabelText('Tema'), 'dark')
     expect(screen.getByLabelText('Cerca nelle notizie')).toHaveValue('My draft')
     expect(calls).toHaveLength(count)
+    await userEvent.keyboard('{Escape}')
     act(() => {
       location.hash = '#sources'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
@@ -127,6 +129,7 @@ describe('appearance preference', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Le mie fonti' })).toBeInTheDocument(),
     )
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     expect(screen.getByLabelText('Tema')).toHaveValue('dark')
   })
   it('offers the control before login without requesting application data', async () => {
@@ -134,6 +137,7 @@ describe('appearance preference', () => {
     vi.stubEnv('VITE_LOCAL_MODE', 'false')
     render(<App />)
     await screen.findByRole('heading', { name: 'Il radar si sta preparando' })
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
     await userEvent.selectOptions(screen.getByLabelText('Tema'), 'dark')
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
     expect(calls).toHaveLength(0)

@@ -12,7 +12,8 @@ import { Invitations } from './pages/Invitations'
 import { Categories } from './pages/Categories'
 import { useQuery } from './useQuery'
 import { Icon } from './Icon'
-import { ThemeProvider, ThemeSelector } from './Theme'
+import { ThemeProvider } from './Theme'
+import { AccountMenu } from './AccountMenu'
 
 function currentPage() {
   return ['sources', 'catalog', 'categories', 'invitations'].includes(location.hash.slice(1))
@@ -74,6 +75,13 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
       <a className="skip-link" href="#main-content">
         Vai al contenuto
       </a>
+      <header className="app-toolbar">
+        <AccountMenu user={user}>
+          {controller.configuration.mode !== 'local' && (
+            <button onClick={() => void controller.logout()}>Esci</button>
+          )}
+        </AccountMenu>
+      </header>
       <aside className="sidebar">
         <a href="#news" className="brand" translate="no">
           <span className="radar-logo" aria-hidden="true">
@@ -97,14 +105,6 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
               </a>
             ))}
         </nav>
-        <div className="account-menu">
-          <p>{user.display_name}</p>
-          <span className="muted">{admin ? 'Amministratore' : 'Lettore'}</span>
-          {controller.configuration.mode !== 'local' && (
-            <button onClick={() => void controller.logout()}>Esci</button>
-          )}
-        </div>
-        <ThemeSelector />
         <div className="sidebar-note">
           <p>Il tuo spazio di lettura.</p>
           <a href="#sources">Scegli le fonti da seguire</a>

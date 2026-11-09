@@ -249,11 +249,28 @@ p {
   line-height: 1.6;
 }
 .app-shell {
+  position: relative;
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   min-height: 100svh;
 }
+.app-toolbar {
+  grid-column: 2;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 48px 0;
+}
+.app-shell > main {
+  grid-column: 2;
+  padding-top: 20px;
+}
 .sidebar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   position: sticky;
   top: 0;
   height: 100svh;
@@ -858,6 +875,9 @@ dialog p {
   main {
     padding: 32px 28px;
   }
+  .app-toolbar {
+    padding-inline: 28px;
+  }
   .filter-row {
     flex-wrap: wrap;
   }
@@ -874,19 +894,36 @@ dialog p {
   .app-shell {
     display: block;
   }
+  .app-toolbar {
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(18px, env(safe-area-inset-right));
+    width: auto;
+    padding: 0;
+  }
   .sidebar {
     position: static;
     height: auto;
-    padding: 16px 18px 0;
+    padding: max(16px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 0
+      max(18px, env(safe-area-inset-left));
     border: 0;
   }
   .brand {
     font-size: 1.0625rem;
     gap: 9px;
+    min-height: 44px;
+    padding-right: 60px;
   }
   .brand-sub {
-    display: inline;
-    margin-left: 5px;
+    display: block;
+    margin-left: 0;
+  }
+  .app-toolbar .account-menu-toggle {
+    width: 44px;
+    padding: 0;
+  }
+  .app-toolbar .account-menu-toggle span {
+    display: none;
   }
   .radar-logo .icon {
     width: 30px;
@@ -1066,32 +1103,59 @@ dialog p {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+.access-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  width: min(100%, 1200px);
+  margin: 0 auto;
+}
+.access-content {
+  display: grid;
   place-items: center;
-  padding: 32px 20px;
+  padding: 32px 0;
+  max-width: 960px;
 }
 .access-panel {
-  width: min(100%, 560px);
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 24px;
 }
 .access-logo {
-  width: min(100%, 340px);
+  width: min(90%, 380px);
   height: auto;
   background: var(--logo-surface);
   border-radius: var(--radius);
 }
 .access-panel h1 {
   font-family: 'Source Serif 4', Georgia, serif;
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
   line-height: 1.2;
+  text-wrap: balance;
 }
 .access-panel > p {
   color: var(--muted);
-  max-width: 48ch;
+  max-width: 64ch;
+  font-size: 1.125rem;
   line-height: 1.7;
+  text-wrap: pretty;
+}
+.access-panel > .muted {
+  font-size: 0.9375rem;
+}
+.access-panel .actions {
+  justify-content: center;
+}
+.access-footer {
+  text-align: center;
+  font-size: 0.9375rem;
 }
 .google-button {
   border-radius: 4px;
@@ -1118,20 +1182,48 @@ dialog p {
   flex-shrink: 0;
 }
 .account-menu {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin-top: 24px;
+  position: relative;
+  z-index: 5;
+}
+.account-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(280px, calc(100vw - 40px));
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 12px 32px var(--dialog-shadow);
+  text-align: left;
   overflow-wrap: anywhere;
 }
-.account-menu p {
-  width: 100%;
+.account-identity p {
   font-weight: 600;
 }
-.account-menu button {
-  min-height: 36px;
-  padding: 6px 12px;
+.account-identity,
+.account-actions {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+}
+.account-actions > button {
+  width: 100%;
+}
+.account-popover .theme-selector {
+  margin: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.account-popover .theme-selector select {
+  width: 100%;
+  max-width: none;
+  font-size: 1rem;
+}
+.account-popover > a {
+  font-size: 0.9375rem;
 }
 .subscription-list {
   border-top: 1px solid var(--line);
@@ -1177,9 +1269,6 @@ dialog p {
     align-items: flex-start;
     flex-direction: column;
   }
-  .account-menu {
-    margin-top: 16px;
-  }
   .access-panel {
     gap: 20px;
   }
@@ -1198,14 +1287,6 @@ dialog p {
   width: auto;
   flex: 1;
   max-width: 180px;
-}
-.access-panel .theme-selector {
-  margin-top: 4px;
-}
-@media (max-width: 720px) {
-  .sidebar .theme-selector {
-    margin-top: 16px;
-  }
 }
 
 .invitation-details {
