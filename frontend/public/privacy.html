@@ -80,19 +80,22 @@
         le proposte rimangono fino alla rimozione del profilo o a un intervento del gestore su
         richiesta. La fonte eventualmente aggiunta al catalogo condiviso rimane.
       </p>
-      <h2>Rassegna AI condivisa: predisposta, non attiva</h2>
+      <h2>Rassegna AI condivisa</h2>
       <p>
-        L’integrazione diretta con l’API Google Gemini 3.1 Flash-Lite è implementata in locale e
-        resta bloccata in attesa delle verifiche di attivazione. Questa fase usa solo risposte
-        simulate, senza collegare chiavi o inviare contenuti a Gemini.
+        Il servizio integra direttamente l’API Google Gemini 3.1 Flash-Lite. La generazione è
+        disattivata per impostazione predefinita. Il gestore può abilitarla per prove manuali
+        controllate. La generazione automatica richiede un’attivazione separata. Quando la
+        generazione è disattivata, l’app non invia richieste a Gemini e le rassegne già salvate
+        restano consultabili.
       </p>
       <p>
-        Se attivata, l’API Google a pagamento riceverà soltanto titoli, descrizioni RSS pubbliche e
-        identificatori degli articoli, al massimo una volta all’ora per tutto il catalogo. I testi
-        pubblici possono contenere dati personali dei soggetti delle notizie. Non saranno inviati
-        identità Google, email, token, fonti seguite o cronologia di lettura degli utenti. Non si
-        recuperano articoli completi. Aprire, aggiornare o consultare la rassegna salvata non genera
-        inferenze.
+        Quando la generazione è attiva, anche durante una prova manuale, l’API Google a pagamento
+        riceve soltanto titoli, descrizioni RSS pubbliche e identificatori degli articoli. Ogni
+        tentativo può includere una richiesta di conteggio token e una di generazione, con al
+        massimo un tentativo per fascia oraria per tutto il catalogo. I testi pubblici possono
+        contenere dati personali dei soggetti delle notizie. Non vengono inviati identità Google,
+        email, token, fonti seguite o cronologia di lettura degli utenti. Non si recuperano articoli
+        completi. Aprire, aggiornare o consultare la rassegna salvata non genera inferenze.
       </p>
       <p>
         Sintesi italiane e riferimenti sono condivisi fra utenti approvati e conservati per sette

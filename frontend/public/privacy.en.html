@@ -82,18 +82,21 @@
         remain until profile deletion or removal by the operator on request. An approved source in
         the shared catalog remains available.
       </p>
-      <h2>Shared AI digest: prepared, not active</h2>
+      <h2>Shared AI digest</h2>
       <p>
-        The direct Google Gemini 3.1 Flash-Lite API integration is implemented locally and remains
-        blocked pending activation checks. This phase uses simulated responses only, without
-        connecting keys or sending content to Gemini.
+        The service integrates directly with the Google Gemini 3.1 Flash-Lite API. Generation is
+        disabled by default. The operator can enable it for controlled manual tests. Automatic
+        generation requires separate activation. When generation is disabled, the app sends no
+        requests to Gemini and saved digests remain available.
       </p>
       <p>
-        If activated, the paid Google API will receive only public RSS titles, descriptions, and
-        article identifiers, at most once per hour across the catalog. Public news can contain
-        personal data about people in the news. User Google identities, email addresses, tokens,
-        followed sources, and reading history are not sent. The app does not retrieve full articles.
-        Opening, refreshing, or reading saved digests never generates an inference.
+        When generation is active, including during a manual test, the paid Google API receives only
+        public RSS titles, descriptions, and article identifiers. Each attempt can include one
+        token-count request and one generation request, with at most one attempt per hourly slot
+        across the catalog. Public news can contain personal data about people in the news. User
+        Google identities, email addresses, tokens, followed sources, and reading history are not
+        sent. The app does not retrieve full articles. Opening, refreshing, or reading saved digests
+        never generates an inference.
       </p>
       <p>
         Approved users share Italian summaries and references. The app keeps these and attempt
