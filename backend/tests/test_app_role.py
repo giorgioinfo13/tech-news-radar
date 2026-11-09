@@ -18,9 +18,8 @@ from app.schemas import ProposalApprove, ProposalCreate
 SQL_ROOT = Path(__file__).resolve().parents[1] / "sql"
 
 
-@pytest.mark.parametrize("ai_transport", ["gemini", "openrouter_byok"])
 def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate(
-    database, monkeypatch, ai_transport
+    database, monkeypatch
 ):
     if database.dialect.name != "postgresql":
         pytest.skip("Run with --postgres to validate role setup on a disposable server")
@@ -111,21 +110,14 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                         * 4,
                     )
                 )
-        monkeypatch.setattr(
-            "app.ai_gemini.LIVE_CONTRACT_VERIFIED"
-            if ai_transport == "gemini"
-            else "app.ai_openrouter.LIVE_CONTRACT_VERIFIED",
-            True,
-        )
+        monkeypatch.setattr("app.ai_gemini.LIVE_CONTRACT_VERIFIED", True)
         service = BriefService(
             runtime,
             Settings(
                 _env_file=None,
                 ai_briefs_enabled=True,
                 ai_privacy_reviewed=True,
-                ai_transport=ai_transport,
                 gemini_api_key="simulation-only-key",
-                openrouter_api_key="simulation-only-key",
                 ai_digest_enabled=True,
             ),
         )

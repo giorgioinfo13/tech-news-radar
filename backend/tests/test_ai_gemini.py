@@ -10,6 +10,7 @@ import httpx
 import pytest
 from alembic import command
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.ai_briefs import BriefService
 from app.ai_content import AIUnavailable
 from app.ai_gemini import MODEL, MONTHLY_NANO_USD, RESERVATION_NANO_USD, Gemini, payload_for
 from app.api.dependencies import get_identity
+from app.config import Settings
 from app.main import create_app
 from app.models import LOCAL_OWNER_ID, AIBriefBudget, AIBriefControl, AIBriefJob, AppUser, Article
 
@@ -42,6 +44,44 @@ def ledger(database):
 def mutate_news(database):
     with Session(database) as session, session.begin():
         session.scalars(select(Article)).first().description += " A new public update is available."
+
+
+@pytest.mark.anyio
+async def test_default_direct_provider_remains_blocked_with_flags_and_dummy_key(database):
+    settings = Settings(
+        _env_file=None,
+        ai_briefs_enabled=True,
+        ai_digest_enabled=True,
+        ai_privacy_reviewed=True,
+        gemini_api_key="simulation-only-key",
+    )
+    service = BriefService(database, settings)
+    assert settings.ai_transport == "gemini"
+    assert isinstance(service.provider, Gemini)
+    assert service.provider.model == MODEL
+    assert (await service.generate(None, None))["code"] == "activation_required"
+    assert ledger(database) == []
+    with Session(database) as session:
+        assert session.get(AIBriefControl, 1).attempts == 0
+
+
+@pytest.mark.parametrize("transport", ["openrouter_byok", "openrouter", "deepseek"])
+def test_stale_provider_environment_is_rejected(monkeypatch, transport):
+    monkeypatch.setenv("TNR_AI_TRANSPORT", transport)
+    with pytest.raises(ValidationError, match="ai_transport"):
+        Settings(_env_file=None)
+
+
+def test_direct_reservation_preserves_older_monetary_totals(gemini, database, clock):
+    service, calls, _ = gemini
+    original = 1_706_250  # Historical BYOK reservation; never recompute or refund it.
+    with Session(database) as session, session.begin():
+        session.add(AIBriefBudget(month=date(2026, 11, 1), reserved_nano_usd=original))
+    restarted = BriefService(database, service.settings)
+    job, _ = restarted.reserve(None, None)
+    assert job is not None
+    assert ledger(database) == [(date(2026, 11, 1), original + RESERVATION_NANO_USD)]
+    assert not calls
 
 
 @pytest.mark.anyio

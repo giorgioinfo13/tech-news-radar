@@ -297,8 +297,8 @@ See [source proposal behavior and API](architecture.md#source-proposals) and
 [Digest reads](ai-briefs.md#api-authorization-and-durable-admission) use approved-user Google/Supabase authorization and respect revocation.
 The former category routes have been removed and return `404` for every user.
 The scheduled operator endpoint uses a separate trigger credential and exposes only operational status.
-That credential cannot read user data or impersonate a reader. The future OpenRouter key is backend-only.
-The Google BYOK credential would be configured privately in OpenRouter integrations.
+That credential cannot read user data or impersonate a reader. The future Gemini Developer API key is backend-only.
+Only the direct Google API is supported.
 Roles, invitations, approvals, and revocations are unchanged. All generation flags and the live contract gate remain disabled.
 
 ## User roles and personal data

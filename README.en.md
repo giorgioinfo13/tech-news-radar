@@ -30,7 +30,7 @@ approves or rejects them. See [how source proposals work](docs/architecture.md#s
 **AI digest** is an experimental feature, implemented locally and not yet active.
 It provides one shared digest of the last 24 hours, updated at most hourly
 when new material and Gemini 3.1 Flash-Lite are available.
-It is prepared for Gemini through OpenRouter BYOK, with a paid API and a shared
+It is prepared for the direct paid Google Gemini API, with a shared
 local budget of USD 2.00 per month.
 Activation remains blocked until token and cost verification is complete.
 See [behavior and limits](docs/ai-briefs.md).

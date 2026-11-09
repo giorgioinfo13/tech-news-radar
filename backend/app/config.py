@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     feed_max_entries: int = Field(default=5000, ge=1, le=10000)
     # Independent opt-in: installing this release never sends RSS to an AI provider.
     ai_briefs_enabled: bool = False
-    ai_transport: Literal["gemini", "openrouter_byok"] = "openrouter_byok"
-    openrouter_api_key: SecretStr | None = None
+    # Reject stale provider selections instead of silently changing their destination.
+    ai_transport: Literal["gemini"] = "gemini"
     gemini_api_key: SecretStr | None = None
     ai_privacy_reviewed: bool = False
     ai_digest_enabled: bool = False

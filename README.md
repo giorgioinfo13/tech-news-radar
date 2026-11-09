@@ -30,7 +30,7 @@ le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architectu
 **Rassegna AI** è una funzione sperimentale, sviluppata in locale e non ancora attiva.
 Prevede una rassegna condivisa delle ultime 24 ore, aggiornata al massimo ogni ora
 quando ci sono nuovi contenuti e Gemini 3.1 Flash-Lite è disponibile.
-È predisposta per Gemini tramite OpenRouter BYOK, con API a pagamento e budget locale
+È predisposta per l’API Google Gemini diretta, a pagamento, con budget locale
 condiviso di 2,00 USD al mese.
 L’attivazione resta bloccata fino alla verifica completa di token e costi.
 Consulta [comportamento e limiti](docs/ai-briefs.md).

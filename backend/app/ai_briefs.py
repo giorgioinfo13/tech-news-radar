@@ -20,7 +20,6 @@ from app.ai_gemini import (
     Gemini,
     messages_for,
 )
-from app.ai_openrouter import OpenRouterBYOK
 from app.collection.parsing import article_url, plain_text
 from app.config import Settings
 from app.db import UTCDateTime, lock_access_decisions
@@ -178,14 +177,10 @@ def public_article(article: dict, existing_ids: set[int]) -> dict:
 
 
 class BriefService:
-    def __init__(self, engine, settings: Settings, provider: Gemini | OpenRouterBYOK | None = None):
+    def __init__(self, engine, settings: Settings, provider: Gemini | None = None):
         self.engine = engine
         self.settings = settings
-        self.provider = provider or (
-            OpenRouterBYOK(settings)
-            if settings.ai_transport == "openrouter_byok"
-            else Gemini(settings)
-        )
+        self.provider = provider or Gemini(settings)
 
     def _open(self, session: Session, user_id: UUID | None):
         # Shared with operator revocation. Never retain this gate during HTTP.

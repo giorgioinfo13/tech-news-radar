@@ -568,12 +568,12 @@ See [source proposal behavior and API](architecture.md#source-proposals) and
 
 [AI briefs](ai-briefs.md) require local revision `0009` and remain disabled behind the live contract gate.
 Never migrate the personal SQLite database for a test. Use the suite's real temporary migrations.
-Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_openrouter.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_digest_trigger_client.py` from `backend/`.
+Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_digest_trigger_client.py` from `backend/`.
 Run `npm test -- src/test/briefs.test.tsx` from `frontend/`.
 Gemini counting and generation use simulated HTTP. The test fixture forbids real HTTP and disables personal dotenv loading.
 No key is required. The [loopback-only PostgreSQL fixture](development.md#isolated-postgresql-tests) verifies the same transactions on PostgreSQL.
 The old Xing/OpenRouter runtime, trial CLI commands, and tokenizer assets have been removed.
-The new BYOK adapter remains blocked; both its token counter and HTTP responses are simulated in tests.
+The BYOK adapter and its tests are removed. Direct Gemini counting and HTTP responses remain simulated in tests.
 Do not reuse historical trial directories or markers.
 See [token evidence and activation blockers](ai-briefs.md#token-and-provider-contract) before any future live test.
 
