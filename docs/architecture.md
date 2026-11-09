@@ -195,8 +195,16 @@ See [activation, timing, and provider limits](development.md#collection-on-rende
 
 ## Frontend
 
-The Italian interface has four hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, and `#categories`.
-Catalog and category controls are visible only to administrators; the backend checks permissions independently.
+The interface has five hash-based views: `#news`, `#sources` (personal subscriptions), `#catalog`, `#categories`, and `#invitations`.
+Catalog, category, and invitation controls are visible only to administrators. The backend checks permissions independently.
+
+Italian is the default language. The account menu also offers English before and after sign-in.
+`LanguageProvider` stores `tnr-language` in browser storage, synchronizes tabs, and updates the document language.
+The typed message catalog uses English keys and Italian translations without an external translation service.
+Notices retain message keys and values, so an existing notice changes language without repeating its operation.
+Date and number formatting use the selected locale. Language changes do not reset component state or query keys.
+Articles, source and category names, and stored feed diagnostics remain unchanged.
+The public privacy pages describe the language preference in both languages.
 Supabase's JavaScript SDK handles Google OAuth with PKCE, session persistence, refresh, and logout.
 Before loading application data, the frontend verifies access through `/api/me`. It sends the current access token on each API request.
 Account changes and logout clear view state and abort previous requests. Roles come from the backend, not token metadata.

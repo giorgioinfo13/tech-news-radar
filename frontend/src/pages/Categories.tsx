@@ -1,3 +1,6 @@
+import type { UiMessage } from '../messages'
+import { message } from '../messages'
+import { useLanguage } from '../language-context'
 import { usePanelFocus } from '../usePanelFocus'
 import { useState, type FormEvent } from 'react'
 import { errorMessage, mutate, type Category } from '../api'
@@ -14,15 +17,16 @@ function CategoryEditor({
   onSave: (input: Omit<Category, 'id'>) => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   const panelRef = usePanelFocus()
   const [name, setName] = useState(category?.name ?? '')
   const [slug, setSlug] = useState(category?.slug ?? '')
   const [order, setOrder] = useState(category?.sort_order ?? 0)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<UiMessage | ''>('')
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) {
-      setError('Inserisci il nome della categoria.')
+      setError(message('Enter a category name.'))
       return
     }
     onSave({ name: name.trim(), slug: slug.trim(), sort_order: order })
@@ -34,13 +38,11 @@ function CategoryEditor({
       className="editor-panel"
       aria-labelledby="category-editor-title"
     >
-      <h2 id="category-editor-title">
-        {category ? 'Modifica categoria' : 'Aggiungi una categoria'}
-      </h2>
+      <h2 id="category-editor-title">{category ? t('Edit category') : t('Add a category')}</h2>
       <form onSubmit={submit}>
         <fieldset className="form-grid" disabled={busy}>
           <label>
-            Nome della categoria
+            {t('Category name')}
             <input
               name="category-name"
               autoComplete="off"
@@ -52,7 +54,7 @@ function CategoryEditor({
           </label>
           <div>
             <label>
-              Identificativo
+              {t('Identifier')}
               <input
                 required
                 maxLength={120}
@@ -66,12 +68,12 @@ function CategoryEditor({
               />
             </label>
             <p id="slug-hint" className="form-hint">
-              Lettere minuscole, numeri e trattini, ad esempio: ricerca-ai.
+              {t('Lowercase letters, numbers and hyphens, for example: ai-research.')}
             </p>
           </div>
           <div>
             <label>
-              Ordine
+              {t('Order')}
               <input
                 type="number"
                 name="sort-order"
@@ -86,20 +88,20 @@ function CategoryEditor({
               />
             </label>
             <p id="order-hint" className="form-hint">
-              I numeri più piccoli vengono mostrati prima.
+              {t('Lower numbers appear first.')}
             </p>
           </div>
           {error && (
             <div className="full-width">
-              <Notice error>{error}</Notice>
+              <Notice error>{t(error)}</Notice>
             </div>
           )}
           <div className="actions full-width">
             <button type="submit" className="primary">
-              {busy ? 'Salvataggio…' : 'Salva categoria'}
+              {busy ? t('Saving…') : t('Save category')}
             </button>
             <button type="button" onClick={onCancel}>
-              Annulla
+              {t('Cancel')}
             </button>
           </div>
         </fieldset>
@@ -115,12 +117,13 @@ export function Categories({
   categories: Category[]
   onChange: () => void
 }) {
+  const { t } = useLanguage()
   const [editor, setEditor] = useState<Category | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Category | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  async function action(operation: () => Promise<unknown>, success: string, done: () => void) {
+  const [error, setError] = useState<UiMessage | ''>('')
+  const [notice, setMessage] = useState<UiMessage | ''>('')
+  async function action(operation: () => Promise<unknown>, success: UiMessage, done: () => void) {
     setBusy(true)
     setError('')
     setMessage('')
@@ -139,8 +142,8 @@ export function Categories({
     <>
       <header className="page-header">
         <div>
-          <h1>Categorie</h1>
-          <p>Organizza le fonti per argomento e ritrova le notizie più facilmente.</p>
+          <h1>{t('Categories')}</h1>
+          <p>{t('Organize sources by topic to find news more easily.')}</p>
         </div>
         <button
           className="primary"
@@ -150,11 +153,11 @@ export function Categories({
             setError('')
           }}
         >
-          Aggiungi categoria
+          {t('Add category')}
         </button>
       </header>
-      {message && <Notice>{message}</Notice>}
-      {error && !deleting && <Notice error>{error}</Notice>}
+      {notice && <Notice>{t(notice)}</Notice>}
+      {error && !deleting && <Notice error>{t(error)}</Notice>}
       {editor && (
         <CategoryEditor
           key={editor === 'new' ? 'new' : editor.id}
@@ -169,7 +172,7 @@ export function Categories({
                   editor === 'new' ? 'POST' : 'PATCH',
                   input,
                 ),
-              'Categoria salvata.',
+              message('Category saved.'),
               () => setEditor(null),
             )
           }
@@ -177,13 +180,14 @@ export function Categories({
       )}
       <div className="section-heading">
         <h2>
-          Le tue categorie <span>{categories.length}</span>
+          {t('Your categories')} <span>{categories.length}</span>
         </h2>
       </div>
       {!categories.length ? (
-        <Empty title="Spazio ai tuoi interessi">
-          Crea una categoria e assegnala alle tue fonti. Le fonti possono anche restare senza
-          categoria.
+        <Empty title={t('Make room for your interests')}>
+          {t(
+            'Create a category and assign it to your sources. Sources can also remain uncategorized.',
+          )}
         </Empty>
       ) : (
         <div className="category-list">
@@ -192,30 +196,30 @@ export function Categories({
               <div className="category-info">
                 <h3>{category.name}</h3>
                 <p>
-                  {category.slug} · Ordine {category.sort_order}
+                  {category.slug} {t('· Order')} {category.sort_order}
                 </p>
               </div>
               <div className="actions">
                 <button
                   disabled={busy}
-                  aria-label={`Modifica ${category.name}`}
+                  aria-label={t('Edit {name}', { name: category.name })}
                   onClick={() => {
                     setEditor(category)
                     setError('')
                   }}
                 >
-                  Modifica
+                  {t('Edit')}
                 </button>
                 <button
                   disabled={busy}
                   className="text-danger"
-                  aria-label={`Elimina ${category.name}`}
+                  aria-label={t('Delete {name}', { name: category.name })}
                   onClick={() => {
                     setDeleting(category)
                     setError('')
                   }}
                 >
-                  Elimina
+                  {t('Delete')}
                 </button>
               </div>
             </article>
@@ -224,7 +228,7 @@ export function Categories({
       )}
       {deleting && (
         <ConfirmDialog
-          title={`Eliminare ${deleting.name}?`}
+          title={t('Delete {name}?', { name: deleting.name })}
           pending={busy}
           error={error}
           onCancel={() => {
@@ -234,7 +238,7 @@ export function Categories({
           onConfirm={() =>
             void action(
               () => mutate(`/categories/${deleting.id}`, 'DELETE'),
-              'Categoria eliminata.',
+              message('Category deleted.'),
               () => {
                 setDeleting(null)
                 setEditor(null)
@@ -242,8 +246,7 @@ export function Categories({
             )
           }
         >
-          Le fonti assegnate resteranno senza categoria. Gli articoli e le fonti verranno
-          conservati.
+          {t('Assigned sources will become uncategorized. Articles and sources will be kept.')}
         </ConfirmDialog>
       )}
     </>

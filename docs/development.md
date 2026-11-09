@@ -389,8 +389,18 @@ Cooldowns also count as failed attempts. Wait before retrying. Unrelated sources
 The command does not start its own scheduler or download full article pages.
 With the backend scheduler enabled, a manual batch can receive `409` or `429` responses.
 
-The interface is currently in Italian. Category names are editable data and retain
-their configured language. The initial category names are in English.
+The interface defaults to Italian, regardless of the browser language. The instructions below use the Italian labels.
+Open the top-right menu and select **Lingua → English** to use English.
+The menu then shows **Language**, with **Italiano** and **English** as its options.
+Article content, source names, category names, and stored feed diagnostics retain their original language.
+
+The browser stores the preference as `tnr-language` and synchronizes it between tabs.
+It is not an account setting and is not sent to the API. Sign-out preserves the preference.
+If storage is blocked, the choice lasts until the page is reloaded.
+An unknown or removed preference selects Italian. Browser and installed-app storage can be separate.
+Changing language preserves filters, form input, subscriptions, and read states. It does not repeat API requests.
+Labels, notices, date formats, and the document language update together.
+The privacy link opens `/privacy.html` in Italian or `/privacy.en.html` in English. Both pages are public.
 
 1. As an administrator, open **Catalogo**, then **Aggiungi fonte**.
 2. Enter a name and a valid RSS/Atom URL. Select an optional category.
@@ -425,7 +435,7 @@ loading/empty/error states, and retry controls are included. Unsaved forms and
 filters reset when you leave a view. The browser does not poll for new articles.
 Reload the page to see automatic collection results. Offline access is not available.
 
-Use **Tema** on the login screen or in the sidebar to select **Sistema**, **Chiaro**, or **Scuro**.
+Open the top-right menu and use **Tema** to select **Sistema**, **Chiaro**, or **Scuro**.
 The default is **Sistema**, which follows operating-system changes while the page is open.
 The choice is stored in this browser and synchronized between tabs. It is not an account setting and is not sent to the API.
 Logout preserves it. If browser storage is blocked, the choice lasts until the page is reloaded.

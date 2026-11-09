@@ -1,3 +1,6 @@
+import { message } from '../messages'
+import type { UiMessage } from '../messages'
+import { useLanguage } from '../language-context'
 import { useEffect, useRef, useState } from 'react'
 import { errorMessage, mutate, request, type Source, type Subscription } from '../api'
 import { Empty, Notice } from '../components'
@@ -15,13 +18,14 @@ export function Subscriptions({
   initial?: boolean
   onContinue: () => void
 }) {
+  const { t } = useLanguage()
   const followed = new Set(subscriptions.map((item) => item.source_id))
   const [selected, setSelected] = useState(
     () => new Set(sources.filter((source) => source.enabled).map((source) => source.id)),
   )
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [error, setError] = useState<UiMessage | ''>('')
+  const [notice, setMessage] = useState<UiMessage | ''>('')
   const lifetime = useRef(new AbortController())
   useEffect(() => {
     const controller = new AbortController()
@@ -57,8 +61,10 @@ export function Subscriptions({
       onChange()
       setMessage(
         followed.has(source.id)
-          ? `Non segui più ${source.name}. Le letture sono conservate.`
-          : `Ora segui ${source.name}.`,
+          ? message('You no longer follow {name}. Your reading history is kept.', {
+              name: source.name,
+            })
+          : message('You now follow {name}.', { name: source.name }),
       )
     } catch (error) {
       if (!operation.signal.aborted) setError(errorMessage(error))
@@ -72,7 +78,7 @@ export function Subscriptions({
     setMessage('')
     try {
       await mutate(`/sources/${source.id}/refresh`, 'POST')
-      setMessage(`${source.name}: aggiornamento completato.`)
+      setMessage(message('{name}: refresh completed.', { name: source.name }))
     } catch (error) {
       setError(errorMessage(error))
     } finally {
@@ -83,23 +89,23 @@ export function Subscriptions({
     <>
       <header className="page-header">
         <div>
-          <h1>{initial ? 'Scegli da dove iniziare' : 'Le mie fonti'}</h1>
+          <h1>{initial ? t('Choose where to start') : t('My sources')}</h1>
           <p>
             {initial
-              ? 'Ti proponiamo le fonti del catalogo. Scegli quelle che vuoi nel tuo radar.'
-              : 'Segui ciò che ti interessa.'}
+              ? t('Here are the sources in the catalog. Choose the ones you want on your radar.')
+              : t('Follow what interests you.')}
           </p>
         </div>
       </header>
       {error && (
         <Notice error>
-          {error} {initial && 'Le scelte già salvate restano valide: puoi riprovare.'}
+          {t(error)} {initial && t('Previously saved choices are kept: you can try again.')}
         </Notice>
       )}
-      {message && <Notice>{message}</Notice>}
+      {notice && <Notice>{t(notice)}</Notice>}
       {!sources.length ? (
-        <Empty title="Il catalogo è in preparazione">
-          L’amministratore aggiungerà le fonti da cui scegliere.
+        <Empty title={t('The catalog is being prepared')}>
+          {t('The administrator will add sources for you to choose from.')}
         </Empty>
       ) : (
         <div className="subscription-list">
@@ -123,8 +129,8 @@ export function Subscriptions({
                   <span>
                     <strong>{source.name}</strong>
                     <span className="muted">
-                      {source.category?.name ?? 'Senza categoria'}
-                      {!source.enabled && ' · Raccolta in pausa'}
+                      {source.category?.name ?? t('Uncategorized')}
+                      {!source.enabled && t(' · Collection paused')}
                     </span>
                   </span>
                 </label>
@@ -133,8 +139,8 @@ export function Subscriptions({
                   <div>
                     <h2>{source.name}</h2>
                     <p className="muted">
-                      {source.category?.name ?? 'Senza categoria'}
-                      {!source.enabled && ' · Raccolta in pausa'}
+                      {source.category?.name ?? t('Uncategorized')}
+                      {!source.enabled && t(' · Collection paused')}
                     </p>
                   </div>
                   <div className="actions">
@@ -142,19 +148,19 @@ export function Subscriptions({
                       <button
                         disabled={busy || !source.enabled}
                         onClick={() => void refresh(source)}
-                        aria-label={`Aggiorna ${source.name}`}
+                        aria-label={t('Refresh {name}', { name: source.name })}
                       >
-                        Aggiorna
+                        {t('Refresh')}
                       </button>
                     )}
                     <button
                       className={followed.has(source.id) ? '' : 'primary-soft'}
                       disabled={busy}
                       aria-pressed={followed.has(source.id)}
-                      aria-label={`${followed.has(source.id) ? 'Non seguire più' : 'Segui'} ${source.name}`}
+                      aria-label={`${followed.has(source.id) ? t('Unfollow') : t('Follow')} ${source.name}`}
                       onClick={() => void toggle(source)}
                     >
-                      {followed.has(source.id) ? 'Non seguire più' : 'Segui'}
+                      {followed.has(source.id) ? t('Unfollow') : t('Follow')}
                     </button>
                   </div>
                 </>
@@ -165,7 +171,7 @@ export function Subscriptions({
       )}
       {initial && (
         <div className="onboarding-actions">
-          <p>Puoi cambiare queste scelte in qualsiasi momento.</p>
+          <p>{t('You can change these choices at any time.')}</p>
           <div className="actions">
             <button
               className="primary"
@@ -173,11 +179,16 @@ export function Subscriptions({
               onClick={() => void save()}
             >
               {busy
-                ? 'Salvataggio…'
-                : `Segui ${selected.size} ${selected.size === 1 ? 'fonte' : 'fonti'} e continua`}
+                ? t('Saving…')
+                : t(
+                    selected.size === 1
+                      ? 'Follow {count} source and continue'
+                      : 'Follow {count} sources and continue',
+                    { count: selected.size },
+                  )}
             </button>
             <button disabled={busy} onClick={onContinue}>
-              Non ora
+              {t('Not now')}
             </button>
           </div>
         </div>

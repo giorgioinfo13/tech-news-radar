@@ -1,3 +1,4 @@
+import type { UiMessage } from './messages'
 import { useCallback, useEffect, useState } from 'react'
 import { allPages, errorMessage, request, type Page } from './api'
 
@@ -7,7 +8,7 @@ export function useQuery<T>(path: string, collectAll = false) {
     key: string
     path: string
     data?: Page<T>
-    error?: string
+    error?: UiMessage | ''
   }>()
   const key = `${path}:${revision}:${collectAll}`
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { useLanguage } from './language-context'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { type Category, type Source, type Subscription, type AppUser } from './api'
 import { AuthController } from './auth'
@@ -14,6 +15,7 @@ import { useQuery } from './useQuery'
 import { Icon } from './Icon'
 import { ThemeProvider } from './Theme'
 import { AccountMenu } from './AccountMenu'
+import { LanguageProvider } from './Language'
 
 function currentPage() {
   return ['sources', 'catalog', 'categories', 'invitations'].includes(location.hash.slice(1))
@@ -23,9 +25,11 @@ function currentPage() {
 
 export default function App({ controller: supplied }: { controller?: AuthController } = {}) {
   return (
-    <ThemeProvider>
-      <AuthenticatedApp supplied={supplied} />
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <AuthenticatedApp supplied={supplied} />
+      </ThemeProvider>
+    </LanguageProvider>
   )
 }
 
@@ -45,6 +49,7 @@ function AuthenticatedApp({ supplied }: { supplied?: AuthController }) {
 }
 
 function ReaderApp({ user, controller }: { user: AppUser; controller: AuthController }) {
+  const { t, privacyHref } = useLanguage()
   const [page, setPage] = useState(currentPage)
   const subscriptions = useQuery<Subscription>('/subscriptions', true)
   const admin = user.role === 'admin'
@@ -64,21 +69,21 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
   }
   const ready = categories.data && sources.data && subscriptions.data
   const pages = [
-    { id: 'news', label: 'Notizie', icon: 'news' },
-    { id: 'sources', label: 'Le mie fonti', icon: 'sources' },
-    { id: 'catalog', label: 'Catalogo', icon: 'sources' },
-    { id: 'categories', label: 'Categorie', icon: 'categories' },
-    { id: 'invitations', label: 'Inviti', icon: 'invite' },
+    { id: 'news', label: t('News'), icon: 'news' },
+    { id: 'sources', label: t('My sources'), icon: 'sources' },
+    { id: 'catalog', label: t('Catalog'), icon: 'sources' },
+    { id: 'categories', label: t('Categories'), icon: 'categories' },
+    { id: 'invitations', label: t('Invitations'), icon: 'invite' },
   ] as const
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        Vai al contenuto
+        {t('Skip to content')}
       </a>
       <header className="app-toolbar">
         <AccountMenu user={user}>
           {controller.configuration.mode !== 'local' && (
-            <button onClick={() => void controller.logout()}>Esci</button>
+            <button onClick={() => void controller.logout()}>{t('Sign out')}</button>
           )}
         </AccountMenu>
       </header>
@@ -91,7 +96,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
             Tech News<span className="brand-sub">Radar</span>
           </span>
         </a>
-        <nav aria-label="Navigazione principale">
+        <nav aria-label={t('Main navigation')}>
           {pages
             .filter((item) => admin || !['catalog', 'categories', 'invitations'].includes(item.id))
             .map((item) => (
@@ -106,10 +111,10 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
             ))}
         </nav>
         <div className="sidebar-note">
-          <p>Il tuo spazio di lettura.</p>
-          <a href="#sources">Scegli le fonti da seguire</a>
+          <p>{t('Your reading space.')}</p>
+          <a href="#sources">{t('Choose sources to follow')}</a>
           <p>
-            <a href="/privacy.html">Privacy e dati personali</a>
+            <a href={privacyHref}>{t('Privacy and personal data')}</a>
           </p>
         </div>
       </aside>

@@ -11,6 +11,8 @@ HTMLDialogElement.prototype.close = function () {
 }
 
 beforeEach(() => {
+  localStorage.removeItem('tnr-language')
+  document.documentElement.lang = 'it'
   vi.stubEnv('VITE_LOCAL_MODE', 'true')
   vi.stubEnv('VITE_SUPABASE_URL', '')
   vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', '')
@@ -18,6 +20,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  localStorage.removeItem('tnr-language')
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
   history.replaceState(null, '', '/#news')

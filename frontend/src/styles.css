@@ -1217,7 +1217,12 @@ dialog p {
   align-items: stretch;
   gap: 6px;
 }
-.account-popover .theme-selector select {
+.account-popover .language-selector {
+  color: var(--muted);
+  font-weight: 400;
+}
+.account-popover .theme-selector select,
+.account-popover .language-selector select {
   width: 100%;
   max-width: none;
   font-size: 1rem;

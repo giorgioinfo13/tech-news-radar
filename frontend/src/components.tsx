@@ -1,3 +1,5 @@
+import type { UiMessage } from './messages'
+import { useLanguage } from './language-context'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Icon } from './Icon'
 
@@ -15,21 +17,22 @@ export function QueryState({
   retry,
 }: {
   loading: boolean
-  error?: string
+  error?: UiMessage | ''
   retry: () => void
 }) {
+  const { t } = useLanguage()
   if (loading)
     return (
       <p className="loading" role="status">
-        Caricamento…
+        {t('Loading…')}
       </p>
     )
   if (error)
     return (
       <Notice error>
-        {error}{' '}
+        {t(error)}{' '}
         <button className="text-button" onClick={retry}>
-          Riprova
+          {t('Try again')}
         </button>
       </Notice>
     )
@@ -59,17 +62,24 @@ export function Pagination({
   limit: number
   onChange: (offset: number) => void
 }) {
+  const { t } = useLanguage()
   return (
-    <nav className="pagination" aria-label="Paginazione">
+    <nav className="pagination" aria-label={t('Pagination')}>
       <span>
-        {total ? `${offset + 1}–${Math.min(offset + limit, total)} di ${total}` : '0 risultati'}
+        {total
+          ? t('{start}–{end} of {total}', {
+              start: offset + 1,
+              end: Math.min(offset + limit, total),
+              total,
+            })
+          : t('0 results')}
       </span>
       <div className="actions">
         <button disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))}>
-          Precedenti
+          {t('Previous')}
         </button>
         <button disabled={offset + limit >= total} onClick={() => onChange(offset + limit)}>
-          Successivi
+          {t('Next')}
         </button>
       </div>
     </nav>
@@ -87,10 +97,11 @@ export function ConfirmDialog({
   title: string
   children: ReactNode
   pending: boolean
-  error?: string
+  error?: UiMessage | ''
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const { t } = useLanguage()
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -112,13 +123,13 @@ export function ConfirmDialog({
     >
       <h2 id="confirm-title">{title}</h2>
       <p>{children}</p>
-      {error && <Notice error>{error}</Notice>}
+      {error && <Notice error>{t(error)}</Notice>}
       <div className="actions dialog-actions">
         <button autoFocus onClick={onCancel} disabled={pending}>
-          Annulla
+          {t('Cancel')}
         </button>
         <button className="danger" disabled={pending} onClick={onConfirm}>
-          {pending ? 'Eliminazione…' : 'Elimina definitivamente'}
+          {pending ? t('Deleting…') : t('Delete permanently')}
         </button>
       </div>
     </dialog>

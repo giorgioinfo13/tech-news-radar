@@ -41,6 +41,8 @@ describe('account disclosure', () => {
     await userEvent.click(trigger)
     await userEvent.tab()
     await userEvent.tab()
+    expect(screen.getByRole('combobox', { name: 'Lingua' })).toHaveFocus()
+    await userEvent.tab()
     expect(screen.getByRole('link', { name: 'Privacy e dati personali' })).toHaveFocus()
     await userEvent.tab()
     expect(screen.getByRole('button', { name: 'Outside' })).toHaveFocus()

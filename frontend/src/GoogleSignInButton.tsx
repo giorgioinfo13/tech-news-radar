@@ -1,3 +1,4 @@
+import { useLanguage } from './language-context'
 export function GoogleSignInButton({
   onClick,
   pending,
@@ -5,6 +6,7 @@ export function GoogleSignInButton({
   onClick: () => void
   pending: boolean
 }) {
+  const { t } = useLanguage()
   return (
     <button className="google-button" onClick={onClick} disabled={pending}>
       <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
@@ -25,7 +27,7 @@ export function GoogleSignInButton({
           d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
         />
       </svg>
-      {pending ? 'Apertura di Google…' : 'Accedi con Google'}
+      {pending ? t('Opening Google…') : t('Sign in with Google')}
     </button>
   )
 }

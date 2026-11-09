@@ -1,3 +1,6 @@
+import type { UiMessage } from '../messages'
+import { message } from '../messages'
+import { useLanguage } from '../language-context'
 import { usePanelFocus } from '../usePanelFocus'
 import { useState, type FormEvent } from 'react'
 import {
@@ -27,12 +30,13 @@ function SourceEditor({
   onSave: (input: SourceInput) => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   const panelRef = usePanelFocus()
   const [name, setName] = useState(source?.name ?? '')
   const [url, setUrl] = useState(source?.feed_url ?? '')
   const [category, setCategory] = useState(source?.category_id?.toString() ?? '')
   const [enabled, setEnabled] = useState(source?.enabled ?? true)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<UiMessage | ''>('')
   function submit(event: FormEvent) {
     event.preventDefault()
     try {
@@ -45,11 +49,11 @@ function SourceEditor({
       )
         throw new Error()
     } catch {
-      setError('Inserisci un URL HTTP o HTTPS senza credenziali o frammenti.')
+      setError(message('Enter an HTTP or HTTPS URL without credentials or fragments.'))
       return
     }
     if (!name.trim()) {
-      setError('Inserisci il nome della fonte.')
+      setError(message('Enter a source name.'))
       return
     }
     setError('')
@@ -67,14 +71,16 @@ function SourceEditor({
       className="editor-panel"
       aria-labelledby="source-editor-title"
     >
-      <h2 id="source-editor-title">{source ? `Modifica ${source.name}` : 'Aggiungi una fonte'}</h2>
+      <h2 id="source-editor-title">
+        {source ? t('Edit {name}', { name: source.name }) : t('Add a source')}
+      </h2>
       <p className="muted">
-        Incolla l’indirizzo di un feed RSS o Atom. Potrai raccogliere gli articoli con Aggiorna.
+        {t('Paste an RSS or Atom feed URL. Use Refresh to collect articles.')}
       </p>
       <form onSubmit={submit}>
         <fieldset disabled={busy} className="form-grid">
           <label>
-            Nome della fonte
+            {t('Source name')}
             <input
               name="source-name"
               autoComplete="off"
@@ -82,17 +88,17 @@ function SourceEditor({
               maxLength={200}
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Il nome che vuoi vedere"
+              placeholder={t('The name you want to see')}
             />
           </label>
           <label>
-            Categoria
+            {t('Category')}
             <select
               name="category"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
             >
-              <option value="">Senza categoria</option>
+              <option value="">{t('Uncategorized')}</option>
               {categories.map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.name}
@@ -101,7 +107,7 @@ function SourceEditor({
             </select>
           </label>
           <label className="full-width">
-            URL del feed
+            {t('Feed URL')}
             <input
               type="url"
               name="feed-url"
@@ -121,25 +127,24 @@ function SourceEditor({
               checked={enabled}
               onChange={(event) => setEnabled(event.target.checked)}
             />
-            Fonte attiva
+            {t('Source enabled')}
           </label>
           {source && (
             <p className="form-hint full-width">
-              Cambiare URL conserva gli articoli e la cronologia, ma azzera i dati dell’ultimo
-              controllo.
+              {t('Changing the URL keeps articles and history, but resets the last check details.')}
             </p>
           )}
           {error && (
             <div className="full-width">
-              <Notice error>{error}</Notice>
+              <Notice error>{t(error)}</Notice>
             </div>
           )}
           <div className="actions full-width">
             <button className="primary" type="submit">
-              {busy ? 'Salvataggio…' : 'Salva fonte'}
+              {busy ? t('Saving…') : t('Save source')}
             </button>
             <button type="button" onClick={onCancel}>
-              Annulla
+              {t('Cancel')}
             </button>
           </div>
         </fieldset>
@@ -149,14 +154,15 @@ function SourceEditor({
 }
 
 function History({ source, onClose }: { source: Source; onClose: () => void }) {
+  const { t, locale } = useLanguage()
   const panelRef = usePanelFocus()
   const [offset, setOffset] = useState(0)
   const runs = useQuery<CollectionRun>(`/sources/${source.id}/runs?limit=10&offset=${offset}`)
   const labels = {
-    running: 'In corso',
-    success: 'Completato',
-    not_modified: 'Nessuna modifica',
-    error: 'Non riuscito',
+    running: t('Running'),
+    success: t('Completed'),
+    not_modified: t('No changes'),
+    error: t('Failed'),
   }
   return (
     <section
@@ -167,8 +173,10 @@ function History({ source, onClose }: { source: Source; onClose: () => void }) {
       aria-labelledby="history-title"
     >
       <div className="section-heading">
-        <h2 id="history-title">Cronologia · {source.name}</h2>
-        <button onClick={onClose}>Chiudi cronologia</button>
+        <h2 id="history-title">
+          {t('History ·')} {source.name}
+        </h2>
+        <button onClick={onClose}>{t('Close history')}</button>
       </div>
       <QueryState loading={runs.loading} error={runs.error} retry={runs.reload} />
       {runs.data && (
@@ -179,17 +187,20 @@ function History({ source, onClose }: { source: Source; onClose: () => void }) {
                 <li key={run.id}>
                   <div>
                     <strong>{labels[run.status]}</strong>
-                    <span>{formatDate(run.started_at)}</span>
+                    <span>{formatDate(run.started_at, locale)}</span>
                   </div>
                   <p>
                     {run.error_message ??
-                      `${run.articles_added} nuovi articoli su ${run.articles_seen} elementi esaminati.`}
+                      t('{added} new articles out of {seen} items checked.', {
+                        added: run.articles_added,
+                        seen: run.articles_seen,
+                      })}
                   </p>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="muted">Nessun aggiornamento eseguito per questa fonte.</p>
+            <p className="muted">{t('This source has not been refreshed yet.')}</p>
           )}
           <Pagination offset={offset} total={runs.data.total} limit={10} onChange={setOffset} />
         </>
@@ -207,15 +218,16 @@ export function Sources({
   categories: Category[]
   onChange: () => void
 }) {
+  const { t, locale } = useLanguage()
   const [editor, setEditor] = useState<Source | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Source | null>(null)
   const [history, setHistory] = useState<Source | null>(null)
   const [historyRevision, setHistoryRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState<number | null>(null)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  async function action(operation: () => Promise<unknown>, success: string, done?: () => void) {
+  const [error, setError] = useState<UiMessage | ''>('')
+  const [notice, setMessage] = useState<UiMessage | ''>('')
+  async function action(operation: () => Promise<unknown>, success: UiMessage, done?: () => void) {
     setBusy(true)
     setError('')
     setMessage('')
@@ -239,8 +251,11 @@ export function Sources({
       const run = await mutate<CollectionRun>(`/sources/${source.id}/refresh`, 'POST')
       setMessage(
         run.status === 'not_modified'
-          ? `${source.name}: nessuna modifica al feed.`
-          : `${source.name}: ${run.articles_added} nuovi articoli raccolti.`,
+          ? message('{name}: no changes to the feed.', { name: source.name })
+          : message('{name}: {count} new articles collected.', {
+              name: source.name,
+              count: run.articles_added,
+            }),
       )
     } catch (error) {
       setError(errorMessage(error))
@@ -266,7 +281,7 @@ export function Sources({
               editor === 'new' ? 'POST' : 'PATCH',
               input,
             ),
-          'Fonte salvata.',
+          message('Source saved.'),
           () => setEditor(null),
         )
       }
@@ -276,8 +291,8 @@ export function Sources({
     <>
       <header className="page-header">
         <div>
-          <h1>Catalogo</h1>
-          <p>Gestisci le fonti condivise da tutti i lettori.</p>
+          <h1>{t('Catalog')}</h1>
+          <p>{t('Manage the sources shared by all readers.')}</p>
         </div>
         <button
           className="primary"
@@ -288,24 +303,22 @@ export function Sources({
             setMessage('')
           }}
         >
-          Aggiungi fonte
+          {t('Add source')}
         </button>
       </header>
-      {message && <Notice>{message}</Notice>}
-      {error && !deleting && <Notice error>{error}</Notice>}
-      {refreshing !== null && (
-        <Notice>Aggiornamento in corso… Può richiedere qualche secondo.</Notice>
-      )}
+      {notice && <Notice>{t(notice)}</Notice>}
+      {error && !deleting && <Notice error>{t(error)}</Notice>}
+      {refreshing !== null && <Notice>{t('Refreshing… This may take a few seconds.')}</Notice>}
       {editor === 'new' && editorPanel}
       <div className="section-heading">
         <h2>
-          Fonti condivise <span>{sources.length}</span>
+          {t('Shared sources')} <span>{sources.length}</span>
         </h2>
-        <span className="muted">Aggiornamenti manuali</span>
+        <span className="muted">{t('Manual updates')}</span>
       </div>
       {!sources.length ? (
-        <Empty title="Da dove vuoi iniziare?">
-          Aggiungi il feed di un sito che segui. Nessuna fonte viene aggiunta automaticamente.
+        <Empty title={t('Where would you like to start?')}>
+          {t('Add the feed of a website you follow. No sources are added automatically.')}
         </Empty>
       ) : (
         <div className="source-list">
@@ -316,86 +329,90 @@ export function Sources({
                   <div className="source-title">
                     <h3>{source.name}</h3>
                     <span className={`badge ${source.enabled ? 'enabled' : ''}`}>
-                      {source.enabled ? 'Attiva' : 'In pausa'}
+                      {source.enabled ? t('Active') : t('Paused')}
                     </span>
                   </div>
-                  <p className="source-overview">{source.category?.name ?? 'Senza categoria'}</p>
+                  <p className="source-overview">{source.category?.name ?? t('Uncategorized')}</p>
                 </div>
                 <div className="source-actions">
                   <button
                     className="primary-soft"
                     disabled={busy || !source.enabled}
-                    aria-label={`Aggiorna ${source.name}`}
+                    aria-label={t('Refresh {name}', { name: source.name })}
                     onClick={() => void refresh(source)}
                   >
                     <Icon name="refresh" />{' '}
-                    {refreshing === source.id ? 'Aggiornamento…' : 'Aggiorna'}
+                    {refreshing === source.id ? t('Refreshing…') : t('Refresh')}
                   </button>
                   <button
                     disabled={busy}
-                    aria-label={`Modifica ${source.name}`}
+                    aria-label={t('Edit {name}', { name: source.name })}
                     onClick={() => {
                       setEditor(source)
                       setError('')
                       setMessage('')
                     }}
                   >
-                    Modifica
+                    {t('Edit')}
                   </button>
                 </div>
               </div>
               {source.last_error && (
                 <p className="source-error">
-                  Ultimo aggiornamento non riuscito: {source.last_error}
+                  {t('Last refresh failed:')} {source.last_error}
                 </p>
               )}
               <details className="source-details">
-                <summary aria-label={`Dettagli e azioni ${source.name}`}>Dettagli e azioni</summary>
+                <summary aria-label={t('Details and actions for {name}', { name: source.name })}>
+                  {t('Details and actions')}
+                </summary>
                 <div className="source-detail-content">
                   <p className="feed-url">{source.feed_url}</p>
                   <div className="source-dates">
                     <span>
-                      Ultimo controllo <strong>{formatDate(source.last_checked_at)}</strong>
+                      {t('Last checked')}{' '}
+                      <strong>{formatDate(source.last_checked_at, locale)}</strong>
                     </span>
                     <span>
-                      Ultimo esito positivo <strong>{formatDate(source.last_success_at)}</strong>
+                      {t('Last successful refresh')}{' '}
+                      <strong>{formatDate(source.last_success_at, locale)}</strong>
                     </span>
                   </div>
                   <div className="source-actions">
                     <button
                       disabled={busy}
-                      aria-label={`${source.enabled ? 'Disattiva' : 'Attiva'} ${source.name}`}
+                      aria-label={`${source.enabled ? t('Disable') : t('Enable')} ${source.name}`}
                       onClick={() =>
                         void action(
                           () =>
                             mutate(`/sources/${source.id}`, 'PATCH', { enabled: !source.enabled }),
-                          source.enabled ? 'Fonte messa in pausa.' : 'Fonte attivata.',
+                          source.enabled ? message('Source paused.') : message('Source enabled.'),
                         )
                       }
                     >
-                      {source.enabled ? 'Metti in pausa' : 'Attiva'}
+                      {source.enabled ? t('Pause') : t('Enable')}
                     </button>
                     <button
                       id={`history-trigger-${source.id}`}
-                      aria-label={`Cronologia ${source.name}`}
+                      aria-label={t('History for {name}', { name: source.name })}
                       aria-expanded={history?.id === source.id}
                       aria-controls={
                         history?.id === source.id ? `source-history-${source.id}` : undefined
                       }
                       onClick={() => setHistory(source)}
                     >
-                      Cronologia
+                      {t('History')}
                     </button>
                     <button
                       className="text-danger"
                       disabled={busy}
-                      aria-label={`Elimina ${source.name}`}
+                      aria-label={t('Delete {name}', { name: source.name })}
                       onClick={() => {
                         setDeleting(source)
                         setError('')
                       }}
                     >
-                      Elimina
+                      {t('Delete')}
                     </button>
                   </div>
                 </div>
@@ -417,7 +434,7 @@ export function Sources({
       )}
       {deleting && (
         <ConfirmDialog
-          title={`Eliminare ${deleting.name}?`}
+          title={t('Delete {name}?', { name: deleting.name })}
           pending={busy}
           error={error}
           onCancel={() => {
@@ -427,7 +444,7 @@ export function Sources({
           onConfirm={() =>
             void action(
               () => mutate(`/sources/${deleting.id}`, 'DELETE'),
-              'Fonte eliminata.',
+              message('Source deleted.'),
               () => {
                 setDeleting(null)
                 setEditor(null)
@@ -436,8 +453,9 @@ export function Sources({
             )
           }
         >
-          Verranno eliminati definitivamente anche tutti gli articoli e la cronologia di questa
-          fonte. Questa operazione non può essere annullata.
+          {t(
+            'All articles and history for this source will also be permanently deleted. This action cannot be undone.',
+          )}
         </ConfirmDialog>
       )}
     </>

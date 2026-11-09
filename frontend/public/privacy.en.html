@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Privacy and personal data · Tech News Radar</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        max-width: 48rem;
+        margin: auto;
+        padding: 2rem 1.25rem;
+        line-height: 1.6;
+      }
+      a {
+        color: light-dark(#075985, #7dd3fc);
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="/">Back to Tech News Radar</a>
+    <nav aria-label="Page language">
+      <a href="/privacy.html" lang="it" hreflang="it">Italiano</a> ·
+      <a href="/privacy.en.html" lang="en" hreflang="en" aria-current="page">English</a>
+    </nav>
+    <main>
+      <h1>Privacy and personal data</h1>
+      <p>Last updated: <time datetime="2026-11-09">9 November 2026</time>.</p>
+      <p>
+        Tech News Radar is a private news reader, restricted to people approved by the
+        administrator. The operator is Giorgio. For information, access to your data, corrections or
+        deletion, contact <a href="mailto:giorgioinfo13@gmail.com">giorgioinfo13@gmail.com</a>.
+      </p>
+      <h2>Google sign-in and data use</h2>
+      <p>
+        Sign-in uses Google and Supabase. Only your email address and basic Google profile
+        information are requested: your name, profile picture if present, and account identifiers.
+        Supabase manages this data, identity verification and sign-in sessions. Tech News Radar does
+        not receive your Google password and does not request access to Gmail, Drive, contacts or
+        your calendar.
+      </p>
+      <p>
+        Identity data is used to recognize you, check your invitation and permissions, maintain your
+        session and link followed sources and reading status to your profile. It is not used for
+        advertising, sold or used to train artificial intelligence models. The app does not include
+        behavioral analytics or advertising trackers.
+      </p>
+      <h2>Invitations and data stored in the app</h2>
+      <p>
+        Before you first sign in, the administrator may record your name and Google email address to
+        invite you. The invitation also records who created it, its creation date and, after use,
+        the acceptance date and the identifier of the account that accepted it. No email is sent
+        automatically. Invitations are visible only to the administrator.
+      </p>
+      <p>
+        The app database stores your profile identifier and its link to your Supabase account,
+        display name, role, access status and creation date. It also stores the sources you choose
+        to follow, when you followed them, and articles marked as read with their reading dates. A
+        new reader profile is created after the invitation is verified. A Google sign-in without
+        approval may still create an authentication account in Supabase, without granting access to
+        the news.
+      </p>
+      <h2>Who can access the data</h2>
+      <p>
+        Sources, categories, articles and collection history are shared among authorized users.
+        Followed sources and reading states are personal and are not shown to other readers. The
+        operator can access data through administration and database tools for support, maintenance,
+        backups and handling data requests.
+      </p>
+      <p>
+        The service uses Vercel to host the website and forward requests, Render to process API
+        requests, and Supabase for authentication and the database. These providers process the data
+        needed for their respective functions and may record IP addresses, request times, browser
+        information and other technical data for operation and security. Google manages
+        authentication under its own terms.
+      </p>
+      <p>
+        You can read the providers’ privacy notices:
+        <a href="https://policies.google.com/privacy?hl=en">Google</a>,
+        <a href="https://supabase.com/privacy">Supabase</a>,
+        <a href="https://vercel.com/legal/privacy-notice">Vercel</a> and
+        <a href="https://render.com/privacy">Render</a>. Opening an article takes you to the
+        source’s website, which receives your request and applies its own privacy notice.
+        Server-side feed collection does not send your Google account or personal reading history to
+        sources.
+      </p>
+      <h2>Browser and installed app</h2>
+      <p>
+        The browser stores session data and tokens to keep you signed in, as well as your theme and
+        language preferences. Sign-out applies to the session in that browser or installed app: it
+        does not automatically sign out other devices or delete data stored on the server. Theme and
+        language preferences remain after sign-out and are not saved in your profile on the server.
+        You can remove local data in your browser or installed app settings.
+      </p>
+      <p>
+        The browser and installed app may have separate sessions. The app requires a connection and
+        does not provide an offline copy of the news. It does not set advertising cookies; Google
+        and other providers may use cookies or similar technologies on their own pages.
+      </p>
+      <h2>Data retention</h2>
+      <p>
+        Profiles and invitations do not expire automatically. A pending invitation remains until it
+        is used or canceled; a used invitation remains linked to the account until deletion. Profile
+        and authentication data remains until the operator removes it, even if access has been
+        revoked.
+      </p>
+      <p>
+        You can change followed sources and mark articles as unread. Unfollowing a source does not
+        delete your reading states. These are deleted when you mark an article as unread, when the
+        article is removed from the catalog, or when the profile is deleted.
+      </p>
+      <p>
+        Backups are stored separately and may contain personal data. No automatic expiry is
+        currently configured for these copies. Providers’ technical log retention depends on the
+        service and its configuration. Contact the operator to find out which retention periods
+        apply to your data.
+      </p>
+      <h2>Requests and deletion</h2>
+      <p>
+        You can request information, a copy of your data, corrections or deletion by writing to the
+        contact above, even if you cannot sign in. The operator verifies that the request comes from
+        the person concerned. Do not send passwords or access tokens.
+      </p>
+      <p>
+        Deletion requires separate actions on the app profile and the Supabase authentication
+        account. The operator revokes access and removes the profile, followed sources, reading
+        states, associated invitations and authentication account, also checking for pending
+        invitations. Shared news remains available to other readers. Deletion does not delete your
+        Google account.
+      </p>
+      <p>
+        Removal from the active service does not automatically remove data from existing backups.
+        The operator informs you of the deletion timeline and reapplies deletion requests before
+        bringing a restored backup back into service. Revoking the Tech News Radar connection in
+        your Google account settings does not replace a request to delete data already stored in the
+        app.
+      </p>
+    </main>
+  </body>
+</html>

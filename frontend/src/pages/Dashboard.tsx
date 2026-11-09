@@ -1,3 +1,5 @@
+import type { UiMessage } from '../messages'
+import { useLanguage } from '../language-context'
 import { useState, type FormEvent } from 'react'
 import {
   errorMessage,
@@ -13,10 +15,11 @@ import { useQuery } from '../useQuery'
 import { Icon } from '../Icon'
 
 export function Dashboard({ categories, sources }: { categories: Category[]; sources: Source[] }) {
+  const { t, locale } = useLanguage()
   const [filters, setFilters] = useState({ category: '', source: '', read: '', q: '', offset: 0 })
   const [search, setSearch] = useState('')
   const [pending, setPending] = useState<number | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<UiMessage | ''>('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filterCount = [filters.source, filters.category, filters.read].filter(Boolean).length
   const params = new URLSearchParams({ limit: '20', offset: String(filters.offset) })
@@ -56,17 +59,17 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
     <>
       <header className="page-header">
         <div>
-          <h1>Notizie</h1>
-          <p>Le tue fonti, una lettura alla volta.</p>
+          <h1>{t('News')}</h1>
+          <p>{t('Your sources, one read at a time.')}</p>
         </div>
         <a href="#sources" className="button header-action">
-          Scegli le fonti
+          {t('Choose sources')}
         </a>
       </header>
-      <section className="filter-panel" aria-label="Filtri notizie">
+      <section className="filter-panel" aria-label={t('News filters')}>
         <form className="search" onSubmit={submitSearch}>
           <label className="sr-only" htmlFor="search">
-            Cerca nelle notizie
+            {t('Search news')}
           </label>
           <Icon name="search" />
           <input
@@ -74,12 +77,12 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
             type="search"
             name="q"
             autoComplete="off"
-            placeholder="Cerca nelle notizie…"
+            placeholder={t('Search news…')}
             maxLength={200}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button type="submit">Cerca</button>
+          <button type="submit">{t('Search')}</button>
         </form>
         <button
           className="filter-toggle"
@@ -87,19 +90,21 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           aria-controls="news-filters"
           onClick={() => setFiltersOpen(!filtersOpen)}
         >
-          <Icon name="filter" /> Filtri
-          {filterCount > 0 ? ` (${filterCount} ${filterCount === 1 ? 'attivo' : 'attivi'})` : ''}
+          <Icon name="filter" /> {t('Filters')}
+          {filterCount > 0
+            ? ` (${t(filterCount === 1 ? '{count} active filter' : '{count} active filters', { count: filterCount })})`
+            : ''}
           <span aria-hidden="true">{filtersOpen ? '−' : '+'}</span>
         </button>
         <div id="news-filters" className={`filter-row ${filtersOpen ? 'is-open' : ''}`}>
           <label>
-            Fonte
+            {t('Source')}
             <select
               name="source"
               value={filters.source}
               onChange={(event) => filter('source', event.target.value)}
             >
-              <option value="">Tutte le fonti</option>
+              <option value="">{t('All sources')}</option>
               {sources.map((source) => (
                 <option key={source.id} value={source.id}>
                   {source.name}
@@ -108,13 +113,13 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
             </select>
           </label>
           <label>
-            Categoria
+            {t('Category')}
             <select
               name="category"
               value={filters.category}
               onChange={(event) => filter('category', event.target.value)}
             >
-              <option value="">Tutte le categorie</option>
+              <option value="">{t('All categories')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -123,11 +128,11 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
             </select>
           </label>
           <fieldset className="read-filter">
-            <legend>Stato di lettura</legend>
+            <legend>{t('Reading status')}</legend>
             {[
-              { value: '', label: 'Tutte' },
-              { value: 'false', label: 'Da leggere' },
-              { value: 'true', label: 'Lette' },
+              { value: '', label: t('All') },
+              { value: 'false', label: t('Unread') },
+              { value: 'true', label: t('Read') },
             ].map((item) => (
               <button
                 type="button"
@@ -143,9 +148,9 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
       </section>
       <div className="section-heading">
         <h2>
-          Ultime notizie{' '}
+          {t('Latest news')}{' '}
           <span>
-            {articles.data ? new Intl.NumberFormat('it-IT').format(articles.data.total) : '—'}
+            {articles.data ? new Intl.NumberFormat(locale).format(articles.data.total) : '—'}
           </span>
         </h2>
         {activeFilters ? (
@@ -156,13 +161,13 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
               setFilters({ category: '', source: '', read: '', q: '', offset: 0 })
             }}
           >
-            Azzera filtri
+            {t('Clear filters')}
           </button>
         ) : (
-          <span className="muted">Più recenti per prime</span>
+          <span className="muted">{t('Newest first')}</span>
         )}
       </div>
-      {error && <Notice error>{error}</Notice>}
+      {error && <Notice error>{t(error)}</Notice>}
       <QueryState loading={articles.loading} error={articles.error} retry={articles.reload} />
       {articles.data &&
         (articles.data.items.length ? (
@@ -184,10 +189,13 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
                     <span className="article-date">
                       {article.published_at ? (
                         <time dateTime={article.published_at}>
-                          {formatDate(article.published_at)}
+                          {formatDate(article.published_at, locale)}
                         </time>
                       ) : (
-                        <>Data non disponibile · raccolto {formatDate(article.fetched_at)}</>
+                        <>
+                          {t('Date unavailable · collected')}{' '}
+                          {formatDate(article.fetched_at, locale)}
+                        </>
                       )}
                     </span>
                   </div>
@@ -208,20 +216,20 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
                   )}
                   <div className="article-footer">
                     <span className="category-tag">
-                      {article.source.category?.name ?? 'Senza categoria'}
+                      {article.source.category?.name ?? t('Uncategorized')}
                     </span>
                     <button
                       className="text-button"
                       disabled={pending !== null}
-                      aria-label={`${article.is_read ? 'Segna da leggere' : 'Segna come letto'}: ${article.title}`}
+                      aria-label={`${article.is_read ? t('Mark as unread') : t('Mark as read')}: ${article.title}`}
                       onClick={() => void toggleRead(article)}
                     >
                       {article.is_read && <Icon name="check" />}
                       {pending === article.id
-                        ? 'Salvataggio…'
+                        ? t('Saving…')
                         : article.is_read
-                          ? 'Segna da leggere'
-                          : 'Segna come letto'}
+                          ? t('Mark as unread')
+                          : t('Mark as read')}
                     </button>
                   </div>
                 </article>
@@ -230,14 +238,12 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           </div>
         ) : (
           <Empty
-            title={
-              sources.length ? 'Nessuna notizia da mostrare' : 'Il tuo radar parte da una fonte'
-            }
+            title={sources.length ? t('No news to show') : t('Your radar starts with a source')}
           >
             {sources.length
-              ? 'Prova altri filtri oppure aggiorna una fonte per raccogliere nuovi articoli.'
-              : 'Scegli le fonti da seguire per iniziare a leggere.'}{' '}
-            <a href="#sources">Vai alle fonti</a>
+              ? t('Try other filters or refresh a source to collect new articles.')
+              : t('Choose sources to follow and start reading.')}{' '}
+            <a href="#sources">{t('Go to sources')}</a>
           </Empty>
         ))}
       {articles.data && (

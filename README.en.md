@@ -20,6 +20,10 @@ own reading status.
 are available locally. The interface includes Google login and personal source
 selection; online service configuration and deployment are still to come.
 
+Italian is the default interface language. In the top-right menu, select
+**Lingua → English**. The browser keeps this preference after sign-out.
+Articles and source names keep their original language.
+
 For setup and technical details, see the [development guide](docs/development.md)
 and [architecture notes](docs/architecture.md). The [publication guide](docs/deployment.md)
 describes the prepared configuration and the checks still required.

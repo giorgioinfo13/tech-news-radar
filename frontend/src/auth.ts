@@ -1,3 +1,4 @@
+import { message, type UiMessage } from './messages'
 import type { Session } from '@supabase/supabase-js'
 import { ApiError, configureIdentity, request, type AppUser } from './api'
 import { completeCallback, type AuthConfiguration } from './auth-client'
@@ -5,7 +6,7 @@ import { completeCallback, type AuthConfiguration } from './auth-client'
 export type AuthState = {
   status: 'loading' | 'signed-out' | 'denied' | 'error' | 'ready' | 'unconfigured'
   user?: AppUser
-  message?: string
+  message?: UiMessage
 }
 
 export class AuthController {
@@ -38,7 +39,10 @@ export class AuthController {
     this.terminating = true
     this.validation++
     configureIdentity()
-    this.publish({ status: 'signed-out', message: 'La sessione è scaduta. Accedi di nuovo.' })
+    this.publish({
+      status: 'signed-out',
+      message: message('Your session has expired. Sign in again.'),
+    })
     void this.configuration.client?.auth.signOut({ scope: 'local' }).catch(() => {})
   }
   private receive(session: Session | null) {
@@ -77,7 +81,9 @@ export class AuthController {
       this.publish({
         status: error instanceof ApiError && error.status === 403 ? 'denied' : 'error',
         message:
-          error instanceof ApiError ? error.message : 'Impossibile verificare l’accesso. Riprova.',
+          error instanceof ApiError
+            ? error.uiMessage
+            : message('Unable to verify access. Try again.'),
       })
     }
   }
@@ -105,7 +111,7 @@ export class AuthController {
           await completeCallback(client)
           const { data, error } = await client.auth.getSession()
           if (epoch !== this.epoch) return
-          if (error) throw new Error('Impossibile ripristinare la sessione. Riprova.')
+          if (error) throw new Error('Unable to restore session')
           initialized = true
           this.receive(data.session)
         } catch {
@@ -113,7 +119,7 @@ export class AuthController {
             initialized = true
             this.publish({
               status: 'error',
-              message: 'Accesso non riuscito o sessione scaduta. Riprova.',
+              message: message('Sign-in failed or your session expired. Try again.'),
             })
           }
         }
@@ -150,7 +156,7 @@ export class AuthController {
     } catch {
       this.publish({
         status: 'signed-out',
-        message: 'Accesso non riuscito. Controlla la connessione e riprova.',
+        message: message('Sign-in failed. Check your connection and try again.'),
       })
     }
   }
@@ -167,8 +173,9 @@ export class AuthController {
       if (!this.running || this.identity || this.state.status !== 'signed-out') return
       this.publish({
         status: 'signed-out',
-        message:
-          'Sei uscito da questo browser. La chiusura della sessione remota non è stata confermata.',
+        message: message(
+          'You have signed out of this browser. Remote session sign-out could not be confirmed.',
+        ),
       })
     }
   }

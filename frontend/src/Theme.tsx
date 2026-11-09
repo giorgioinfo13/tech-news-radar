@@ -1,3 +1,4 @@
+import { useLanguage } from './language-context'
 import {
   createContext,
   useContext,
@@ -67,18 +68,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 }
 
 export function ThemeSelector() {
+  const { t } = useLanguage()
   const theme = useContext(ThemeContext)
   if (!theme) return null
   return (
     <label className="theme-selector">
-      Tema
+      {t('Theme')}
       <select
         value={theme.preference}
         onChange={(event) => theme.change(preferenceFrom(event.target.value))}
       >
-        <option value="system">Sistema</option>
-        <option value="light">Chiaro</option>
-        <option value="dark">Scuro</option>
+        <option value="system">{t('System')}</option>
+        <option value="light">{t('Light')}</option>
+        <option value="dark">{t('Dark')}</option>
       </select>
     </label>
   )

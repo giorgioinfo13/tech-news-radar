@@ -1,3 +1,4 @@
+import { useLanguage } from './language-context'
 import { useState, type ReactNode } from 'react'
 import logo from '../../docs/assets/tech-news-radar-logo.svg'
 import { Notice } from './components'
@@ -6,6 +7,7 @@ import { AccountMenu } from './AccountMenu'
 import { GoogleSignInButton } from './GoogleSignInButton'
 
 function AccessLayout({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  const { t, privacyHref } = useLanguage()
   return (
     <div className="access-page">
       <header className="access-toolbar">
@@ -18,13 +20,14 @@ function AccessLayout({ children, actions }: { children: ReactNode; actions?: Re
         </div>
       </main>
       <footer className="access-footer">
-        <a href="/privacy.html">Privacy e dati personali</a>
+        <a href={privacyHref}>{t('Privacy and personal data')}</a>
       </footer>
     </div>
   )
 }
 
 export function Login({ controller, state }: { controller: AuthController; state: AuthState }) {
+  const { t } = useLanguage()
   const [pending, setPending] = useState(false)
   const login = async () => {
     setPending(true)
@@ -35,47 +38,50 @@ export function Login({ controller, state }: { controller: AuthController; state
   if (state.status === 'loading')
     return (
       <AccessLayout>
-        <p role="status">Verifica dell’accesso…</p>
+        <p role="status">{t('Checking access…')}</p>
         <p className="muted">
-          Al primo accesso il server può richiedere circa un minuto per avviarsi.
+          {t('On your first visit, the server may take about a minute to start.')}
         </p>
       </AccessLayout>
     )
   if (state.status === 'unconfigured')
     return (
       <AccessLayout>
-        <h1>Il radar si sta preparando</h1>
-        <p>L’accesso non è ancora disponibile. Contatta l’amministratore.</p>
+        <h1>{t('Your radar is getting ready')}</h1>
+        <p>{t('Sign-in is not available yet. Contact the administrator.')}</p>
       </AccessLayout>
     )
   if (state.status === 'denied')
     return (
-      <AccessLayout actions={<button onClick={() => void controller.logout()}>Esci</button>}>
-        <h1>Accesso riservato</h1>
+      <AccessLayout
+        actions={<button onClick={() => void controller.logout()}>{t('Sign out')}</button>}
+      >
+        <h1>{t('Restricted access')}</h1>
         <p>
-          Questo account non è ancora autorizzato, oppure il suo accesso è stato revocato. Contatta
-          l’amministratore per continuare.
+          {t(
+            'This account has not been approved, or its access has been revoked. Contact the administrator to continue.',
+          )}
         </p>
         <div className="actions">
-          <button onClick={() => void controller.validate()}>Verifica di nuovo</button>
-          <button onClick={() => void controller.logout()}>Esci</button>
+          <button onClick={() => void controller.validate()}>{t('Check again')}</button>
+          <button onClick={() => void controller.logout()}>{t('Sign out')}</button>
         </div>
       </AccessLayout>
     )
   return (
     <AccessLayout actions={controller.configuration.mode === 'supabase' ? signIn : undefined}>
-      <h1>Un posto per le tue notizie.</h1>
+      <h1>{t('A place for your news.')}</h1>
       <p>
-        Tecnologia, intelligenza artificiale ed economia.
+        {t('Technology, artificial intelligence and economics.')}
         <br />
-        Scegli le fonti, ritrova le tue letture.
+        {t('Choose your sources. Pick up where you left off.')}
       </p>
-      {state.message && <Notice error>{state.message}</Notice>}
-      {state.status === 'error' && <button onClick={controller.retry}>Riprova</button>}
+      {state.message && <Notice error>{t(state.message)}</Notice>}
+      {state.status === 'error' && <button onClick={controller.retry}>{t('Try again')}</button>}
       {controller.configuration.mode === 'supabase' && (
         <>
           {signIn}
-          <p className="muted">L’accesso è riservato alle persone autorizzate.</p>
+          <p className="muted">{t('Access is restricted to approved users.')}</p>
         </>
       )}
     </AccessLayout>

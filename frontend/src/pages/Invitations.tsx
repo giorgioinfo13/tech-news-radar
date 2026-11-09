@@ -1,15 +1,19 @@
+import type { UiMessage } from '../messages'
+import { message } from '../messages'
+import { useLanguage } from '../language-context'
 import { useState, type FormEvent } from 'react'
 import { ApiError, errorMessage, formatDate, mutate, type ReaderInvitation } from '../api'
 import { Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
 
 export function Invitations() {
+  const { t, locale } = useLanguage()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [offset, setOffset] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [notice, setMessage] = useState<UiMessage | ''>('')
+  const [error, setError] = useState<UiMessage | ''>('')
   const invitations = useQuery<ReaderInvitation>(`/invitations?limit=20&offset=${offset}`)
 
   async function add(event: FormEvent) {
@@ -23,11 +27,13 @@ export function Invitations() {
       setName('')
       setOffset(0)
       invitations.reload()
-      setMessage('Invito salvato. Condividi il link del sito con questa persona.')
+      setMessage(message('Invitation saved. Share the website link with this person.'))
     } catch (cause) {
       setError(
         cause instanceof ApiError && cause.status === 409
-          ? 'Esiste già un invito per questa email. Controlla l’elenco prima di riprovare.'
+          ? message(
+              'An invitation already exists for this email. Check the list before trying again.',
+            )
           : errorMessage(cause),
       )
     } finally {
@@ -41,13 +47,13 @@ export function Invitations() {
     setMessage('')
     try {
       await mutate(`/invitations/${invitation.id}`, 'DELETE')
-      setMessage(`Invito per ${invitation.email} annullato.`)
+      setMessage(message('Invitation for {email} canceled.', { email: invitation.email }))
       if (invitations.data?.items.length === 1 && offset > 0) setOffset(offset - 20)
       else invitations.reload()
     } catch (cause) {
       setError(
         cause instanceof ApiError && cause.status === 409
-          ? 'L’invito non è più in attesa. Aggiorna l’elenco per verificarne lo stato.'
+          ? message('The invitation is no longer pending. Refresh the list to check its status.')
           : errorMessage(cause),
       )
       invitations.reload()
@@ -60,20 +66,21 @@ export function Invitations() {
     <>
       <header className="page-header">
         <div>
-          <h1>Inviti</h1>
-          <p>Decidi chi può entrare nel tuo spazio di lettura.</p>
+          <h1>{t('Invitations')}</h1>
+          <p>{t('Choose who can join your reading space.')}</p>
         </div>
       </header>
       <section className="editor-panel" aria-labelledby="invitation-title">
-        <h2 id="invitation-title">Invita un lettore</h2>
+        <h2 id="invitation-title">{t('Invite a reader')}</h2>
         <p className="form-hint" id="invitation-hint">
-          Inserisci l’email dell’account Google, anche prima del primo accesso. La persona potrà
-          entrare come lettore. Non viene inviata un’email automatica.
+          {t(
+            'Enter the Google account email, even before the first sign-in. The person can join as a reader. No email is sent automatically.',
+          )}
         </p>
         <form onSubmit={(event) => void add(event)} aria-describedby="invitation-hint">
           <fieldset className="form-grid" disabled={busy}>
             <label>
-              Nome
+              {t('Name')}
               <input
                 name="display-name"
                 autoComplete="off"
@@ -84,7 +91,7 @@ export function Invitations() {
               />
             </label>
             <label>
-              Email Google
+              {t('Google email')}
               <input
                 name="email"
                 type="email"
@@ -99,19 +106,19 @@ export function Invitations() {
             </label>
             <div className="actions full-width">
               <button className="primary" type="submit">
-                {busy ? 'Salvataggio…' : 'Salva invito'}
+                {busy ? t('Saving…') : t('Save invitation')}
               </button>
             </div>
           </fieldset>
         </form>
       </section>
-      {error && <Notice error>{error}</Notice>}
-      {message && <Notice>{message}</Notice>}
+      {error && <Notice error>{t(error)}</Notice>}
+      {notice && <Notice>{t(notice)}</Notice>}
       <section aria-labelledby="invitation-list-title">
         <div className="page-header">
-          <h2 id="invitation-list-title">Inviti salvati</h2>
+          <h2 id="invitation-list-title">{t('Saved invitations')}</h2>
           <button disabled={busy || invitations.loading} onClick={invitations.reload}>
-            Aggiorna elenco
+            {t('Refresh list')}
           </button>
         </div>
         <QueryState
@@ -120,9 +127,10 @@ export function Invitations() {
           retry={invitations.reload}
         />
         {invitations.data?.items.length === 0 && (
-          <Empty title="Il prossimo lettore lo scegli tu">
-            Aggiungi un’email per consentire il primo accesso. Gli utenti già approvati non sono
-            elencati qui.
+          <Empty title={t('Choose the next reader')}>
+            {t(
+              'Add an email address to allow someone to sign in for the first time. Previously approved users are not listed here.',
+            )}
           </Empty>
         )}
         {invitations.data?.items.map((invitation) => (
@@ -131,17 +139,17 @@ export function Invitations() {
               <h3>{invitation.display_name}</h3>
               <p>{invitation.email}</p>
               <p className="muted">
-                {invitation.accepted_at ? 'Utilizzato' : 'In attesa'} ·{' '}
-                {formatDate(invitation.accepted_at ?? invitation.created_at)}
+                {invitation.accepted_at ? t('Used') : t('Pending')} ·{' '}
+                {formatDate(invitation.accepted_at ?? invitation.created_at, locale)}
               </p>
             </div>
             {!invitation.accepted_at && (
               <button
                 disabled={busy}
                 onClick={() => void cancel(invitation)}
-                aria-label={`Annulla invito per ${invitation.email}`}
+                aria-label={t('Cancel invitation for {email}', { email: invitation.email })}
               >
-                Annulla invito
+                {t('Cancel invitation')}
               </button>
             )}
           </article>
@@ -155,8 +163,9 @@ export function Invitations() {
           />
         )}
         <p className="form-hint">
-          Gli inviti utilizzati non si possono annullare. Per revocare un lettore già attivo resta
-          disponibile la procedura di amministrazione da Terminale.
+          {t(
+            'Used invitations cannot be canceled. To revoke an active reader’s access, use the administration procedure in Terminal.',
+          )}
         </p>
       </section>
     </>

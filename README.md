@@ -21,6 +21,10 @@ sono disponibili in locale. L’interfaccia include il login Google e la scelta
 delle fonti personali; la configurazione dei servizi online e la pubblicazione
 sono ancora da completare.
 
+L’italiano è la lingua predefinita. Nel menu in alto a destra puoi scegliere
+**Lingua → English**; la preferenza rimane nel browser anche dopo il logout.
+Articoli e nomi delle fonti mantengono la lingua originale.
+
 Per installazione e dettagli tecnici, consulta la [guida di sviluppo](docs/development.md)
 e le [note di architettura](docs/architecture.md). La [guida alla pubblicazione](docs/deployment.md)
 descrive le configurazioni preparate e i controlli ancora necessari.
