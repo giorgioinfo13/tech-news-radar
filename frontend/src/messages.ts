@@ -20,8 +20,8 @@ export const italian = {
   'Previous edition': 'Edizione precedente',
   'The local monthly budget of USD 2.00 is exhausted. Saved digests remain available.':
     'Budget mensile locale di 2,00 USD esaurito. Le rassegne salvate restano disponibili.',
-  'Gemini activation is blocked pending token and billing verification. Saved digests remain available.':
-    'Attivazione Gemini bloccata in attesa delle verifiche su token e costi. Le rassegne salvate restano disponibili.',
+  'Gemini activation is not configured by the operator. Saved digests remain available.':
+    'L’attivazione di Gemini non è configurata dal gestore. Le rassegne salvate restano disponibili.',
   'The selected RSS input exceeds the token limit. No digest was generated.':
     'I contenuti RSS selezionati superano il limite di token. Nessuna rassegna è stata generata.',
   'AI briefs': 'Sintesi AI',

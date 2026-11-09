@@ -1,4 +1,4 @@
-"""Fixed paid Gemini candidate. Network activation remains blocked pending contract review.
+"""Fixed paid Gemini adapter with an explicitly accepted prudential budget.
 
 Only the service's durable dispatch guard may authorize generation. No SDK, tools,
 remote cache, automatic retry, continuation, model alias, or provider fallback.
@@ -23,9 +23,8 @@ INPUT_NANO_USD = 250
 OUTPUT_NANO_USD = 1500
 RESERVATION_NANO_USD = INPUT_TOKENS * INPUT_NANO_USD + OUTPUT_TOKENS * OUTPUT_NANO_USD
 MONTHLY_NANO_USD = 2_000_000_000
-# Not an environment flag. Mocks cannot establish the billing contract.
-# See docs/ai-briefs.md: unresolved schema-count coverage and live validation.
-LIVE_CONTRACT_VERIFIED = False
+# Reservation estimate: countTokens does not establish a complete billable-input bound.
+# See docs/ai-briefs.md. Observed anomalies still stop further work persistently.
 MAX_PROMPT_BYTES = 24_000
 BUDGET_MESSAGE = (
     "Budget mensile locale di 2,00 USD esaurito. Le rassegne salvate restano disponibili."
@@ -148,12 +147,12 @@ class Gemini:
 
     @property
     def activation_blocked(self) -> bool:
-        return not LIVE_CONTRACT_VERIFIED
+        return not self.settings.ai_budget_risk_accepted
 
     @property
     def enabled(self) -> bool:
         return bool(
-            LIVE_CONTRACT_VERIFIED
+            self.settings.ai_budget_risk_accepted
             and self.settings.ai_briefs_enabled
             and self.settings.ai_digest_enabled
             and self.settings.ai_privacy_reviewed
@@ -232,7 +231,7 @@ class Gemini:
     ) -> dict:
         body = payload_for(articles)
         # Includes systemInstruction and generationConfig in the same request.
-        # Passing schema is NOT proof countTokens counts it: live gate stays closed.
+        # Passing schema is NOT proof of full billable coverage; acceptance is required.
         count = await self._request(
             "countTokens", {"generateContentRequest": {"model": f"models/{MODEL}", **body}}
         )

@@ -29,6 +29,24 @@ const saved = {
 }
 
 describe('shared hourly digest', () => {
+  it('explains pending operator activation in both languages without generating', async () => {
+    const { state, calls } = mockServer()
+    state.brief.code = 'activation_required'
+    state.brief.briefs = [structuredClone(saved)]
+    open()
+    await screen.findByText(saved.summary)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'L’attivazione di Gemini non è configurata dal gestore.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
+    await userEvent.selectOptions(screen.getByLabelText('Lingua'), 'en')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Gemini activation is not configured by the operator.',
+    )
+    expect(screen.getByText(saved.summary)).toBeInTheDocument()
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0)
+  })
+
   it('keeps saved editions visible when the monthly USD budget is exhausted in both languages', async () => {
     const { state, calls } = mockServer()
     state.brief.code = 'monthly_budget'

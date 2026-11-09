@@ -31,8 +31,8 @@ le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architectu
 Prevede una rassegna condivisa delle ultime 24 ore, aggiornata al massimo ogni ora
 quando ci sono nuovi contenuti e Gemini 3.1 Flash-Lite è disponibile.
 È predisposta per l’API Google Gemini diretta, a pagamento, con budget locale
-condiviso di 2,00 USD al mese.
-L’attivazione resta bloccata fino alla verifica completa di token e costi.
+prudenziale condiviso di 2,00 USD al mese, che limita le prenotazioni dell’app
+senza garantire il totale della fattura Google. La generazione resta disattivata per impostazione predefinita.
 Consulta [comportamento e limiti](docs/ai-briefs.md).
 
 Documentazione: [Architettura e funzionalità](docs/architecture.md) · [Sviluppo e test](docs/development.md) · [Autenticazione e permessi](docs/authentication.md) · [Distribuzione e database](docs/deployment.md) · [Rassegna AI e budget](docs/ai-briefs.md)

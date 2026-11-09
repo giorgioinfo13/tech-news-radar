@@ -31,8 +31,8 @@ approves or rejects them. See [how source proposals work](docs/architecture.md#s
 It provides one shared digest of the last 24 hours, updated at most hourly
 when new material and Gemini 3.1 Flash-Lite are available.
 It is prepared for the direct paid Google Gemini API, with a shared
-local budget of USD 2.00 per month.
-Activation remains blocked until token and cost verification is complete.
+prudential local budget of USD 2.00 per month. It limits application reservations
+without guaranteeing the Google invoice total. Generation remains disabled by default.
 See [behavior and limits](docs/ai-briefs.md).
 
 Documentation: [Architecture and features](docs/architecture.md) · [Development and tests](docs/development.md) · [Authentication and permissions](docs/authentication.md) · [Deployment and database](docs/deployment.md) · [AI digest and budget](docs/ai-briefs.md)

@@ -110,13 +110,13 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                         * 4,
                     )
                 )
-        monkeypatch.setattr("app.ai_gemini.LIVE_CONTRACT_VERIFIED", True)
         service = BriefService(
             runtime,
             Settings(
                 _env_file=None,
                 ai_briefs_enabled=True,
                 ai_privacy_reviewed=True,
+                ai_budget_risk_accepted=True,
                 gemini_api_key="simulation-only-key",
                 ai_digest_enabled=True,
             ),

@@ -364,10 +364,11 @@ Publication and grants are covered in [deployment](deployment.md#source-proposal
 
 The optional [hourly digest](ai-briefs.md) shares saved public RSS summaries across the catalog.
 The fixed model is paid Gemini 3.1 Flash-Lite through the direct Google Developer API.
-The live contract gate remains closed. No alternative provider or automatic fallback exists.
+Generation and explicit budget-risk acceptance default to disabled. No alternative provider or automatic fallback exists.
 Revision `0007` adds jobs and control, `0008` adds unique hourly editions, and `0009` adds the exact monthly monetary ledger.
 Admission, quota, money, and dispatch ownership use persistent database transactions.
-The budget is USD 2.00 per calendar month UTC, distinct from the Google EUR cap.
+The reservation budget is USD 2.00 per calendar month UTC, distinct from the Google EUR cap.
+It is a prudential consumption control, not a guaranteed maximum Google invoice.
 Reads never call a provider. Personal subscriptions, identities, and reading states never enter prompts.
 The inactive workflow uses an operator credential. No new queue infrastructure or local LLM is added.
 

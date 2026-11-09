@@ -14,7 +14,6 @@ from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app import ai_gemini
 from app.ai_briefs import BriefService
 from app.ai_content import AIUnavailable
 from app.ai_gemini import MODEL, MONTHLY_NANO_USD, RESERVATION_NANO_USD, Gemini, payload_for
@@ -57,12 +56,53 @@ async def test_default_direct_provider_remains_blocked_with_flags_and_dummy_key(
     )
     service = BriefService(database, settings)
     assert settings.ai_transport == "gemini"
+    assert settings.ai_budget_risk_accepted is False
     assert isinstance(service.provider, Gemini)
     assert service.provider.model == MODEL
     assert (await service.generate(None, None))["code"] == "activation_required"
     assert ledger(database) == []
     with Session(database) as session:
         assert session.get(AIBriefControl, 1).attempts == 0
+
+
+def test_budget_acceptance_alone_does_not_enable_generation(monkeypatch):
+    monkeypatch.setenv("TNR_AI_BUDGET_RISK_ACCEPTED", "true")
+    settings = Settings(_env_file=None)
+    assert settings.ai_budget_risk_accepted
+    assert not settings.ai_briefs_enabled
+    assert not settings.ai_digest_enabled
+    assert not settings.ai_privacy_reviewed
+    assert settings.gemini_api_key is None
+    assert not Gemini(settings).enabled
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("ai_budget_risk_accepted", False),
+        ("ai_briefs_enabled", False),
+        ("ai_digest_enabled", False),
+        ("ai_privacy_reviewed", False),
+        ("gemini_api_key", None),
+    ],
+)
+async def test_each_activation_requirement_blocks_both_operations(provider, field, value):
+    adapter, calls, _ = provider
+    setattr(adapter.settings, field, value)
+    for operation in ("countTokens", "generateContent"):
+        with pytest.raises(AIUnavailable):
+            await adapter._request(operation, {}, counted=800)
+    assert not calls
+
+
+@pytest.mark.anyio
+async def test_withdrawn_budget_acceptance_after_count_prevents_generation(gemini, database):
+    service, calls, mode = gemini
+    mode["after_count"] = lambda: setattr(service.settings, "ai_budget_risk_accepted", False)
+    assert (await service.generate(None, None))["code"] == "activation_required"
+    assert len(calls) == 1 and calls[0].url.path.endswith(":countTokens")
+    assert ledger(database)[0][1] == RESERVATION_NANO_USD
 
 
 @pytest.mark.parametrize("transport", ["openrouter_byok", "openrouter", "deepseek"])
@@ -111,9 +151,9 @@ async def test_payload_count_schema_and_read_cache(gemini, database):
 
 
 @pytest.mark.anyio
-async def test_live_activation_and_legacy_paths_remain_closed(gemini, monkeypatch):
+async def test_missing_budget_acceptance_blocks_network_and_legacy_paths(gemini):
     service, calls, _ = gemini
-    monkeypatch.setattr(ai_gemini, "LIVE_CONTRACT_VERIFIED", False)
+    service.settings.ai_budget_risk_accepted = False
     assert (await service.generate(None, None))["code"] == "activation_required"
     assert not calls
     assert not Gemini(service.settings).enabled

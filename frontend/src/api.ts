@@ -288,7 +288,7 @@ export function briefStatusMessage(code: string): UiMessage {
       'The local monthly budget of USD 2.00 is exhausted. Saved digests remain available.',
     ),
     activation_required: message(
-      'Gemini activation is blocked pending token and billing verification. Saved digests remain available.',
+      'Gemini activation is not configured by the operator. Saved digests remain available.',
     ),
     input_limit: message(
       'The selected RSS input exceeds the token limit. No digest was generated.',

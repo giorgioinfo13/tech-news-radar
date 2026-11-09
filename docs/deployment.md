@@ -560,8 +560,8 @@ Official references: [Vercel rewrites and caching](https://vercel.com/docs/routi
 
 The [AI release plan](ai-briefs.md#coordinated-publication-plan--not-executed) coordinates backup, migrations through `0009`, and minimal runtime grants.
 No remote migration, grant, key configuration, deployment, or activation is part of the local Gemini phase.
-The backend and workflow stay disabled. The code-level contract gate cannot be overridden with an environment variable.
-A later authorized release must verify the remote revision, model contract, privacy, and billing state before enabling generation.
+The backend and workflow stay disabled. `TNR_AI_BUDGET_RISK_ACCEPTED` also defaults to false.
+A later authorized release must verify the remote revision, accepted budget limitations, privacy, and billing state before enabling generation.
 Transfer tools require a `0009` snapshot and preserve the monthly money ledger.
 Do not reset, discard, or restore an older ledger to repeat an uncertain request.
 

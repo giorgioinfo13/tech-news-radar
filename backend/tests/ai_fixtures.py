@@ -7,7 +7,6 @@ import httpx
 import pytest
 from sqlalchemy.orm import Session
 
-from app import ai_gemini
 from app.ai_briefs import BriefService
 from app.ai_gemini import MODEL, Gemini
 from app.config import Settings
@@ -92,7 +91,6 @@ def response_for(body):
 
 @pytest.fixture
 def provider(monkeypatch):
-    monkeypatch.setattr(ai_gemini, "LIVE_CONTRACT_VERIFIED", True)
     calls, mode = [], {}
 
     async def handle(request):
@@ -120,6 +118,7 @@ def provider(monkeypatch):
         ai_briefs_enabled=True,
         ai_digest_enabled=True,
         ai_privacy_reviewed=True,
+        ai_budget_risk_accepted=True,
         gemini_api_key="simulation-only-key",
         ai_digest_trigger_secret=SECRET,
         scheduler_enabled=False,

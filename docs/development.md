@@ -566,7 +566,8 @@ See [source proposal behavior and API](architecture.md#source-proposals) and
 
 ## Shared AI briefs — local implementation
 
-[AI briefs](ai-briefs.md) require local revision `0009` and remain disabled behind the live contract gate.
+[AI briefs](ai-briefs.md) require local revision `0009` and remain disabled by default.
+Activation also requires `TNR_AI_BUDGET_RISK_ACCEPTED=true`, which accepts a prudential reservation policy, not a guaranteed provider invoice cap.
 Never migrate the personal SQLite database for a test. Use the suite's real temporary migrations.
 Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_digest_trigger_client.py` from `backend/`.
 Run `npm test -- src/test/briefs.test.tsx` from `frontend/`.

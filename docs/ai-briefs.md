@@ -1,7 +1,7 @@
 # Shared hourly AI digest
 
 Status: local implementation. Gemini generation and automation remain disabled.
-A code-level contract gate also blocks live activation, even if configuration flags are enabled.
+Generation requires explicit deployment configuration, privacy review, and acceptance of the prudential budget risk.
 
 The only transport is the direct Google Gemini Developer API, with the paid `gemini-3.1-flash-lite` model.
 Generation remains inactive. The OpenRouter BYOK adapter and its configuration are removed.
@@ -54,7 +54,7 @@ That check rejects revoked access, expired leases, changed UTC hours, and a prev
 | --- | --- |
 | Project attempts per UTC day | 24 |
 | Reserved tokens per UTC day | 96,000 |
-| Input per attempt | 3,500 tokens, subject to the unresolved schema-count contract |
+| Counted input per attempt | 3,500 tokens; complete billable coverage is not guaranteed |
 | Combined visible output and thinking | 500 tokens |
 | Reservation per attempt | 4,000 tokens; 1,625,000 nano-USD |
 | Concurrent generation | One |
@@ -78,7 +78,8 @@ The fixed reservation is `3500 * 250 + 500 * 1500 = 1,625,000` units, or USD 0.0
 No intermediary fee is added to new reservations.
 Existing monthly totals remain unchanged, including any reservations created by earlier application versions.
 Removing a provider does not refund or reset those totals. No database migration is needed for this simplification.
-The cost estimate remains conditional until the complete billable input bound is verified.
+This is a prudential reservation, not a guaranteed maximum provider charge.
+The owner accepted this limitation on 2026-11-09. The implementation does not claim complete billable-input coverage.
 
 A reservation equal to the remaining budget is accepted. The next reservation is rejected.
 Concurrent requests cannot both claim the last amount or daily attempt.
@@ -88,12 +89,15 @@ The daily reset preserves leases and cooldowns. The monthly ledger survives rest
 A downgrade refuses to discard any nonzero monthly reservation.
 
 `monthly_budget` is distinct from `daily_limit`, `temporary_limit`, `invalid_output`, and `model_unavailable`.
-`activation_required` explains the code-level activation gate. `input_limit` reports an oversized counted input.
+`activation_required` means the deployment has not enabled acceptance of the prudential budget risk. `input_limit` reports an oversized counted input.
 The frontend translates these states into Italian and English. The operator POST route enforces the same budget and returns HTTP 429 when exhausted.
 Saved results remain readable. `safety_stop` persists after inconsistent usage or model identity, including across month resets.
 Diagnostics contain only allowlisted labels and bounded integers, never raw provider content or headers.
 
-This ledger limits requests through this application only. It does not read Cloud promotional balances.
+This ledger strictly limits reserved amounts through this application, not the Google invoice.
+Provider overhead, accounting discrepancies, or a tariff change can make actual charges exceed reservations.
+A detected discrepancy stops later requests, but cannot undo the charge for the current attempt.
+The application does not read Cloud promotional balances.
 It cannot control other applications, keys, projects, or Google services.
 The local USD 2.00 cap is distinct from the owner's reported Google EUR 2.00 project cap.
 No exchange-rate equivalence is assumed. Google caps and billing reports can lag.
@@ -109,8 +113,9 @@ No Xing tokenizer or template is used on the Gemini path.
 
 The count request contains the same system instructions, RSS content, and generation configuration as generation.
 Passing the schema to the count request does not prove that the provider counts its billable representation.
-This unresolved input bound keeps `LIVE_CONTRACT_VERIFIED = False` in `app.ai_gemini`.
-There is no environment override for this gate. Simulated responses cannot satisfy it.
+Complete billable-input coverage remains unverified. The accepted operating policy uses the count as a prudential admission check.
+`TNR_AI_BUDGET_RISK_ACCEPTED=false` blocks counting and generation until the deployment explicitly selects this policy.
+The former `LIVE_CONTRACT_VERIFIED` constant is removed. No setting or simulated response proves the missing guarantee.
 The [Google staff clarification for a 3.6 Flash question](https://discuss.ai.google.dev/t/gemini-api-counttokens/188451) excludes schemas inside generationConfig from countTokens.
 A [separate 3.5 Flash-Lite answer](https://discuss.ai.google.dev/t/gemini-3-5-flash-lite-counttokens-pricing-quota-schema-coverage-and-thinking-cap/189068) includes schema tokens.
 Neither establishes a complete billable-input upper bound for this app's exact 3.1 Flash-Lite request.
@@ -121,30 +126,39 @@ Reported usage on HTTP errors must also stay within the actual preflight count, 
 An accounting anomaly persists `safety_stop`; later calls remain blocked across restarts and period changes.
 These checks cannot retroactively prevent provider consumption.
 
-### Activation evidence
+### Evidence and accepted limitations
 
 | Requirement | Evidence and remaining work |
 | --- | --- |
 | Fixed model and structured JSON | The [model page](https://aistudio.google.com/docs/models/gemini-3.1-flash-lite) lists structured output and thinking support. The [REST example](https://aistudio.google.com/docs/structured-output?generate-content=true) uses `responseFormat.text.schema`. Account availability remains untested. |
 | Direct output ceiling | The GenerateContent guide documents a combined cutoff. The payload sets 500, and simulated tests reject 501 or inconsistent totals. No live output has been checked. |
-| Standard text tariff | The pricing table lists USD 0.25/million input and USD 1.50/million output including thinking. The reservation remains conditional on the complete billable input bound. |
+| Standard text tariff | The pricing table lists USD 0.25/million input and USD 1.50/million output including thinking. The reservation uses these rates as an estimate, without a complete billable-input guarantee. |
 | Complete direct input bound | Unresolved: schema coverage has conflicting statements for other models. No complete billable-input upper bound was established for 3.1 Flash-Lite. |
 
-To resolve the input blocker, obtain a provider-documented calculation that bounds every billable input component for the exact request.
-The required result is `billable_input <= preflight_bound <= 3500`, including the schema and any provider-added formatting.
-Keep the combined output limit at 500 and the existing money reservation unchanged.
-Do not substitute characters/4, a byte count, an arbitrary allowance, or separately counted schema text for that guarantee.
-Copying the schema into the prompt does not remove the original schema's possible overhead.
-Do not remove structured output or silently switch providers to bypass this requirement.
-An isolated live test can check observed behavior after these prerequisites are met. It cannot prove a universal billing bound.
-Until then, the code gate remains false, even with a key and configuration flags present.
+The [REST countTokens reference](https://aistudio.google.com/api-reference/tokens/count-tokens) accepts the full `generateContentRequest`, including `generationConfig`.
+It defines `totalTokens` as the tokenized prompt size. It does not document a complete billable-input upper bound for this request.
+The [model-specific forum question](https://discuss.ai.google.dev/t/documented-billable-token-bounds-for-gemini-3-1-flash-lite-structured-text/198793) remained unanswered at the 2026-11-09 review.
+A public question is not provider confirmation. No clarification request was sent from this project.
+
+The owner accepted proceeding without a guaranteed complete billable-input upper bound.
+This changes the activation prerequisite, not the available provider evidence.
+The adapter still requires `countTokens.totalTokens <= 3500` before generation.
+It still rejects observed input above the count, output plus thoughts above 500, and inconsistent accounting.
+Any such anomaly persists `safety_stop`, with no automatic reset or refund.
+No arbitrary schema allowance, characters/4 estimate, higher token limit, or relaxed output validation is introduced.
+A future provider-documented upper bound can strengthen this policy. It is no longer required before a separately authorized trial.
+A single successful trial establishes observed behavior only, not a universal billing guarantee.
 
 ## Direct Google configuration
 
 `TNR_AI_TRANSPORT=gemini` is the only accepted value and the default.
 An old `openrouter_byok` selection is rejected at startup instead of silently changing the destination.
 Remove obsolete OpenRouter settings during a separately authorized deployment. Do not reuse an OpenRouter key for Google.
-After activation review, configure `TNR_GEMINI_API_KEY` privately in the backend environment.
+For a separately authorized trial, set `TNR_AI_BUDGET_RISK_ACCEPTED=true` in the backend environment.
+This records the accepted prudential policy for that deployment. It does not enable generation by itself.
+Both generation flags, privacy review, and a backend key remain independently required.
+All flags, including budget acceptance, default to false. Older configuration cannot silently opt in.
+Configure `TNR_GEMINI_API_KEY` privately only during the authorized activation.
 Keep it separate from `TNR_AI_DIGEST_TRIGGER_SECRET`. Never use `VITE_*`, Git, logs, or chat for either secret.
 The endpoint and model are fixed in code. No provider selection, fallback or intermediate billing service is available.
 The previous BYOK preparation is retained in Git history and local investigation notes.
@@ -153,7 +167,7 @@ The previous BYOK preparation is retained in Git history and local investigation
 
 Standard Gemini text rates, checked 2026-11-09: input USD 0.25/million; output including thinking USD 1.50/million.
 Source: [Google pricing](https://aistudio.google.com/docs/pricing#gemini-3.1-flash-lite).
-At the maximum 3,500 input + 500 output per hourly attempt:
+At the reservation assumption of 3,500 input + 500 output per hourly attempt:
 
 | Calendar days | Attempts | Input tokens | Output incl. thinking | Reserved USD |
 | --- | ---: | ---: | ---: | ---: |
@@ -161,12 +175,12 @@ At the maximum 3,500 input + 500 output per hourly attempt:
 | 30 | 720 | 2,520,000 | 360,000 | 1.170 |
 | 31 | 744 | 2,604,000 | 372,000 | 1.209 |
 
-These are calculated ceilings under the stated contract, not observed usage or a guaranteed invoice.
-Input includes instructions and schema, not only RSS text. Reads are free of inference; skipped/unchanged editions reduce usage.
+These are planned reservation totals, not observed usage or a guaranteed invoice.
+The count request contains instructions and schema, but complete billable-input coverage remains unverified. Reads are free of inference; skipped/unchanged editions reduce usage.
 Failures keep the local reservation. No cache or promotional discount reduces the reserved amount.
 
 The [AI Pro developer benefit](https://developers.google.com/profile/help/benefits?hl=en) provides USD 10/month of eligible Google credits.
-The estimate fits within USD 10 and the app's USD 2 cap if tariffs and token bounds hold.
+The estimated reservations fit within USD 10 and the app's USD 2 ledger limit. Actual charges can differ.
 Credits must be applied to the correct billing account and remain available; other eligible services can consume them.
 The API remains paid. Promotional credits are not an application-enforced spending cap.
 
@@ -198,7 +212,7 @@ No new queue service, paid cron, or additional infrastructure is introduced.
 
 ## Coordinated publication plan — not executed
 
-1. Keep all generation and workflow flags false. Resolve the [contract blockers](#token-and-provider-contract) first.
+1. Keep generation and workflow flags false. Review the [accepted budget limitations](#token-and-provider-contract).
 2. In a separately authorized release, record the target and make a verified backup.
 3. Inspect the actual remote Alembic head. The local chain is `0006 → 0007 → 0008 → 0009`.
 4. Apply only missing migrations. Existing revisions are unchanged in this Gemini phase.
@@ -209,9 +223,31 @@ No new queue service, paid cron, or additional infrastructure is introduced.
 9. Verify direct Google model availability and billing prerequisites, then configure its backend key privately after explicit authorization.
 10. Keep the key out of `VITE_*`, Git, logs, chat, screenshots, and API responses. Do not reuse the trigger credential.
 11. Authorize a fresh isolated live test separately. Never reuse a closed OpenRouter trial directory or marker.
-12. Enable scheduling only after contract, privacy, model, billing, and real-output checks pass.
+12. Enable scheduling only after budget-risk acceptance, privacy, model, billing, and real-output checks pass.
 
 Tests require no key. Do not connect a key merely to run the suite.
 Transfer tools now require a `0009` snapshot and preserve monthly reservations.
 A database restore must not roll back the current ledger and reopen spent budget. Keep generation off until reconciliation.
 Cloud migration, runtime grants, connectivity, billing balance, and live inference checks remain unexecuted.
+
+### First authorized live attempt
+
+This procedure is not an activation authorization. Complete the deployment and account checks above before using it.
+
+1. Record the accepted budget limitations and configure `TNR_AI_BUDGET_RISK_ACCEPTED=true` for this deployment.
+2. Verify the paid project's available balance, exact model access, privacy acceptance, and deployed database privileges.
+3. Keep the GitHub digest workflow disabled. Keep generation disabled until the supervised test window.
+4. Set the backend daily limits to one attempt and 4,000 reserved tokens for the test.
+5. Configure the backend secrets privately, then enable generation only for the authorized window.
+6. Invoke the existing operator route once. Use its persistent reservation and dispatch checks.
+7. Disable generation after the attempt, including after a timeout. Do not repeat an uncertain request.
+8. Inspect the saved job status, safe diagnostics, and retained monetary reservation through an authorized operator connection.
+9. For a successful result, verify the Italian summary, RSS notice, news interval, and selected source links.
+10. Reload the saved digest as an approved reader. Confirm that reads create no new job or reservation.
+
+One attempt can make one count request and at most one generation request.
+The daily limit resets at midnight UTC. It is not a permanent one-shot switch.
+An HTTP 200 response alone does not prove success: inspect the returned status and saved job.
+A successful job means local output and usage checks passed. It does not prove future provider billing bounds.
+Keep hourly scheduling disabled until the separate live-test review passes.
+Retain reservations after failure and success. Do not clear a persistent safety stop to repeat the test.

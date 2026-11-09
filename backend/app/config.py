@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     ai_transport: Literal["gemini"] = "gemini"
     gemini_api_key: SecretStr | None = None
     ai_privacy_reviewed: bool = False
+    # Explicit deployment opt-in: reservations are estimates, not a provider invoice cap.
+    ai_budget_risk_accepted: bool = False
     ai_digest_enabled: bool = False
     ai_digest_trigger_secret: SecretStr | None = None
     ai_daily_attempts: int = Field(default=24, ge=1, le=24)

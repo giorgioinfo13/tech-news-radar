@@ -7,7 +7,6 @@ import httpx
 import pytest
 from ai_fixtures import response_for
 
-from app import ai_gemini
 from app.ai_content import AIUnavailable
 from app.ai_diagnostics import provider_diagnostics, retry_after
 from app.ai_gemini import Gemini, payload_for, validate_output
@@ -107,7 +106,6 @@ def test_diagnostics_accept_only_status_and_retry_header():
 async def test_adapter_keeps_sanitized_diagnostics_without_retry(
     status, retry_header, code, delay, caplog, capsys, monkeypatch
 ):
-    monkeypatch.setattr(ai_gemini, "LIVE_CONTRACT_VERIFIED", True)
     calls = []
 
     def handler(request):
@@ -130,6 +128,7 @@ async def test_adapter_keeps_sanitized_diagnostics_without_retry(
             ai_briefs_enabled=True,
             ai_digest_enabled=True,
             ai_privacy_reviewed=True,
+            ai_budget_risk_accepted=True,
             gemini_api_key="private-error-value",
             scheduler_enabled=False,
         ),
