@@ -1,6 +1,6 @@
 # Source proposals
 
-This feature is implemented locally. It requires migration `0006` and explicit runtime grants before deployment.
+This feature requires migration `0006` and explicit runtime grants before deployment.
 No migration, deployment, AI integration, or account connection is performed by installing this code.
 
 ## Reader workflow
@@ -90,7 +90,7 @@ Notifications consist of in-app feedback and the persistent result list. No emai
 Proposal records have no automatic expiry in this release. Deleting a reader cascades deletion of their proposals.
 The public privacy pages describe these fields, access, cancellation, and retention in both languages.
 
-## Coordinated publication plan — not executed
+## Coordinated publication procedure
 
 1. Review the local diff and tests. Authorize commit, push, migration, grants, and deployment separately when ready.
 2. Record the remote revision and current grants with a read-only operator check. Confirm the existing target and backups.
@@ -110,7 +110,9 @@ Apply the migration and grants, deploy that backend revision manually, and verif
 Then commit and push the frontend changes. This preserves the automatic main-only Vercel path without exposing an incompatible UI.
 If the owner chooses a single combined commit, temporarily pausing Vercel deployment requires separate cloud-configuration authorization.
 Do not enable the new frontend while its API is unavailable.
-The previous manual Vercel recovery does not verify automatic deployment. Verify the Git trigger on the next owner-authorized push.
+The previous manual Vercel recovery did not verify automatic deployment. The owner push of
+`dab1c25` on 2026-11-09 triggered a Vercel deployment that reached Ready / Production.
+Continue to verify the expected commit and status after each push.
 Render deployment and migrations remain manual. Never initialize or reimport the populated remote database.
 
 For rollback, revert application releases while keeping the additive table and grants for investigation.
@@ -136,11 +138,18 @@ Validation completed on 2026-11-09:
 - No browser console errors were observed in the checked reader flow. The build reports a nonblocking chunk-size warning above 500 kB.
 
 The local personal SQLite database remains at revision `0004`; it was inspected read-only and was not migrated.
-The publication preflight on 2026-11-09 used a verified TLS, read-only operator connection:
-the remote revision is `0005`, the proposal table is absent, and no collection was running.
-The runtime role has no elevated role attributes, and Data API roles have no schema access.
-The Render dashboard shows the existing backend at `4c27959`; no new release was deployed.
-Migration, new production grants, live feed validation, physical mobile devices, and the
-installed-PWA lifecycle remain unverified. Automated tests use mocked feeds and isolated identities.
+The authorized backend publication on 2026-11-09 started from remote revision `0005`.
+A private schema backup was restored into a disposable local PostgreSQL database;
+all restored table counts and content digests matched the consistent source snapshot.
+With Render temporarily suspended, migration `0006` and its runtime grants were applied.
+All prior table contents remained identical. The new table was empty, runtime privileges
+matched the documented limits, and Data API roles had no schema, table, or sequence access.
+Render resumed and successfully deployed backend commit `dab1c25` manually.
+The production runtime credential could read the new table. Direct and Vercel-proxied
+health requests returned `200`; anonymous proposal/profile requests returned `401`, with
+`private, no-store` cache control. Check the new frontend after its separate publication push.
+Live feed validation, physical mobile devices, and the installed-PWA lifecycle remain
+unverified. Automated tests use mocked feeds and isolated identities.
 English documentation follows the project's concise-writing guidance; no full ASD-STE100 dictionary audit or certification is claimed.
-Temporary browser servers and the PostgreSQL test container were stopped after verification.
+Temporary browser servers were stopped after local verification. Restore rehearsal databases
+are deleted after comparison; private backups and release reports remain outside Git.

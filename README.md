@@ -29,4 +29,9 @@ Per installazione e dettagli tecnici, consulta la [guida di sviluppo](docs/devel
 e le [note di architettura](docs/architecture.md). La [guida alla pubblicazione](docs/deployment.md)
 descrive le configurazioni preparate e i controlli ancora necessari.
 
+Con **Proponi una fonte** i lettori inviano proposte e
+l’amministratore le approva o rifiuta. L’installazione richiede la
+migrazione `0006` e i relativi privilegi. Consulta il [flusso e piano di rilascio](docs/source-proposals.md).
+Le sintesi AI sono soltanto una [proposta di fattibilità](docs/ai-brief-feasibility.md), non una funzione attiva.
+
 Distribuito con [licenza MIT](LICENSE). Le risorse di terze parti mantengono le rispettive licenze.

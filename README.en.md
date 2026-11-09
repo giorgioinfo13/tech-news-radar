@@ -28,4 +28,9 @@ For setup and technical details, see the [development guide](docs/development.md
 and [architecture notes](docs/architecture.md). The [publication guide](docs/deployment.md)
 describes the prepared configuration and the checks still required.
 
+With **Suggest a source**, readers submit proposals and the
+administrator approves or rejects them. Deployment requires migration `0006` and
+its runtime grants. See the [workflow and release plan](docs/source-proposals.md).
+AI summaries remain a [feasibility proposal](docs/ai-brief-feasibility.md), not an active feature.
+
 Distributed under the [MIT License](LICENSE). Third-party resources retain their respective licenses.

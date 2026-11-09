@@ -395,6 +395,10 @@ Local commits alone do not deploy anything.
 
 After each push, check that Vercel reports **Ready**, **Production**, and the expected commit.
 Check the public site after the build succeeds.
+On November 9, 2026, the owner push of backend commit `dab1c25` triggered an automatic
+Vercel deployment that reached **Ready / Production** for that commit. This verifies
+the Git trigger independently of the earlier manual recovery. The new proposal UI
+uses a separate publication push after the backend migration and manual Render release.
 The build includes TypeScript checks, but does not run the full test suite. Run the development checks before pushing.
 Coordinate frontend changes that require new API behavior with the separately authorized backend deployment.
 
