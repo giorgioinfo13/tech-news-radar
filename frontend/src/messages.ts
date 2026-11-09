@@ -1,5 +1,78 @@
 // English message keys keep both languages complete at compile time.
 export const italian = {
+  'AI digest': 'Rassegna AI',
+  'Last 24 hours digest': 'Rassegna delle ultime 24 ore',
+  'One shared digest across the catalog, independent of the sources you follow.':
+    'Una rassegna condivisa delle notizie del catalogo, indipendente dalle fonti che segui.',
+  'Updated at most once an hour when new material is available. Reading or refreshing this page never generates a digest.':
+    'Aggiornata al massimo una volta all’ora, quando ci sono nuovi contenuti. Leggere o aggiornare questa pagina non genera una rassegna.',
+  'Hourly updates are scheduled. Delays or skipped editions are possible.':
+    'Sono previsti aggiornamenti ogni ora. Le edizioni possono subire ritardi o essere saltate.',
+  'No new material for another edition. The latest digest remains available.':
+    'Non ci sono nuovi contenuti per un’altra edizione. L’ultima rassegna resta disponibile.',
+  'This hour’s attempt is complete. No retry is scheduled for this edition.':
+    'Il tentativo di questa ora è concluso. Non sono previsti altri tentativi per questa edizione.',
+  'Generation is cooling down after a failed attempt.':
+    'La generazione è in pausa dopo un tentativo non riuscito.',
+  'Saved editions': 'Edizioni salvate',
+  'No saved digest yet.': 'Non ci sono ancora rassegne salvate.',
+  'Latest edition': 'Ultima edizione',
+  'Previous edition': 'Edizione precedente',
+  'The local monthly budget of USD 2.00 is exhausted. Saved digests remain available.':
+    'Budget mensile locale di 2,00 USD esaurito. Le rassegne salvate restano disponibili.',
+  'Gemini activation is blocked pending token and billing verification. Saved digests remain available.':
+    'Attivazione Gemini bloccata in attesa delle verifiche su token e costi. Le rassegne salvate restano disponibili.',
+  'The selected RSS input exceeds the token limit. No digest was generated.':
+    'I contenuti RSS selezionati superano il limite di token. Nessuna rassegna è stata generata.',
+  'AI briefs': 'Sintesi AI',
+  'Shared briefs from the category catalog, independent of the sources you follow.':
+    'Sintesi condivise del catalogo per categoria, indipendenti dalle fonti che segui.',
+  'Generate brief': 'Genera sintesi',
+  'Generating…': 'Generazione in corso…',
+  'Generation uses the project’s shared paid Gemini API budget. Reading saved briefs does not use AI.':
+    'La generazione usa il budget condiviso del progetto per l’API Gemini a pagamento. Leggere le sintesi salvate non usa l’AI.',
+  'Based on RSS titles and descriptions, not full articles. The Italian summary may contain errors: check the sources.':
+    'Basata su titoli e descrizioni RSS, non sugli articoli completi. La sintesi in italiano può contenere errori: verifica le fonti.',
+  'Last 24 hours · Up to 12 articles · Saved for 7 days':
+    'Ultime 24 ore · Massimo 12 articoli · Conservazione per 7 giorni',
+  'No saved briefs for this category.': 'Nessuna sintesi salvata per questa categoria.',
+  'No news in the last 24 hours.': 'Nessuna notizia nelle ultime 24 ore.',
+  'Not enough RSS descriptions for a reliable brief. Read the available articles below.':
+    'Descrizioni RSS insufficienti per una sintesi attendibile. Leggi gli articoli disponibili qui sotto.',
+  'AI generation is not enabled. Saved briefs remain available.':
+    'La generazione AI non è attiva. Le sintesi salvate restano disponibili.',
+  'A shared brief has already been generated today.':
+    'La sintesi condivisa di oggi è già disponibile.',
+  'The daily limit has been reached. Generation will be available again when the quota resets':
+    'Limite giornaliero raggiunto. La generazione sarà nuovamente disponibile al ripristino della quota',
+  'Generation is already in progress. Refresh the saved results to check its status.':
+    'Una generazione è già in corso. Aggiorna i risultati salvati per verificarne lo stato.',
+  'Temporary limit. Wait until the indicated time before requesting another brief.':
+    'Limite temporaneo. Attendi l’orario indicato prima di richiedere un’altra sintesi.',
+  'Gemini 3.1 Flash-Lite is unavailable. No alternative model will be used.':
+    'Gemini 3.1 Flash-Lite non è disponibile. Non verrà usato un modello alternativo.',
+  'The provider is unavailable. No automatic retry will be made.':
+    'Il fornitore non è disponibile. Non verranno effettuati tentativi automatici.',
+  'The result could not be validated. The attempt remains counted.':
+    'Il risultato non ha superato la verifica. Il tentativo resta conteggiato.',
+  'The previous attempt has an uncertain outcome. It remains counted and will not be repeated automatically.':
+    'L’esito del tentativo precedente è incerto. Resta conteggiato e non sarà ripetuto automaticamente.',
+  'This category has used its two daily attempts.':
+    'Questa categoria ha usato i due tentativi giornalieri.',
+  'Wait at least one hour after the category’s failed attempt.':
+    'Attendi almeno un’ora dopo il tentativo non riuscito per questa categoria.',
+  'Ready for an explicit generation request. Availability is checked before sending.':
+    'Puoi richiedere una generazione. La disponibilità viene verificata prima dell’invio.',
+  'Next availability check': 'Prossima verifica di disponibilità',
+  'Generated on': 'Generata il',
+  'News interval': 'Intervallo delle notizie',
+  'Articles used': 'Articoli utilizzati',
+  'Available articles': 'Articoli disponibili',
+  'Removed from the reader; original source link preserved':
+    'Rimosso dal lettore; link originale conservato',
+  'Acquisition date used because publication date is missing':
+    'Usata la data di acquisizione perché manca quella di pubblicazione',
+  'No categories available.': 'Nessuna categoria disponibile.',
   Status: 'Stato',
   Proposals: 'Proposte',
   'Suggest a source': 'Proponi una fonte',
@@ -239,6 +312,8 @@ export const italian = {
   'All categories': 'Tutte le categorie',
   'All sources': 'Tutte le fonti',
   'Feed URL': 'URL del feed',
+  'AI generation is suspended after a service anomaly. An administrator must review it. Saved briefs remain available.':
+    'Generazione AI sospesa per un’anomalia del servizio. Serve una verifica dell’amministratore. Le sintesi salvate restano disponibili.',
   'Latest news': 'Ultime notizie',
   'Last refresh failed:': 'Ultimo aggiornamento non riuscito:',
   'Last checked': 'Ultimo controllo',

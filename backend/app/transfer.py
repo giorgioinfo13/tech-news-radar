@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -17,6 +17,9 @@ from sqlalchemy.pool import NullPool
 from app.db import create_database_engine, resolve_database_url
 from app.models import (
     LOCAL_OWNER_ID,
+    AIBriefBudget,
+    AIBriefControl,
+    AIBriefJob,
     AppUser,
     Article,
     ArticleReadState,
@@ -28,7 +31,7 @@ from app.models import (
     Subscription,
 )
 
-REVISION = "0006"
+REVISION = "0009"
 TABLES = tuple(
     model.__table__
     for model in (
@@ -41,6 +44,9 @@ TABLES = tuple(
         ArticleReadState,
         ReaderInvitation,
         SourceProposal,
+        AIBriefBudget,
+        AIBriefControl,
+        AIBriefJob,
     )
 )
 SEQUENCED_TABLES = ("categories", "sources", "articles", "collection_runs", "source_proposals")
@@ -105,7 +111,7 @@ def check_layout(connection: Connection) -> None:
     if connection.execute(text("SELECT version_num FROM alembic_version")).scalars().all() != [
         REVISION
     ]:
-        raise TransferError("Both databases must use migration revision 0006.")
+        raise TransferError("Both databases must use migration revision 0009.")
     for table in TABLES:
         if {column["name"] for column in inspector.get_columns(table.name, schema=schema)} != set(
             table.c.keys()
@@ -160,6 +166,9 @@ def check_seed(connection: Connection) -> None:
     rows = {table.name: read_rows(connection, table) for table in TABLES}
     users = rows.pop("app_users")
     categories = rows.pop("categories")
+    ai_control = rows.pop("ai_brief_control")
+    expected_control = {column.name: None for column in AIBriefControl.__table__.columns}
+    expected_control.update(id=1, attempts=0, reserved_tokens=0)
     owner = (
         {key: value for key, value in users[0].items() if key != "created_at"}
         if len(users) == 1
@@ -175,6 +184,7 @@ def check_seed(connection: Connection) -> None:
             "active": True,
         }
         or categories != SEED_CATEGORIES
+        or ai_control != [expected_control]
         or any(rows.values())
     ):
         raise TransferError("Target contains data beyond the unchanged migration seeds.")
@@ -185,6 +195,8 @@ def canonical_value(value):
         return value.astimezone(UTC).isoformat(timespec="microseconds")
     if isinstance(value, UUID):
         return str(value)
+    if isinstance(value, date):
+        return value.isoformat()
     raise TypeError("Unsupported value in transfer report")
 
 
@@ -228,6 +240,7 @@ def copy_rows(connection: Connection, rows: dict[str, list[dict]]) -> dict:
         .values(**{key: value for key, value in owner.items() if key != "id"})
     )
     connection.execute(Category.__table__.delete())
+    connection.execute(AIBriefControl.__table__.delete())
     for table in TABLES:
         batch_rows = rows[table.name]
         if table.name == "app_users":

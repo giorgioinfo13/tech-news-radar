@@ -1,7 +1,7 @@
 -- OPERATOR OPERATION: review and authorize separately, after migration 0006.
 BEGIN;
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM tnr.alembic_version WHERE version_num = '0006') THEN
+    IF NOT EXISTS (SELECT 1 FROM tnr.alembic_version WHERE version_num IN ('0006', '0007', '0008', '0009')) THEN
         RAISE EXCEPTION 'Apply migration 0006 first';
     END IF;
 END $$;

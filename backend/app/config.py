@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     feed_timeout_seconds: float = Field(default=10, gt=0, le=60)
     feed_max_bytes: int = Field(default=2_000_000, ge=1024, le=10_000_000)
     feed_max_entries: int = Field(default=5000, ge=1, le=10000)
+    # Independent opt-in: installing this release never sends RSS to an AI provider.
+    ai_briefs_enabled: bool = False
+    ai_transport: Literal["gemini", "openrouter_byok"] = "openrouter_byok"
+    openrouter_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+    ai_privacy_reviewed: bool = False
+    ai_digest_enabled: bool = False
+    ai_digest_trigger_secret: SecretStr | None = None
+    ai_daily_attempts: int = Field(default=24, ge=1, le=24)
+    ai_daily_tokens: int = Field(default=96000, ge=4000, le=96000)
 
     @field_validator("supabase_publishable_key")
     @classmethod
@@ -43,13 +53,13 @@ class Settings(BaseSettings):
             raise ValueError("Use a Supabase publishable key, never a privileged key")
         return value
 
-    @field_validator("collection_trigger_secret")
+    @field_validator("collection_trigger_secret", "ai_digest_trigger_secret")
     @classmethod
     def validate_trigger_secret(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None and not re.fullmatch(
             r"[A-Za-z0-9_-]{32,128}", value.get_secret_value()
         ):
-            raise ValueError("Collection trigger secret must contain 32-128 URL-safe characters")
+            raise ValueError("Trigger secret must contain 32-128 URL-safe characters")
         return value
 
     @model_validator(mode="after")

@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 import type {
   AppUser,
+  BriefState,
   Article,
   Category,
   CollectionRun,
@@ -57,6 +58,18 @@ export function mockServer() {
     failInvitation: 0,
     proposals: [] as SourceProposal[],
     failProposal: 0,
+    brief: {
+      category_id: 1,
+      category_name: category.name,
+      code: 'available',
+      can_generate: true,
+      retry_at: null,
+      quota_reset_at: '2026-11-10T00:00:00Z',
+      attempts_remaining: 16,
+      briefs: [],
+      articles: [],
+      last_job_status: null,
+    } as BriefState,
   }
   const calls: {
     path: string
@@ -84,6 +97,9 @@ export function mockServer() {
     if (state.accessStatus !== 200) return response({}, state.accessStatus)
     if (path === '/me') return response(state.user)
     const id = Number(path.split('/')[2])
+    if (path === '/briefs/digest' && method === 'GET') {
+      return response({ ...state.brief, category_id: null })
+    }
     if (path.startsWith('/proposals') && method === 'POST') {
       if (state.failProposal) return response({}, state.failProposal)
       if (path === '/proposals') {

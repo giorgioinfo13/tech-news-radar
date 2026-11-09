@@ -5,8 +5,8 @@
 BEGIN;
 DO $setup$
 BEGIN
-    IF to_regclass('tnr.source_proposals') IS NULL THEN
-        RAISE EXCEPTION 'Apply Alembic migration 0006 before role setup';
+    IF to_regclass('tnr.ai_brief_control') IS NULL THEN
+        RAISE EXCEPTION 'Apply Alembic migration 0009 before role setup';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid='tnr.app_users'::regclass AND relrowsecurity)
        OR NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='tnr.app_users'::regclass
@@ -26,6 +26,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     tnr.categories, tnr.sources, tnr.articles, tnr.collection_runs,
     tnr.subscriptions, tnr.article_read_states, tnr.reader_invitations TO tnr_app;
 GRANT SELECT, INSERT, UPDATE ON tnr.source_proposals TO tnr_app;
+GRANT SELECT, UPDATE ON tnr.ai_brief_control TO tnr_app;
+GRANT SELECT, INSERT, UPDATE ON tnr.ai_brief_budget TO tnr_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON tnr.ai_brief_jobs TO tnr_app;
 GRANT USAGE ON SEQUENCE
     tnr.categories_id_seq, tnr.sources_id_seq,
     tnr.articles_id_seq, tnr.collection_runs_id_seq, tnr.source_proposals_id_seq TO tnr_app;

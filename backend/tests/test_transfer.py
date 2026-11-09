@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -15,6 +15,7 @@ from app.db import create_database_engine
 from app.main import create_app
 from app.models import (
     LOCAL_OWNER_ID,
+    AIBriefBudget,
     AppUser,
     Article,
     ArticleReadState,
@@ -40,6 +41,11 @@ def snapshot(tmp_path):
     command.upgrade(config, "head")
     engine = create_database_engine(url)
     with engine.begin() as connection:
+        connection.execute(
+            AIBriefBudget.__table__.insert().values(
+                month=date(2026, 11, 1), reserved_nano_usd=1625000
+            )
+        )
         connection.execute(
             AppUser.__table__.update().values(
                 display_name="Owner",

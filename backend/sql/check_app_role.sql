@@ -22,6 +22,8 @@ WHERE n.nspname = 'tnr' AND pg_get_userbyid(c.relowner) = 'tnr_app';
 
 -- app_users: SELECT/INSERT with reader-only RLS; data/invitation tables: CRUD.
 -- source_proposals: SELECT/INSERT/UPDATE only; DELETE false.
+-- ai_brief_budget: SELECT/INSERT/UPDATE only, no DELETE or sequence.
+-- ai_brief_control: SELECT/UPDATE only. ai_brief_jobs: CRUD, no sequence.
 -- alembic_version: no access. TRUNCATE and REFERENCES always false.
 SELECT table_name,
        has_table_privilege('tnr_app', format('tnr.%I', table_name), 'SELECT') AS sel,

@@ -80,6 +80,45 @@
         le proposte rimangono fino alla rimozione del profilo o a un intervento del gestore su
         richiesta. La fonte eventualmente aggiunta al catalogo condiviso rimane.
       </p>
+      <h2>Rassegna AI condivisa: predisposta, non attiva</h2>
+      <p>
+        L’integrazione Gemini 3.1 Flash-Lite è implementata in locale e resta bloccata in attesa
+        delle verifiche di attivazione. Questa fase usa solo risposte simulate, senza collegare
+        chiavi o inviare contenuti a Gemini o OpenRouter. Le precedenti prove Xing sono chiuse.
+      </p>
+      <p>
+        È predisposto anche il percorso OpenRouter BYOK: se attivato, OpenRouter riceverà e
+        inoltrerà gli stessi contenuti pubblici a Google. BYOK cambia la chiave di fatturazione, non
+        elimina questo intermediario. L’attivazione richiede la verifica delle condizioni e delle
+        impostazioni privacy OpenRouter. DeepSeek non è attivo né previsto come fallback.
+      </p>
+      <p>
+        Se attivata, l’API Google a pagamento riceverà soltanto titoli, descrizioni RSS pubbliche e
+        identificatori degli articoli, al massimo una volta all’ora per tutto il catalogo. I testi
+        pubblici possono contenere dati personali dei soggetti delle notizie. Non saranno inviati
+        identità Google, email, token, fonti seguite o cronologia di lettura degli utenti. Non si
+        recuperano articoli completi. Aprire, aggiornare o consultare la rassegna salvata non genera
+        inferenze.
+      </p>
+      <p>
+        Sintesi italiane e riferimenti sono condivisi fra utenti approvati e conservati per sette
+        giorni, insieme agli stati dei tentativi. La pulizia avviene alla successiva lettura o
+        invocazione. Il registro monetario mensile, privo di identità utente, resta conservato per
+        impedire il riutilizzo del budget. La conservazione degli articoli non cambia. I backup
+        seguono le regole separate descritte sotto.
+      </p>
+      <p>
+        Secondo i
+        <a href="https://aistudio.google.com/docs/terms#paid-services"
+          >termini dei servizi a pagamento</a
+        >, Google non usa prompt e risposte per migliorare i propri prodotti. Le
+        <a href="https://aistudio.google.com/docs/usage-policies">regole antiabuso</a> prevedono
+        conservazione di prompt, contesto e output per 55 giorni e possibile revisione dei contenuti
+        segnalati da personale autorizzato. Consentono l’uso per sistemi di applicazione delle
+        regole, anche relativo al loro addestramento. Non si promettono ZDR, assenza di qualsiasi
+        training o conservazione esclusivamente nell’UE. Le sintesi possono contenere errori:
+        verifica le fonti.
+      </p>
       <h2>Chi può accedere ai dati</h2>
       <p>
         Fonti, categorie, articoli e cronologia della raccolta sono condivisi tra gli utenti

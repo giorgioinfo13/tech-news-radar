@@ -6,7 +6,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from app.ai_briefs import BriefService
 from app.api.articles import router as articles_router
+from app.api.briefs import internal_router as digest_trigger_router
+from app.api.briefs import router as briefs_router
 from app.api.categories import router as categories_router
 from app.api.collection import router as collection_router
 from app.api.dependencies import get_current_user
@@ -34,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_database_engine(config.database_url)
         app.state.database_engine = engine
         app.state.collector = Collector(engine, config)
+        app.state.briefs = BriefService(engine, config)
         scheduler = (
             CollectionScheduler(app.state.collector, config.scheduler_poll_seconds)
             if config.scheduler_enabled
@@ -85,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router, prefix="/api")
     app.include_router(collection_router, prefix="/api")
+    app.include_router(digest_trigger_router, prefix="/api")
     for router in (
         categories_router,
         sources_router,
@@ -92,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         personal_router,
         invitations_router,
         proposals_router,
+        briefs_router,
     ):
         app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])
     return app

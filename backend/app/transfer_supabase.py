@@ -160,8 +160,10 @@ def check_privileges(connection) -> None:
             if name == "app_users"
             else {"SELECT", "INSERT", "UPDATE", "DELETE"}
         )
-        if name == "source_proposals":
+        if name in {"source_proposals", "ai_brief_budget"}:
             allowed = {"SELECT", "INSERT", "UPDATE"}
+        if name == "ai_brief_control":
+            allowed = {"SELECT", "UPDATE"}
         if name == "alembic_version":
             allowed = set()
         for permission in (

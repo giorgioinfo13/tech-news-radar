@@ -1318,3 +1318,70 @@ textarea {
   resize: vertical;
   font: inherit;
 }
+
+.brief-controls p {
+  max-width: 75ch;
+}
+.brief-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.brief-actions label {
+  flex: 1 1 16rem;
+  display: grid;
+  gap: 0.4rem;
+}
+.brief-actions select {
+  width: 100%;
+}
+.brief-results {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+.brief-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: clamp(1rem, 3vw, 2rem);
+}
+.brief-card h2 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.5rem;
+}
+.brief-summary {
+  max-width: 70ch;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  margin-block: 1.5rem;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.brief-links {
+  padding-left: 1.2rem;
+  max-width: 75ch;
+}
+.brief-links li {
+  margin-block: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.brief-links span,
+.brief-links small {
+  display: block;
+}
+.brief-links .icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+  width: 1rem;
+}
+@media (max-width: 600px) {
+  .brief-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -18,7 +18,10 @@ from app.schemas import ProposalApprove, ProposalCreate
 SQL_ROOT = Path(__file__).resolve().parents[1] / "sql"
 
 
-def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate(database):
+@pytest.mark.parametrize("ai_transport", ["gemini", "openrouter_byok"])
+def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate(
+    database, monkeypatch, ai_transport
+):
     if database.dialect.name != "postgresql":
         pytest.skip("Run with --postgres to validate role setup on a disposable server")
     created = False
@@ -31,6 +34,7 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             raw.execute((SQL_ROOT / "create_app_role.sql").read_text())
             created = True
             raw.execute((SQL_ROOT / "enable_source_proposals.sql").read_text())
+            raw.execute((SQL_ROOT / "enable_ai_briefs.sql").read_text())
             raw.execute((SQL_ROOT / "check_app_role.sql").read_text())
             raw.execute("ALTER ROLE tnr_app PASSWORD 'tnr-role-test-only'")
         runtime = create_database_engine(
@@ -92,6 +96,43 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                 Collector(runtime, Settings(_env_file=None)),
             )
             assert approved.status == "approved" and approved.source_id == source_id
+        from app.ai_briefs import BriefService
+        from app.models import Article
+
+        with Session(runtime) as session, session.begin():
+            session.get(Source, source_id).category_id = 1
+            for i, title in enumerate(("Compiler release", "Research results")):
+                session.add(
+                    Article(
+                        source_id=source_id,
+                        title=title,
+                        url=f"https://example.org/article/{i}",
+                        description="A detailed public RSS description with several useful facts "
+                        * 4,
+                    )
+                )
+        monkeypatch.setattr(
+            "app.ai_gemini.LIVE_CONTRACT_VERIFIED"
+            if ai_transport == "gemini"
+            else "app.ai_openrouter.LIVE_CONTRACT_VERIFIED",
+            True,
+        )
+        service = BriefService(
+            runtime,
+            Settings(
+                _env_file=None,
+                ai_briefs_enabled=True,
+                ai_privacy_reviewed=True,
+                ai_transport=ai_transport,
+                gemini_api_key="simulation-only-key",
+                openrouter_api_key="simulation-only-key",
+                ai_digest_enabled=True,
+            ),
+        )
+        job_id, _ = service.reserve(None, user_id)
+        assert job_id is not None
+        service.finish(job_id, {"summary": "Role validation only", "articles": []}, None)
+        assert service.read(None, user_id)["briefs"][0]["summary"] == "Role validation only"
         for role, candidate in (("admin", uuid4()), ("reader", uuid4())):
             with pytest.raises(DBAPIError), Session(runtime) as session, session.begin():
                 session.add(
@@ -133,6 +174,11 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             "SET ROLE postgres",
             "DELETE FROM tnr.source_proposals",
             "TRUNCATE tnr.source_proposals",
+            "DELETE FROM tnr.ai_brief_control",
+            "INSERT INTO tnr.ai_brief_control (id) VALUES (2)",
+            "TRUNCATE tnr.ai_brief_jobs",
+            "DELETE FROM tnr.ai_brief_budget",
+            "TRUNCATE tnr.ai_brief_budget",
         ):
             with pytest.raises(DBAPIError):
                 with runtime.begin() as connection:
@@ -160,6 +206,14 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                     ).scalar_one()
                     is False
                 )
+                for table in ("ai_brief_control", "ai_brief_jobs", "ai_brief_budget"):
+                    assert (
+                        connection.exec_driver_sql(
+                            "SELECT has_table_privilege(%s, %s, 'SELECT,INSERT,UPDATE,DELETE')",
+                            (role, f"tnr.{table}"),
+                        ).scalar_one()
+                        is False
+                    )
     finally:
         if runtime is not None:
             runtime.dispose()

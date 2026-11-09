@@ -1,4 +1,5 @@
 import { Proposals } from './pages/Proposals'
+import { Briefs } from './pages/Briefs'
 import { useLanguage } from './language-context'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { type Category, type Source, type Subscription, type AppUser } from './api'
@@ -19,7 +20,7 @@ import { AccountMenu } from './AccountMenu'
 import { LanguageProvider } from './Language'
 
 function currentPage() {
-  return ['sources', 'catalog', 'categories', 'invitations', 'proposals'].includes(
+  return ['sources', 'catalog', 'categories', 'invitations', 'proposals', 'briefs'].includes(
     location.hash.slice(1),
   )
     ? location.hash.slice(1)
@@ -92,6 +93,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
   const ready = categories.data && sources.data && subscriptions.data
   const pages = [
     { id: 'news', label: t('News'), icon: 'news' },
+    { id: 'briefs', label: t('AI digest'), icon: 'sparkles' },
     { id: 'sources', label: t('My sources'), icon: 'sources' },
     {
       id: 'proposals',
@@ -192,6 +194,7 @@ function Workspace({
     location.hash = '#news'
   }
   if (admin && page === 'invitations') return <Invitations />
+  if (page === 'briefs') return <Briefs />
   if (page === 'proposals')
     return (
       <Proposals admin={admin} sources={sources} categories={categories} onChange={reloadCatalog} />

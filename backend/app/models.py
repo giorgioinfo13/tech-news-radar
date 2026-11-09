@@ -1,11 +1,14 @@
 """Persistence models. Feed validation and collection belong to later service modules."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     ForeignKey,
     Index,
     String,
@@ -41,6 +44,83 @@ def exact_key(name: str, *columns: str):
         # Hash exclusion rechecks original values, so hash collisions are not duplicates.
         ExcludeConstraint((text(f"({expression})"), "="), name=name, using="hash").ddl_if(
             dialect="postgresql"
+        ),
+    )
+
+
+class AIBriefControl(Base):
+    """One persistent project-wide gate, including across UTC day boundaries."""
+
+    __tablename__ = "ai_brief_control"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    quota_day: Mapped[date | None] = mapped_column(Date)
+    attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    reserved_tokens: Mapped[int] = mapped_column(default=0, server_default="0")
+    next_allowed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    blocked_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    blocked_code: Mapped[str | None] = mapped_column(String(40))
+    lease_id: Mapped[UUID | None] = mapped_column(Uuid)
+    lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    __table_args__ = (
+        CheckConstraint("id = 1", name="singleton"),
+        CheckConstraint("attempts BETWEEN 0 AND 24", name="attempt_budget"),
+        CheckConstraint("reserved_tokens = attempts * 4000", name="token_budget"),
+        CheckConstraint("(lease_id IS NULL) = (lease_until IS NULL)", name="lease_pair"),
+    )
+
+
+class AIBriefBudget(Base):
+    """Monthly UTC reservations, independent of seven-day job retention."""
+
+    __tablename__ = "ai_brief_budget"
+    month: Mapped[date] = mapped_column(Date, primary_key=True)
+    reserved_nano_usd: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    __table_args__ = (
+        CheckConstraint("reserved_nano_usd BETWEEN 0 AND 2000000000", name="monthly_budget"),
+    )
+
+
+class AIBriefJob(Base):
+    """An immutable reservation and its bounded, shared result; no reader identity."""
+
+    __tablename__ = "ai_brief_jobs"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), index=True
+    )
+    category_name: Mapped[str] = mapped_column(String(120))
+    edition_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    material_hash: Mapped[str | None] = mapped_column(String(64))
+    budget_month: Mapped[date | None] = mapped_column(Date)
+    reserved_nano_usd: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    dispatched_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    diagnostics: Mapped[dict | None] = mapped_column(JSON)
+    quota_day: Mapped[date] = mapped_column(Date)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    window_start: Mapped[datetime] = mapped_column(UTCDateTime())
+    window_end: Mapped[datetime] = mapped_column(UTCDateTime())
+    lease_until: Mapped[datetime] = mapped_column(UTCDateTime())
+    status: Mapped[str] = mapped_column(String(20))
+    error_code: Mapped[str | None] = mapped_column(String(40))
+    summary: Mapped[str | None] = mapped_column(Text)
+    # Backend snapshots preserve citations after article retention/deletion.
+    articles: Mapped[list] = mapped_column(JSON)
+    model: Mapped[str] = mapped_column(String(120))
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'success', 'error', 'interrupted')", name="status"),
+        CheckConstraint("window_start < window_end", name="window"),
+        CheckConstraint("(status = 'running') = (finished_at IS NULL)", name="finish"),
+        Index("uq_ai_brief_jobs_edition", "edition_at", unique=True),
+        Index("ix_ai_brief_jobs_started_at", "started_at"),
+        Index("ix_ai_brief_jobs_category_day", "category_id", "quota_day"),
+        Index(
+            "uq_ai_brief_jobs_daily_success",
+            "category_id",
+            "quota_day",
+            unique=True,
+            sqlite_where=text("status = 'success'"),
+            postgresql_where=text("status = 'success'"),
         ),
     )
 

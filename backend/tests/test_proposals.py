@@ -277,7 +277,12 @@ def test_proposal_migration_preserves_prior_data(database, migration_config):
     from app.transfer import TABLES, read_rows
 
     command.downgrade(migration_config, "0005")
-    tables = [table for table in TABLES if table.name != "source_proposals"]
+    tables = [
+        table
+        for table in TABLES
+        if table.name
+        not in {"source_proposals", "ai_brief_control", "ai_brief_jobs", "ai_brief_budget"}
+    ]
     with database.connect() as connection:
         before = {table.name: read_rows(connection, table) for table in tables}
     command.upgrade(migration_config, "head")

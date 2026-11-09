@@ -1,0 +1,34 @@
+name: Generate shared digest
+
+on:
+  schedule:
+    # Offset from the existing feed collection at minute 17. Delays are possible.
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-hourly-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    # Standard public-repository runners only. Inert until a separate activation.
+    if: >-
+      github.repository == 'giorgioinfo13/tech-news-radar' &&
+      github.event.repository.private == false &&
+      github.ref == 'refs/heads/main' &&
+      vars.TNR_AI_DIGEST_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Wake backend and request the current edition once
+        env:
+          TNR_BACKEND_URL: ${{ vars.TNR_BACKEND_URL }}
+          TNR_AI_DIGEST_TRIGGER_SECRET: ${{ secrets.TNR_AI_DIGEST_TRIGGER_SECRET }}
+        run: python3 scripts/trigger_digest.py

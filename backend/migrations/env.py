@@ -7,7 +7,7 @@ from app.config import Settings
 from app.db import POSTGRES_SCHEMA, Base, UTCDateTime, create_database_engine, resolve_database_url
 
 config = context.config
-settings = Settings()
+settings = Settings(_env_file=None) if config.get_main_option("sqlalchemy.url") else Settings()
 database_url = (
     config.get_main_option("sqlalchemy.url")
     or settings.migration_database_url

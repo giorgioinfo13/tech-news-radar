@@ -141,6 +141,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   if (response.status === 401 || (response.status === 403 && path !== '/me'))
     access.failure(response.status)
   if (!response.ok) {
+    if (path.startsWith('/briefs/')) {
+      const body = await response.json().catch(() => null)
+      if (['daily_limit', 'monthly_budget'].includes(body?.detail?.code))
+        throw new ApiError(briefStatusMessage(body.detail.code), response.status)
+    }
     const messages: Record<number, UiMessage> = {
       401: message('Your session has expired. Sign in again.'),
       403: message('This account is not authorized.'),
@@ -237,4 +242,83 @@ export interface SourceProposal {
   approved_name: string | null
   approved_feed_url: string | null
   user: AppUser
+}
+
+export interface BriefArticle {
+  category_name?: string
+  id: number
+  title: string
+  url: string
+  source: string
+  date: string
+  date_is_fetched: boolean
+  removed: boolean
+}
+export interface AIBrief {
+  id: string
+  category_name: string
+  generated_at: string
+  window_start: string
+  window_end: string
+  summary: string
+  articles: BriefArticle[]
+}
+export interface BriefState {
+  next_edition_at?: string | null
+  last_error_code?: string | null
+  category_id: number | null
+  category_name: string
+  code: string
+  can_generate: boolean
+  retry_at: string | null
+  quota_reset_at: string
+  attempts_remaining: number
+  briefs: AIBrief[]
+  articles: BriefArticle[]
+  last_job_status: string | null
+}
+export function briefStatusMessage(code: string): UiMessage {
+  const messages: Record<string, UiMessage> = {
+    available: message(
+      'Ready for an explicit generation request. Availability is checked before sending.',
+    ),
+    disabled: message('AI generation is not enabled. Saved briefs remain available.'),
+    cached: message('A shared brief has already been generated today.'),
+    monthly_budget: message(
+      'The local monthly budget of USD 2.00 is exhausted. Saved digests remain available.',
+    ),
+    activation_required: message(
+      'Gemini activation is blocked pending token and billing verification. Saved digests remain available.',
+    ),
+    input_limit: message(
+      'The selected RSS input exceeds the token limit. No digest was generated.',
+    ),
+    daily_limit: message(
+      'The daily limit has been reached. Generation will be available again when the quota resets',
+    ),
+    busy: message(
+      'Generation is already in progress. Refresh the saved results to check its status.',
+    ),
+    temporary_limit: message(
+      'Temporary limit. Wait until the indicated time before requesting another brief.',
+    ),
+    model_unavailable: message(
+      'Gemini 3.1 Flash-Lite is unavailable. No alternative model will be used.',
+    ),
+    provider_unavailable: message('The provider is unavailable. No automatic retry will be made.'),
+    invalid_output: message('The result could not be validated. The attempt remains counted.'),
+    safety_stop: message(
+      'AI generation is suspended after a service anomaly. An administrator must review it. Saved briefs remain available.',
+    ),
+    uncertain: message(
+      'The previous attempt has an uncertain outcome. It remains counted and will not be repeated automatically.',
+    ),
+    category_limit: message('This category has used its two daily attempts.'),
+    category_cooldown: message('Wait at least one hour after the category’s failed attempt.'),
+    empty: message('No news in the last 24 hours.'),
+    insufficient_material: message(
+      'Not enough RSS descriptions for a reliable brief. Read the available articles below.',
+    ),
+  }
+  return messages[code] ?? messages.provider_unavailable
 }

@@ -30,6 +30,9 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
         "article_read_states",
         "reader_invitations",
         "source_proposals",
+        "ai_brief_budget",
+        "ai_brief_control",
+        "ai_brief_jobs",
     }
     with Session(database) as session:
         categories = session.scalars(select(Category).order_by(Category.sort_order)).all()
@@ -81,7 +84,16 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
             ]
         )
     tables = [
-        table for table in TABLES if table.name not in {"reader_invitations", "source_proposals"}
+        table
+        for table in TABLES
+        if table.name
+        not in {
+            "reader_invitations",
+            "source_proposals",
+            "ai_brief_control",
+            "ai_brief_jobs",
+            "ai_brief_budget",
+        }
     ]
     with database.connect() as connection:
         before = {table.name: read_rows(connection, table) for table in tables}

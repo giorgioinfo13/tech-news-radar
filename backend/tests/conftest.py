@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -86,3 +87,21 @@ async def client(database: Engine) -> AsyncIterator[AsyncClient]:
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             yield client
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings_and_http(monkeypatch):
+    """Tests never load personal dotenv files or send real HTTP, even by accident."""
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    for name in list(os.environ):
+        if name.startswith("TNR_") and name != "TNR_TEST_POSTGRES_URL":
+            monkeypatch.delenv(name)
+
+    def denied(*args, **kwargs):
+        raise AssertionError("Real HTTP is forbidden in tests; supply a simulated transport")
+
+    async def denied_async(*args, **kwargs):
+        denied()
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", denied)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", denied_async)
