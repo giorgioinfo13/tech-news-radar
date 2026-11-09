@@ -204,6 +204,7 @@ def test_postgres_namespace_privileges_and_storage(database):
             "subscriptions",
             "article_read_states",
             "reader_invitations",
+            "source_proposals",
         }
         assert (
             connection.exec_driver_sql("""
@@ -224,6 +225,7 @@ def test_postgres_namespace_privileges_and_storage(database):
                 "subscriptions",
                 "article_read_states",
                 "reader_invitations",
+                "source_proposals",
             ):
                 assert not connection.execute(
                     text("SELECT has_table_privilege(:role, :table, 'SELECT')"),

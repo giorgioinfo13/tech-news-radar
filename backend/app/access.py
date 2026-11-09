@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.db import create_database_engine
+from app.db import create_database_engine, lock_access_decisions
 from app.models import LOCAL_OWNER_ID, AppUser, ReaderInvitation
 
 
@@ -47,7 +47,12 @@ def invite_reader(session: Session, subject: UUID, name: str) -> UUID:
 
 
 def set_access(session: Session, subject: UUID, *, active: bool) -> UUID:
-    user = session.scalar(select(AppUser).where(AppUser.supabase_subject == subject))
+    lock_access_decisions(session)
+    user = session.scalar(
+        select(AppUser)
+        .where(AppUser.supabase_subject == subject)
+        .execution_options(populate_existing=True)
+    )
     if user is None:
         raise ValueError("This identity has no application profile")
     user.active = active
@@ -55,8 +60,13 @@ def set_access(session: Session, subject: UUID, *, active: bool) -> UUID:
 
 
 def delete_reader(session: Session, subject: UUID) -> UUID:
+    # Take the shared gate before row locks, as all proposal/access writers do.
+    lock_access_decisions(session)
     user = session.scalar(
-        select(AppUser).where(AppUser.supabase_subject == subject).with_for_update()
+        select(AppUser)
+        .where(AppUser.supabase_subject == subject)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if user is None or user.role != "reader" or user.active or user.id == LOCAL_OWNER_ID:
         raise ValueError("Deletion requires an existing, revoked reader")

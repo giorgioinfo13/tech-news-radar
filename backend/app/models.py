@@ -219,3 +219,56 @@ class ReaderInvitation(Base):
             "(accepted_at IS NULL) = (accepted_subject IS NULL)", name="invitation_claim"
         ),
     )
+
+
+class SourceProposal(Base):
+    __tablename__ = "source_proposals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("app_users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    name_key: Mapped[str] = mapped_column(String(64))
+    url: Mapped[str | None] = mapped_column(String(2048))
+    note: Mapped[str | None] = mapped_column(String(500))
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), index=True
+    )
+    follow_on_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    decided_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("app_users.id", ondelete="SET NULL"), index=True
+    )
+    reason: Mapped[str | None] = mapped_column(String(500))
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sources.id", ondelete="SET NULL"), index=True
+    )
+    approved_name: Mapped[str | None] = mapped_column(String(200))
+    approved_feed_url: Mapped[str | None] = mapped_column(String(2048))
+    user: Mapped[AppUser] = relationship(foreign_keys=[user_id])
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'cancelled')", name="valid_status"
+        ),
+        CheckConstraint("length(trim(name)) BETWEEN 1 AND 200", name="proposal_name"),
+        CheckConstraint("url IS NULL OR length(url) BETWEEN 1 AND 2048", name="proposal_url"),
+        CheckConstraint("note IS NULL OR length(note) <= 500", name="proposal_note"),
+        CheckConstraint(
+            "reason IS NULL OR length(reason) BETWEEN 1 AND 500", name="proposal_reason"
+        ),
+        CheckConstraint("(status = 'pending') = (decided_at IS NULL)", name="proposal_decision"),
+        CheckConstraint("status <> 'rejected' OR reason IS NOT NULL", name="rejection_reason"),
+        Index("ix_source_proposals_status_created", "status", "created_at", "id"),
+        Index(
+            "uq_source_proposals_pending_name",
+            "user_id",
+            "name_key",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )

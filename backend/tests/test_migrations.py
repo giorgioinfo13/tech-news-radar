@@ -29,6 +29,7 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
         "subscriptions",
         "article_read_states",
         "reader_invitations",
+        "source_proposals",
     }
     with Session(database) as session:
         categories = session.scalars(select(Category).order_by(Category.sort_order)).all()
@@ -79,7 +80,9 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
                 ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id),
             ]
         )
-    tables = [table for table in TABLES if table.name != "reader_invitations"]
+    tables = [
+        table for table in TABLES if table.name not in {"reader_invitations", "source_proposals"}
+    ]
     with database.connect() as connection:
         before = {table.name: read_rows(connection, table) for table in tables}
     command.upgrade(migration_config, "head")

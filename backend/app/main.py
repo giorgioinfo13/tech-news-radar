@@ -13,6 +13,7 @@ from app.api.dependencies import get_current_user
 from app.api.health import router as health_router
 from app.api.invitations import router as invitations_router
 from app.api.personal import router as personal_router
+from app.api.proposals import router as proposals_router
 from app.api.sources import router as sources_router
 from app.auth import SupabaseVerifier
 from app.collection.scheduler import CollectionScheduler
@@ -90,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         articles_router,
         personal_router,
         invitations_router,
+        proposals_router,
     ):
         app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])
     return app

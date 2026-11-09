@@ -179,3 +179,52 @@ class InvitationRead(OutputModel):
     display_name: str
     created_at: datetime
     accepted_at: datetime | None
+
+
+ProposalNote = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+
+
+class ProposalCreate(InputModel):
+    name: SourceName
+    url: FeedUrl | None = None
+    note: ProposalNote | None = None
+    category_id: PositiveId | None = None
+    follow_on_approval: StrictBool = False
+
+
+class ProposalApprove(InputModel):
+    source_id: PositiveId | None = None
+    name: SourceName | None = None
+    feed_url: FeedUrl | None = None
+    category_id: PositiveId | None = None
+
+    @model_validator(mode="after")
+    def approval_target(self) -> Self:
+        if self.source_id is None and (self.name is None or self.feed_url is None):
+            raise ValueError("A new source requires a name and RSS/Atom feed URL")
+        if self.source_id is not None and self.model_fields_set - {"source_id"}:
+            raise ValueError("Existing sources must be linked without editing their configuration")
+        return self
+
+
+class ProposalReject(InputModel):
+    reason: ProposalNote
+
+
+class ProposalRead(OutputModel):
+    id: int
+    name: str
+    url: str | None
+    note: str | None
+    category_id: int | None
+    follow_on_approval: bool
+    status: Literal["pending", "approved", "rejected", "cancelled"]
+    created_at: datetime
+    decided_at: datetime | None
+    reason: str | None
+    source_id: int | None
+    approved_name: str | None
+    approved_feed_url: str | None
+    user: UserRead

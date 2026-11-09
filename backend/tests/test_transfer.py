@@ -22,6 +22,7 @@ from app.models import (
     CollectionRun,
     ReaderInvitation,
     Source,
+    SourceProposal,
     Subscription,
 )
 
@@ -105,6 +106,20 @@ def snapshot(tmp_path):
                     "created_at": STAMP,
                 },
             ],
+        )
+        connection.execute(
+            SourceProposal.__table__.insert(),
+            {
+                "id": 17,
+                "user_id": READER,
+                "name": "Pending news",
+                "name_key": "a" * 64,
+                "category_id": 71,
+                "note": "Keep this request",
+                "follow_on_approval": True,
+                "status": "pending",
+                "created_at": STAMP,
+            },
         )
         connection.execute(
             Article.__table__.insert(),

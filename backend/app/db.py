@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from sqlite3 import Connection as SQLiteConnection
 
-from sqlalchemy import URL, DateTime, Engine, MetaData, create_engine, event, make_url
+from sqlalchemy import URL, DateTime, Engine, MetaData, create_engine, event, make_url, text
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Session
 from sqlalchemy.pool import ConnectionPoolEntry, StaticPool
@@ -137,6 +137,22 @@ def _configure_postgres(connection, record: ConnectionPoolEntry) -> None:
             cursor.execute("SET SESSION TIME ZONE 'UTC'")
     finally:
         connection.autocommit = previous_autocommit
+
+
+def lock_access_decisions(session: Session) -> None:
+    """Serialize proposal decisions and operator access changes until commit/rollback.
+
+    Acquire before reading mutable authorization state. Callers own the transaction;
+    this helper must not discard their pending changes or commit on their behalf.
+    """
+    with session.no_autoflush:
+        if session.get_bind().dialect.name == "postgresql":
+            # Same gate for API and operator connections, without UPDATE on app_users.
+            session.execute(text("SELECT pg_advisory_xact_lock(746674, 6)"))
+        else:
+            # Acquire SQLite's write reservation before reads. app_users also exists
+            # before migration 0006, so older local operator databases still work.
+            session.execute(text("UPDATE app_users SET active = active WHERE 0 = 1"))
 
 
 def insert_once(session: Session, model: type[Base], values: dict) -> None:

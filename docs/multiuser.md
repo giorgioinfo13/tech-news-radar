@@ -135,3 +135,8 @@ Use the Supabase mode instead of the local adapter before enabling external acce
 Authorization must continue to use the application's role and active status, not user-editable metadata.
 See [Supabase user metadata guidance](https://supabase.com/docs/guides/database/postgres/row-level-security).
 Direct PostgreSQL connections do not automatically apply end-user RLS identity. The current boundary is the backend plus the private schema and database grants.
+
+## Source proposals
+
+[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
+The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.

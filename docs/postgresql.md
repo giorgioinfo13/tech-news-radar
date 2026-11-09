@@ -196,3 +196,8 @@ The isolated PostgreSQL run on 2026-11-07 tested commit `a0bcd9d` with PostgreSQ
 
 Live Google invitation acceptance and production rollout remain separate checks.
 These local results do not validate hosted pooler connections, production grants, or cloud configuration.
+
+## Source proposals
+
+[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
+The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.

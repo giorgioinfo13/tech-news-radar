@@ -183,6 +183,10 @@ Revoke access:
 
 The next authorization check rejects the user's requests, including requests with an unexpired token.
 A request already authorized and running can finish. Revocation preserves personal data.
+Source proposal decisions and operator access changes share a transaction lock:
+an approval that holds the lock finishes before revocation; an approval waiting behind
+revocation rechecks access and refuses the revoked proposer. Use the current release
+for operator commands as well as the API; direct SQL updates bypass this coordination.
 This operation can also disable the owner in an emergency. It does not terminate Supabase sessions or delete cloud accounts.
 
 Restore access explicitly:
@@ -301,3 +305,8 @@ Frontend-step validation on 2026-11-06:
 - [Supabase logout](https://supabase.com/docs/reference/javascript/auth-signout)
 - [Google button branding and HTML option](https://developers.google.com/identity/branding-guidelines)
 - [PyJWT verification and key caching](https://pyjwt.readthedocs.io/en/latest/api.html)
+
+## Source proposals
+
+[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
+The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.

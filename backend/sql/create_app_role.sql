@@ -5,8 +5,8 @@
 BEGIN;
 DO $setup$
 BEGIN
-    IF to_regclass('tnr.reader_invitations') IS NULL THEN
-        RAISE EXCEPTION 'Apply Alembic migration 0005 before role setup';
+    IF to_regclass('tnr.source_proposals') IS NULL THEN
+        RAISE EXCEPTION 'Apply Alembic migration 0006 before role setup';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid='tnr.app_users'::regclass AND relrowsecurity)
        OR NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid='tnr.app_users'::regclass
@@ -25,9 +25,10 @@ GRANT SELECT, INSERT ON tnr.app_users TO tnr_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     tnr.categories, tnr.sources, tnr.articles, tnr.collection_runs,
     tnr.subscriptions, tnr.article_read_states, tnr.reader_invitations TO tnr_app;
+GRANT SELECT, INSERT, UPDATE ON tnr.source_proposals TO tnr_app;
 GRANT USAGE ON SEQUENCE
     tnr.categories_id_seq, tnr.sources_id_seq,
-    tnr.articles_id_seq, tnr.collection_runs_id_seq TO tnr_app;
+    tnr.articles_id_seq, tnr.collection_runs_id_seq, tnr.source_proposals_id_seq TO tnr_app;
 COMMIT;
 -- Set a random password separately with psql's \password tnr_app prompt.
 -- No default grants: review each future migration before granting new objects.

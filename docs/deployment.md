@@ -44,7 +44,8 @@ worker caches API responses or tokens.
 The `.example` templates are not active hosting configuration files.
 `frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
 does not mean that a frontend deployment exists. Do not deploy without separate
-approval. The current head is `0005`.
+approval. The current head is `0006`.
+For an existing `0005` deployment, follow the [source proposal rollout](source-proposals.md#coordinated-publication-plan--not-executed).
 For an existing `0004` deployment, follow the [invitation rollout](authentication.md#invite-friends-by-email) before deploying this version.
 
 ## Environment map

@@ -558,3 +558,8 @@ and its validation in each pull request. Keep the two README versions equivalent
 Do not commit local databases, credentials, environment files, generated assets,
 or virtual environments. Preserve the project's [MIT License](../LICENSE) and any
 applicable third-party notices.
+
+## Source proposals
+
+[Source proposals](source-proposals.md) add reader submissions and administrator decisions in revision `0006`.
+The guide describes ownership, validation, runtime grants, tests, and the coordinated deployment sequence.

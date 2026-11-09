@@ -7,9 +7,13 @@ import pytest
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.api.proposals import approve_proposal, create_proposal
+from app.collection.service import Collector
+from app.config import Settings
 from app.db import create_database_engine
 from app.invitations import claim_invitation
 from app.models import LOCAL_OWNER_ID, AppUser, ReaderInvitation
+from app.schemas import ProposalApprove, ProposalCreate
 
 SQL_ROOT = Path(__file__).resolve().parents[1] / "sql"
 
@@ -26,6 +30,7 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             # The SQL itself refuses pre-existing roles; never overwrite a role from another task.
             raw.execute((SQL_ROOT / "create_app_role.sql").read_text())
             created = True
+            raw.execute((SQL_ROOT / "enable_source_proposals.sql").read_text())
             raw.execute((SQL_ROOT / "check_app_role.sql").read_text())
             raw.execute("ALTER ROLE tnr_app PASSWORD 'tnr-role-test-only'")
         runtime = create_database_engine(
@@ -65,6 +70,28 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                 VerifiedGoogleIdentity(),
             )
             assert session.get(AppUser, user_id).role == "reader"
+        # Approval must work without UPDATE on app_users or DELETE on proposals.
+        with Session(runtime) as session:
+            proposal = create_proposal(
+                ProposalCreate(name="Proposed", follow_on_approval=True),
+                session.get(AppUser, user_id),
+                session,
+            )
+            proposal_id = proposal.id
+            from app.models import Source
+
+            source = Source(name="Existing", feed_url="https://example.org/existing")
+            session.add(source)
+            session.commit()
+            source_id = source.id
+            approved = approve_proposal(
+                proposal_id,
+                ProposalApprove(source_id=source_id),
+                session.get(AppUser, LOCAL_OWNER_ID),
+                session,
+                Collector(runtime, Settings(_env_file=None)),
+            )
+            assert approved.status == "approved" and approved.source_id == source_id
         for role, candidate in (("admin", uuid4()), ("reader", uuid4())):
             with pytest.raises(DBAPIError), Session(runtime) as session, session.begin():
                 session.add(
@@ -104,6 +131,8 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             "CREATE TABLE tnr.forbidden (id integer)",
             "TRUNCATE tnr.sources CASCADE",
             "SET ROLE postgres",
+            "DELETE FROM tnr.source_proposals",
+            "TRUNCATE tnr.source_proposals",
         ):
             with pytest.raises(DBAPIError):
                 with runtime.begin() as connection:

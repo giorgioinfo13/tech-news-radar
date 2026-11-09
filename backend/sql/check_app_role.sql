@@ -21,6 +21,7 @@ FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'tnr' AND pg_get_userbyid(c.relowner) = 'tnr_app';
 
 -- app_users: SELECT/INSERT with reader-only RLS; data/invitation tables: CRUD.
+-- source_proposals: SELECT/INSERT/UPDATE only; DELETE false.
 -- alembic_version: no access. TRUNCATE and REFERENCES always false.
 SELECT table_name,
        has_table_privilege('tnr_app', format('tnr.%I', table_name), 'SELECT') AS sel,
