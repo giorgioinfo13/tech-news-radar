@@ -350,10 +350,11 @@ def test_0004_preserves_profiles_and_personal_data(migration_config):
                 .values(name="Existing", feed_url="https://example.org/rss")
                 .returning(Source.id)
             )
-            article = Article(source_id=source_id, title="Existing", url="https://example.org/a")
-            session.add(article)
-            session.flush()
-            article_id = article.id
+            article_id = session.scalar(
+                insert(Article)
+                .values(source_id=source_id, title="Existing", url="https://example.org/a")
+                .returning(Article.id)
+            )
             session.add_all(
                 [
                     Subscription(user_id=LOCAL_OWNER_ID, source_id=source_id),

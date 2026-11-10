@@ -64,6 +64,7 @@ export interface Article {
   source: Pick<Source, 'id' | 'name' | 'category'>
   title: string
   description: string | null
+  discussion_url?: string | null
   url: string
   published_at: string | null
   fetched_at: string

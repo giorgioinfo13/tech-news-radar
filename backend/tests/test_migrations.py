@@ -49,6 +49,48 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
     command.check(migration_config)
 
 
+def test_discussion_migration_cleans_only_hacker_news_placeholder(database, migration_config):
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    command.downgrade(migration_config, "0010")
+    with database.begin() as connection:
+        articles = Table("articles", MetaData(), autoload_with=connection)
+        sources = Table("sources", MetaData(), autoload_with=connection)
+        for name, url in [
+            ("HN", "https://news.ycombinator.com/rss"),
+            ("Other", "https://example.org/rss"),
+        ]:
+            source_id = connection.scalar(
+                insert(sources)
+                .values(name=name, feed_url=url, etag='"old"', created_at=now)
+                .returning(sources.c.id)
+            )
+            connection.execute(
+                insert(articles).values(
+                    source_id=source_id,
+                    title=name,
+                    url="https://example.org/a",
+                    description="Comments",
+                    fetched_at=now,
+                )
+            )
+    command.upgrade(migration_config, "head")
+    command.check(migration_config)
+    with Session(database) as session:
+        entries = {item.title: item for item in session.scalars(select(Article))}
+        assert entries["HN"].description is None
+        assert entries["HN"].discussion_url is None
+        assert entries["Other"].description == "Comments"
+        assert entries["HN"].source.etag is None
+        assert entries["Other"].source.etag == '"old"'
+    command.downgrade(migration_config, "0010")
+    assert "discussion_url" not in {
+        column["name"] for column in inspect(database).get_columns("articles")
+    }
+    command.upgrade(migration_config, "head")
+
+
 def test_repeated_upgrade_preserves_user_changes(database, migration_config):
     with Session(database) as session, session.begin():
         categories = session.scalars(select(Category).order_by(Category.id)).all()
@@ -74,15 +116,15 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
             .values(name="Preserved source", feed_url="https://example.org/preserved")
             .returning(Source.id)
         )
-        article = Article(
-            source_id=source_id, title="Preserved article", url="https://example.org/a"
+        article_id = session.scalar(
+            insert(Article)
+            .values(source_id=source_id, title="Preserved article", url="https://example.org/a")
+            .returning(Article.id)
         )
-        session.add(article)
-        session.flush()
         session.add_all(
             [
                 Subscription(user_id=LOCAL_OWNER_ID, source_id=source_id),
-                ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article.id),
+                ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article_id),
             ]
         )
     tables = [
@@ -144,7 +186,11 @@ def test_attempt_migration_preserves_content_and_backfills_interrupted_runs(
             .returning(Source.id)
         )
         session.add(CollectionRun(source_id=source_id, started_at=started))
-        session.add(Article(source_id=source_id, title="Preserved", url="https://example.org/a"))
+        session.execute(
+            insert(Article).values(
+                source_id=source_id, title="Preserved", url="https://example.org/a"
+            )
+        )
     command.upgrade(migration_config, "head")
     command.upgrade(migration_config, "head")
     command.check(migration_config)

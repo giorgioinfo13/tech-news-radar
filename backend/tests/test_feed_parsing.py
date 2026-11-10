@@ -71,3 +71,25 @@ def test_url_identity_is_conservative():
         "https://example.org/a?utm=1#two"
     )
     assert url_key("https://example.org/a?utm=1") != url_key("https://example.org/a?utm=2")
+
+
+@pytest.mark.parametrize(
+    "comments, expected",
+    [
+        ("https://news.ycombinator.com/item?id=123", "https://news.ycombinator.com/item?id=123"),
+        ("https://evil.example/item?id=123", None),
+        ("javascript:alert(1)", None),
+        ("https://news.ycombinator.com.evil.example/item?id=123", None),
+    ],
+)
+def test_hacker_news_discussion_is_separate_and_validated(comments, expected):
+    body = f'''<rss version="2.0"><channel><item><title>News</title>
+    <link>https://example.org/article</link><comments>{comments}</comments>
+    <description><![CDATA[<a href="{comments}">Comments</a>]]></description>
+    </item></channel></rss>'''.encode()
+    entry = parse_feed(body, "https://news.ycombinator.com/rss", 10).entries[0]
+    assert entry.discussion_url == expected
+    assert entry.description is None
+    other = parse_feed(body, "https://example.org/rss", 10).entries[0]
+    assert other.discussion_url is None
+    assert other.description == "Comments"

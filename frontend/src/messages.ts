@@ -1,5 +1,6 @@
 // English message keys keep both languages complete at compile time.
 export const italian = {
+  'Discussion on Hacker News': 'Discussione su Hacker News',
   'Refresh sources': 'Aggiorna fonti',
   'Refreshing sources…': 'Aggiornamento fonti…',
   'Pull down to refresh sources': 'Trascina verso il basso per aggiornare le fonti',

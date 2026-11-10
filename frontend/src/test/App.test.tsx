@@ -10,6 +10,17 @@ function open(page: string) {
 }
 
 describe('news dashboard', () => {
+  it('shows a separate safe Hacker News discussion link', async () => {
+    const { state } = mockServer()
+    state.articles = [
+      { ...article, description: null, discussion_url: 'https://news.ycombinator.com/item?id=123' },
+    ]
+    open('news')
+    const link = await screen.findByRole('link', { name: 'Discussione su Hacker News' })
+    expect(link).toHaveAttribute('href', 'https://news.ycombinator.com/item?id=123')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.queryByText('Comments')).not.toBeInTheDocument()
+  })
   it('loads articles, combines filters and searches only on submit', async () => {
     const { calls } = mockServer()
     const user = userEvent.setup()

@@ -44,7 +44,7 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0010 (head)`, with no pending schema changes. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
+`0011 (head)`, with no pending schema changes. Revision `0011` adds a separate article discussion URL. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
 It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
 Revision `0004` adds explicit Supabase identity links without changing existing profiles or personal data.
 Revision `0005` adds administrator email invitations. It preserves existing profiles, subscriptions, and read states.
@@ -53,6 +53,12 @@ SQLite must be version 3.35 or later for the native column removal. Check the SQ
 Run `alembic upgrade head` after updates that add migrations. Repeating it on an
 up-to-date database preserves category edits and existing data. The API does not
 create tables or apply migrations at startup. The database directory is ignored by Git.
+
+Before deploying the article discussion-link change, apply revision `0011` with the existing migration command.
+It removes the `Comments` placeholder from articles associated with the standard Hacker News feed.
+The next normal collection requests the full feed and restores discussion links for matching articles.
+Older articles absent from the feed cannot recover their lost discussion link.
+Other descriptions remain unchanged. Downgrading removes the new column but does not restore the removed placeholder.
 
 `TNR_DATABASE_URL` controls the database location. Relative SQLite paths resolve
 from `backend/`, even if the command runs from another directory. Absolute SQLite

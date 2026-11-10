@@ -194,11 +194,13 @@ class Collector:
                 source = session.get(Source, source_id)
                 run = session.get(CollectionRun, run_id)
                 if parsed is not None:
-                    existing = session.execute(
-                        select(Article.guid, Article.url).where(Article.source_id == source_id)
-                    )
+                    existing = session.scalars(
+                        select(Article).where(Article.source_id == source_id)
+                    ).all()
+                    by_url = {url_key(article.url): article for article in existing}
                     guids, urls = set(), set()
-                    for guid, stored_url in existing:
+                    for article in existing:
+                        guid, stored_url = article.guid, article.url
                         if guid:
                             guids.add(guid)
                         urls.add(url_key(stored_url))
@@ -206,6 +208,11 @@ class Collector:
                     for entry in parsed.entries:
                         key = url_key(entry.url)
                         if (entry.guid and entry.guid in guids) or key in urls:
+                            stored = by_url.get(key)
+                            if stored is not None and entry.discussion_url:
+                                stored.discussion_url = entry.discussion_url
+                                if stored.description == "Comments":
+                                    stored.description = None
                             continue
                         session.add(Article(source_id=source_id, **asdict(entry)))
                         if entry.guid:

@@ -1,6 +1,7 @@
 """Parse bytes only; feedparser never receives a URL or a filesystem path."""
 
 import calendar
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
@@ -75,6 +76,7 @@ class Entry:
     title: str
     description: str | None
     published_at: datetime | None
+    discussion_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -123,7 +125,15 @@ def parse_feed(body: bytes, base_url: str, max_entries: int) -> ParsedFeed:
         summary = item.get("summary", "")
         if not summary and item.get("content"):
             summary = item.content[0].get("value", "")
-        entries.append(Entry(guid, url, title, plain_text(summary, 4000) or None, published))
+        description = plain_text(summary, 4000) or None
+        discussion = None
+        if httpx.URL(base_url).host == "news.ycombinator.com":
+            comments = item.get("comments", "")
+            if re.fullmatch(r"https://news\.ycombinator\.com/item\?id=[1-9][0-9]*", comments):
+                discussion = comments
+            if description == "Comments":
+                description = None
+        entries.append(Entry(guid, url, title, description, published, discussion))
     if parsed.entries and not entries:
         raise FeedError("Feed contains no usable entries with a title and HTTP/HTTPS link")
     return ParsedFeed(entries, len(parsed.entries))

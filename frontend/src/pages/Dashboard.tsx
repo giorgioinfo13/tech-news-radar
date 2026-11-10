@@ -270,6 +270,13 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
           <div className="article-list">
             {articles.data.items.map((article) => {
               const href = safeArticleUrl(article.url)
+              const discussion =
+                article.discussion_url &&
+                /^https:\/\/news\.ycombinator\.com\/item\?id=[1-9][0-9]*$/.test(
+                  article.discussion_url,
+                )
+                  ? article.discussion_url
+                  : null
               return (
                 <article
                   className={`article-card ${article.is_read ? 'is-read' : ''}`}
@@ -309,6 +316,13 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
                   </h3>
                   {article.description && (
                     <p className="article-description">{article.description}</p>
+                  )}
+                  {discussion && (
+                    <p>
+                      <a href={discussion} target="_blank" rel="noopener noreferrer">
+                        {t('Discussion on Hacker News')}
+                      </a>
+                    </p>
                   )}
                   <div className="article-footer">
                     <span className="category-tag">

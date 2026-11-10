@@ -31,7 +31,7 @@ from app.models import (
     Subscription,
 )
 
-REVISION = "0010"
+REVISION = "0011"
 TABLES = tuple(
     model.__table__
     for model in (

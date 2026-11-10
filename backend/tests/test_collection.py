@@ -131,6 +131,30 @@ async def test_repeat_and_changed_guid_or_url_deduplicate_without_overwriting(se
         assert session.get(ArticleReadState, (LOCAL_OWNER_ID, original[0]["id"])) is not None
 
 
+async def test_hacker_news_enriches_existing_articles_without_overwriting_content(setup, database):
+    client, _, source_id, replies, _, clock = setup
+    with Session(database) as session, session.begin():
+        session.get(Source, source_id).feed_url = "https://news.ycombinator.com/rss"
+        session.add(
+            Article(
+                source_id=source_id,
+                title="Original",
+                url="https://example.org/a",
+                description="Comments",
+            )
+        )
+    body = b"""<rss version="2.0"><channel><item><title>Changed</title>
+    <link>https://example.org/a</link><comments>https://news.ycombinator.com/item?id=123</comments>
+    <description>Comments</description></item></channel></rss>"""
+    replies.append(reply(body))
+    result = await client.post(f"/api/sources/{source_id}/refresh")
+    assert result.json()["articles_added"] == 0
+    item = (await client.get("/api/articles")).json()["items"][0]
+    assert item["title"] == "Original"
+    assert item["description"] is None
+    assert item["discussion_url"] == "https://news.ycombinator.com/item?id=123"
+
+
 async def test_duplicates_inside_feed_and_across_sources(setup):
     client, _, source_id, replies, _, _ = setup
     duplicate = RSS.replace(
