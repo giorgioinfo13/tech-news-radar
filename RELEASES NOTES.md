@@ -1,5 +1,25 @@
 # Note di rilascio
 
+## 0.2.2
+
+### Italiano
+
+- **Rassegna AI.** Sintesi delle notizie in italiano, con link alle fonti.
+- **Proponi una fonte.** Suggerisci fonti e segui lo stato delle proposte.
+- **Aggiorna le notizie.** Usa il pulsante o trascina verso il basso su mobile.
+- **Lingua e tema.** Scegli le tue preferenze dal menu account.
+- **Versione del sito.** Consulta le novità dal fondo del menu.
+- **Note più brevi.** L’opzione per nasconderle è ora in alto.
+
+### English
+
+- **AI digest.** News summaries in Italian, with links to sources.
+- **Suggest a source.** Suggest sources and track your proposals.
+- **Refresh news.** Use the button or pull down on mobile.
+- **Language and theme.** Choose your preferences in the account menu.
+- **Site version.** Open release notes from the bottom of the menu.
+- **Shorter notes.** The option to hide them is now at the top.
+
 ## 0.2.1
 
 ### Italiano

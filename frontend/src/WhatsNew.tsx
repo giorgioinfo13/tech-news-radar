@@ -51,11 +51,6 @@ export function WhatsNew({ userId, onClose }: { userId: string; onClose: () => v
       <p>
         {italian ? 'Versione' : 'Version'} {release.version}
       </p>
-      <ul>
-        {release.changes[language].map((change) => (
-          <li key={change}>{change}</li>
-        ))}
-      </ul>
       <label className="whats-new-preference">
         <input type="checkbox" checked={hide} onChange={(event) => setHide(event.target.checked)} />
         <span>
@@ -67,6 +62,11 @@ export function WhatsNew({ userId, onClose }: { userId: string; onClose: () => v
           ? 'La scelta vale per questo account in questo browser.'
           : 'This choice applies to this account in this browser.'}
       </p>
+      <ul>
+        {release.changes[language].map((change) => (
+          <li key={change}>{change}</li>
+        ))}
+      </ul>
     </dialog>
   )
 }

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { parseReleaseNotes, release } from '../release'
 
 it('loads the bilingual release from the maintained notes', () => {
-  expect(release.version).toBe('0.2.1')
+  expect(release.version).toBe('0.2.2')
   expect(release.changes.it).toHaveLength(6)
   expect(release.changes.en).toHaveLength(6)
   expect(release.changes.it.join(' ')).toContain('Rassegna AI.')
