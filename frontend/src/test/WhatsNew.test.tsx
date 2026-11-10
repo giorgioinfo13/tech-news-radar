@@ -28,12 +28,14 @@ it('remembers the selected version for one user and supports reopening from the 
   render(<AccountMenu user={user} />)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
-  await userEvent.click(screen.getByRole('button', { name: /Versione 0.2.0/ }))
+  await userEvent.click(
+    screen.getByRole('button', { name: `Versione ${release.version} · Novità` }),
+  )
   expect(screen.getByRole('dialog')).toBeInTheDocument()
 })
 
 it('shows a new release and does not share the preference between users', () => {
-  localStorage.setItem(releaseStorageKey(user.id), '0.1.0')
+  localStorage.setItem(releaseStorageKey(user.id), '0.2.0')
   const view = render(<AccountMenu user={user} />)
   expect(screen.getByRole('dialog')).toBeInTheDocument()
   view.unmount()
