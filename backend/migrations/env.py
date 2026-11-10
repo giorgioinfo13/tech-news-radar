@@ -1,5 +1,7 @@
 """Use the application's database configuration for all migration commands."""
 
+from contextlib import nullcontext
+
 from alembic import context
 
 from app import models  # noqa: F401 -- register all mapped tables
@@ -49,9 +51,10 @@ if context.is_offline_mode():
             context.execute(f"SET LOCAL search_path TO {POSTGRES_SCHEMA}")
         context.run_migrations()
 else:
-    engine = create_database_engine(database_url)
+    supplied_connection = config.attributes.get("connection")
+    engine = None if supplied_connection is not None else create_database_engine(database_url)
     try:
-        with engine.begin() as connection:
+        with nullcontext(supplied_connection) if engine is None else engine.begin() as connection:
             if is_postgres:
                 # Bootstrap the namespace before the unchanged initial revision.
                 # All DDL and revision updates share this transaction.
@@ -60,11 +63,12 @@ else:
             context.configure(
                 connection=connection,
                 target_metadata=Base.metadata,
-                render_as_batch=engine.dialect.name == "sqlite",
+                render_as_batch=connection.dialect.name == "sqlite",
                 render_item=render_item,
                 include_object=include_object,
             )
             with context.begin_transaction():
                 context.run_migrations()
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()

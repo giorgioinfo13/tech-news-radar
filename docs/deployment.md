@@ -7,11 +7,12 @@ private local `.env` unchanged until the separate data-transfer phase is approve
 
 ## Reader usage release
 
-Reader usage is implemented locally and awaits release. Keep the frontend push pending until the database and backend are ready.
+Reader usage is implemented locally and awaits release. The automatic release below includes its migration and permission.
+For a manual release, keep the frontend push pending until the database and backend are ready.
 During the authorized release, use the committed checkout and operator connection to apply Alembic revision `0012`.
 Then run `backend/sql/enable_reader_usage.sql` with the operator connection.
 This grants UPDATE only on `app_users.last_seen_at`. Identity, role and activation fields remain protected.
-Deploy the backend commit manually, then verify `/api/me` and the administrator-only `/api/usage/readers` endpoint.
+Deploy the backend commit, then verify `/api/me` and the administrator-only `/api/usage/readers` endpoint.
 If Render requires a remote commit first, disable Vercel builds before the coordinated push.
 Publish the frontend only after backend verification. Keep schema migration commands out of API startup.
 For rollback, restore the previous application versions before removing revision `0012`.
@@ -22,6 +23,123 @@ Automatic session renewals can update this value. It does not measure online pre
 The summary includes only currently authorized readers, excluding administrators and revoked profiles.
 Read counts describe retained read marks, not lifetime reading totals. Profile creation is not necessarily the first visit.
 Null timestamps mean no access recorded since activation. The private schema and existing database pool remain in use.
+
+## Automatic release from main
+
+The release template is `deploy/release.yml.example`. Create `.github/workflows/release.yml` through the GitHub web editor to activate it.
+The template itself does not register a workflow. No production release is implied by these local files.
+This procedure replaces the earlier independent Vercel Git deployment and manual Render deployment for the existing installation.
+
+Each push to `main` starts tests, followed by an ordered release:
+
+1. Run backend lint, formatting, and tests against temporary SQLite and PostgreSQL databases.
+2. Run frontend lint, TypeScript, tests, formatting, and build checks.
+3. Check required configuration and build the production Vercel artifact.
+4. Verify the Render target and reject a commit superseded by a newer `main` commit.
+5. Apply Alembic migrations and the reviewed reader-usage permission on Supabase.
+6. Deploy the same commit to Render and wait for its `live` status and `/api/health` response.
+7. Publish the prebuilt frontend to Vercel Production.
+
+The workflow uses standard Ubuntu runners and a temporary PostgreSQL service. It needs no paid preview environments or Render one-off jobs.
+Provider quotas still apply. Vercel Hobby must remain eligible for the project's use.
+Every push starts a run, including documentation changes. GitHub concurrency permits one running release and one pending release.
+A newer pending run can replace an older pending run. Intermediate commits need not deploy individually.
+The workflow never automatically cancels a running release. A new push during deployment waits for that release.
+Do not start manual deployments or migrations while the workflow runs.
+
+### One-time provider setup
+
+Before the first release, verify the existing Supabase backup and its recovery procedure.
+The command requires an existing application database at revision `0010` or later and an existing `tnr_app` role.
+It supports the pending `0011` and `0012` migrations. It does not bootstrap roles or provision a new database.
+Keep existing runtime grants from earlier releases. New permissions require explicit additions to the release implementation.
+
+1. On Render, retain the existing GitHub repository and `main` branch.
+2. Set Render **Auto-Deploy** to **Off**. The Action starts deployments through the API.
+3. Keep the existing backend environment and CA secret file. Never add migration credentials to the web service.
+4. On Vercel, disconnect the project's Git repository before pushing this transition.
+5. Keep Vercel Root Directory `frontend` and include files outside that directory for `docs/assets` imports.
+6. Keep Vercel Production environment variables and stable domains. Use **Automatic** for the ignored-build setting.
+
+The committed `frontend/vercel.json` also sets `git.deploymentEnabled` to `false`.
+Disconnecting Git first prevents an independent frontend release during the transition.
+The Action links to the existing project by its organization and project IDs. Run Vercel commands from the repository root.
+
+### GitHub configuration
+
+Open the repository's **Settings → Secrets and variables → Actions**.
+Add these values under **Secrets**, with **New repository secret**:
+
+| Secret | Value |
+| --- | --- |
+| `TNR_MIGRATION_DATABASE_URL` | Operator session-pooler URL shown below |
+| `TNR_SUPABASE_CA_CERT` | Complete PEM text of the project's CA certificate |
+| `RENDER_API_KEY` | Render API token authorized to read the service and create/read deployments |
+| `VERCEL_TOKEN` | Vercel token authorized for the existing project |
+
+Use this URL shape, with the actual project reference, encoded password, and pooler hostname:
+
+```text
+postgresql+psycopg://postgres.PROJECT_REF:ENCODED_PASSWORD@POOLER_HOST:5432/postgres?sslmode=verify-full
+```
+
+The release command writes the CA to a private temporary file and supplies `sslrootcert` itself.
+It verifies the project reference, operator username, Supabase session-pooler hostname, port, database, and TLS mode before connecting.
+Never copy a local `.env` into GitHub or put privileged credentials in `VITE_*` variables.
+
+Add these values under **Variables**, with **New repository variable**:
+
+| Variable | Value |
+| --- | --- |
+| `TNR_RELEASE_ENABLED` | `true` after provider setup is complete |
+| `TNR_SUPABASE_PROJECT_REF` | Existing 20-character Supabase project reference |
+| `RENDER_SERVICE_ID` | Existing backend service ID, starting with `srv-` |
+| `TNR_BACKEND_URL` | Existing `https://SERVICE.onrender.com` origin, without `/api` |
+| `VERCEL_ORG_ID` | Existing Vercel organization/team ID |
+| `VERCEL_PROJECT_ID` | Existing Vercel project ID |
+
+Use Vercel project/account settings for the IDs and token. Use Render service settings for its ID and account settings for its API token.
+Production Supabase publishable settings remain in Vercel. `vercel pull` retrieves them for the build.
+Secrets are supplied only to the steps that need them. Tests have no production database credentials.
+
+### Create the workflow through GitHub
+
+1. Complete provider setup and GitHub configuration above.
+2. Commit and push the implementation files, including `deploy/release.yml.example`, using the usual token.
+3. Open `giorgioinfo13/tech-news-radar` on GitHub and select `main`.
+4. Select **Add file → Create new file**.
+5. Enter `.github/workflows/release.yml` as the filename.
+6. Copy the entire contents of `deploy/release.yml.example` into the editor. Do not include Markdown code fences.
+7. Select **Commit changes** and commit directly to `main`.
+8. Open **Actions → Release production** and monitor the run triggered by this web commit.
+9. After completion, verify login, `/api/me`, and the administrator reader-usage screen in the application.
+10. Run `git pull --ff-only` locally to receive the workflow commit before further changes.
+
+No terminal push of a workflow file is needed. For later workflow changes, update the template normally, then copy it into the workflow through GitHub.
+Keep both copies identical. The existing collection and digest workflows remain separate.
+If configuration is incomplete, the run stops before migrations. Set the missing values and use **Run workflow** on `main`.
+
+### Failures and compatibility
+
+All stages stop on failure. A successful database stage remains committed if a later hosting stage fails.
+No stage performs an automatic downgrade or database restore. Inspect remote state before rerunning an uncertain operation.
+The Render client sends one deploy request, then polls its returned ID. It verifies both the commit SHA and process health.
+Process health does not prove authenticated database access. The first release still needs the application checks listed above.
+If Render times out, check its dashboard before retrying: an accepted deployment can continue after the Action stops.
+
+The database stage uses one transaction for migrations and the reviewed column-level grant.
+It takes an advisory transaction lock, with a ten-second lock timeout and a two-minute timeout per SQL statement.
+An exception rolls back that transaction. Rerunning after success applies no duplicate migration and repeats the idempotent permission grant.
+Future migrations must support this transaction model. Migrations that require autocommit need a separate release design.
+
+Keep migrations compatible with the currently deployed backend and active collection/digest jobs.
+Add columns or endpoints first. Remove old columns or endpoints in a later release after their callers stop using them.
+The pipeline cannot determine whether arbitrary SQL preserves application compatibility.
+To stop future production writes, set `TNR_RELEASE_ENABLED` to `false`. This does not stop an already running release.
+
+References: [Render deployment API](https://api-docs.render.com/reference/create-deploy),
+[Vercel with GitHub Actions](https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel),
+and [GitHub workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
 ## Architecture and boundaries
 
@@ -51,7 +169,7 @@ worker caches API responses or tokens.
 | --- | --- |
 | `deploy/render.yaml.example` | Python service settings; importing a Blueprint is a deploy operation |
 | `deploy/vercel.json.example` | API proxy, cache policy and response headers; replace the backend hostname first |
-| `frontend/vercel.json` | Vercel configuration for the verified Render hostname; automatic Git deployments enabled only for `main` |
+| `frontend/vercel.json` | Vercel configuration for the verified Render hostname; native Git deployments disabled for ordered releases |
 | `backend/sql/create_app_role.sql` | One-time, separately authorized database-role setup after migrations |
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
 | `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
@@ -62,7 +180,7 @@ worker caches API responses or tokens.
 The `.example` templates are not active hosting configuration files.
 `frontend/vercel.json` will apply when Vercel builds this frontend. Its presence
 does not mean that a frontend deployment exists. Do not deploy without separate
-approval. The current local head is `0010`.
+approval. The current local head is `0012`.
 For an existing `0006` deployment, use the [AI brief rollout](ai-briefs.md#coordinated-publication-plan--not-executed).
 For an existing `0005` deployment, follow the [source proposal rollout](deployment.md#source-proposal-rollout).
 For an existing `0004` deployment, follow the [invitation rollout](authentication.md#invite-friends-by-email) before deploying this version.
@@ -88,7 +206,7 @@ builds; do not allow wildcard OAuth redirect URLs.
 | `TNR_COLLECTION_ENABLED` | GitHub Actions variable | Absent/false until activation is approved, then `true` | Public |
 | `VITE_SUPABASE_URL` | Vercel Production | Same Supabase origin as the backend | Public |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Vercel Production | Corresponding `sb_publishable_…` key | Public; never a secret/service-role key |
-| `TNR_MIGRATION_DATABASE_URL` | Operator environment only | Privileged connection for Alembic and account provisioning | **Secret**; forbidden in the production web service |
+| `TNR_MIGRATION_DATABASE_URL` | Operator environment or release Action secret | Privileged connection for Alembic | **Secret**; forbidden in the production web service |
 
 Omit `TNR_LOCAL_USER_ID`, `VITE_LOCAL_MODE`, and operator credentials from hosting.
 Keep feed limits at their existing defaults unless measured results require a
@@ -396,30 +514,11 @@ Review the ignored-build setting before changing it, including its effect on pre
 Keep preview credentials unset and approve the intended deployment method separately.
 Record account-specific settings and credential paths outside Git.
 
-#### Automatic frontend deployment from `main`
+#### Ordered deployment from `main`
 
-The owner approved automatic Vercel publication from `main` on November 8, 2026.
-This replaces the initial manual-only setup above for the existing frontend project.
-Render deployments and database migrations still require separate authorization.
-
-The repository sets `git.deploymentEnabled` to `{ "**": false, "main": true }`.
-This enables automatic Git deployments only for `main`, including pushes that change documentation or backend files.
-Other branches do not create automatic preview deployments with this configuration.
-
-In the existing Vercel project, connect `giorgioinfo13/tech-news-radar` and keep `main` as the Production Branch.
-Set **Ignored Build Step → Behavior** to **Automatic**.
-Keep **Skip deployments when there are no changes to the root directory or its dependencies** disabled.
-The owner must commit and push this configuration to activate the repository rule.
-Local commits alone do not deploy anything.
-
-After each push, check that Vercel reports **Ready**, **Production**, and the expected commit.
-Check the public site after the build succeeds.
-The build includes TypeScript checks, but does not run the full test suite. Run the development checks before pushing.
-Coordinate frontend changes that require new API behavior with the separately authorized backend deployment.
-
-To stop automatic publication, set **Ignored Build Step → Behavior** to **Don't build anything** (`exit 0`).
-Also set `git.deploymentEnabled` to `false` in the repository and have the owner commit and push that change.
-This does not cancel a deployment that has already started.
+Use [Automatic release from main](#automatic-release-from-main) for the existing installation.
+Native Vercel Git deployments are disabled in the repository. The release Action publishes Vercel after Supabase and Render succeed.
+The earlier independent frontend deployment is superseded by this coordinated procedure.
 
 References: [Render service creation](https://render.com/docs/web-services)
 and [Vercel project management](https://vercel.com/docs/projects/managing-projects).
@@ -433,7 +532,7 @@ commands in the template. `pip install -r backend/requirements.txt` uses pinned
 requirements. The start command binds `$PORT` on `0.0.0.0`, with one Uvicorn
 worker and access logs disabled. No disk stores application data. Upload the CA
 and set the private environment before deploying. Auto-deploy is off in the
-template, but initial Blueprint creation still deploys. Keep it manual.
+template, but initial Blueprint creation still deploys. The release Action starts later deployments through the API.
 
 Vercel: set Root Directory to `frontend`, framework Vite, Node 24.x, install
 `npm ci`, build `npm run build`, output `dist`. Enable inclusion of files outside
@@ -652,7 +751,7 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0010 (head)`. Applying these commands to Supabase requires separate owner authorization.
+The expected revision is `0012 (head)`. Use the release Action for the configured production target, or obtain authorization for a manual operation.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 
@@ -698,6 +797,9 @@ See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-y
 
 ## Source proposal rollout
 
+This manual procedure applies to older installations that lack the source-proposal schema and runtime grants.
+For the configured installation at `0010` or later, use [Automatic release from main](#automatic-release-from-main).
+
 1. Review the local diff and tests. Authorize commit, push, migration, grants, and deployment separately when ready.
 2. Record the remote revision and current grants with a read-only operator check. Confirm the existing target and backups.
 3. Obtain and verify a recoverable database backup. Preserve existing identities, invitations, subscriptions, and reading states.
@@ -712,14 +814,11 @@ See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-y
 9. Publish the frontend on Vercel only after backend compatibility is confirmed.
 10. Check reader isolation, approval, cancellation, both languages, counter refresh, and the installed-app return path.
 
-A push to main can publish the frontend before a manual backend release.
-Prefer two owner-authorized publication steps: commit and push the backend/schema changes first, with the old frontend unchanged.
-Apply the migration and grants, deploy that backend revision manually, and verify it.
-Then commit and push the frontend changes. This preserves the automatic main-only Vercel path without exposing an incompatible UI.
-If the owner chooses a single combined commit, temporarily pausing Vercel deployment requires separate cloud-configuration authorization.
+For older installations with native Vercel Git deployment, a push can publish the frontend before the backend is ready.
+Pause native Vercel deployments before a combined manual release.
 Do not enable the new frontend while its API is unavailable.
 Continue to verify the expected commit and deployment status after each push.
-Render deployment and migrations remain manual. Never initialize or reimport the populated remote database.
+Never initialize or reimport the populated remote database.
 
 For rollback, revert application releases while keeping the additive table and grants for investigation.
 Do not downgrade the production database: dropping `source_proposals` destroys proposal history.

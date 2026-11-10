@@ -1,0 +1,125 @@
+# Copy this file verbatim to .github/workflows/release.yml using the GitHub editor.
+name: Release production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never interrupt a database migration or an accepted remote deployment.
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'giorgioinfo13/tech-news-radar' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --require-hashes -r backend/requirements-dev.txt
+          npm ci --prefix frontend
+      - name: Backend checks with temporary SQLite databases
+        working-directory: backend
+        run: |
+          ruff check . ../scripts/release_render.py
+          ruff format --check . ../scripts/release_render.py
+          pytest -q
+      - name: Backend checks with temporary PostgreSQL databases
+        working-directory: backend
+        env:
+          TNR_TEST_POSTGRES_URL: postgresql+psycopg://postgres:ci-test-only@127.0.0.1:5432/postgres?sslmode=disable
+        run: |
+          python -c "import psycopg; c = psycopg.connect('postgresql://postgres:ci-test-only@127.0.0.1:5432/postgres', autocommit=True); c.execute('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS'); c.close()"
+          pytest --postgres -q
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test
+          npm run format:check
+          npm run build
+      - name: Require release configuration
+        env:
+          TNR_RELEASE_ENABLED: ${{ vars.TNR_RELEASE_ENABLED }}
+          TNR_MIGRATION_DATABASE_URL: ${{ secrets.TNR_MIGRATION_DATABASE_URL }}
+          TNR_SUPABASE_CA_CERT: ${{ secrets.TNR_SUPABASE_CA_CERT }}
+          TNR_SUPABASE_PROJECT_REF: ${{ vars.TNR_SUPABASE_PROJECT_REF }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          TNR_BACKEND_URL: ${{ vars.TNR_BACKEND_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          test "$TNR_RELEASE_ENABLED" = true
+          for key in TNR_MIGRATION_DATABASE_URL TNR_SUPABASE_CA_CERT TNR_SUPABASE_PROJECT_REF RENDER_API_KEY RENDER_SERVICE_ID TNR_BACKEND_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "${!key}" || { echo "Missing release setting: $key"; exit 1; }
+          done
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.14.0
+      - name: Build production frontend before database changes
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          node -e 'const p = require("./.vercel/project.json"); if (p.settings?.rootDirectory !== "frontend") process.exit(1)'
+          vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Verify Render target
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          TNR_BACKEND_URL: ${{ vars.TNR_BACKEND_URL }}
+        run: python scripts/release_render.py --preflight
+      - name: Refuse a superseded commit
+        run: |
+          latest=$(git ls-remote origin refs/heads/main | cut -f1)
+          test "$latest" = "$GITHUB_SHA" || { echo "A newer main commit exists; release that commit instead."; exit 1; }
+      - name: Migrate Supabase and apply reviewed runtime permission
+        working-directory: backend
+        env:
+          TNR_MIGRATION_DATABASE_URL: ${{ secrets.TNR_MIGRATION_DATABASE_URL }}
+          TNR_SUPABASE_CA_CERT: ${{ secrets.TNR_SUPABASE_CA_CERT }}
+          TNR_SUPABASE_PROJECT_REF: ${{ vars.TNR_SUPABASE_PROJECT_REF }}
+        run: python -m app.release_migrate
+      - name: Deploy exact commit to Render and wait for health
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          TNR_BACKEND_URL: ${{ vars.TNR_BACKEND_URL }}
+        run: python scripts/release_render.py
+      - name: Publish production frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
