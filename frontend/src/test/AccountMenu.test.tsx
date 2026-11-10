@@ -45,6 +45,8 @@ describe('account disclosure', () => {
     await userEvent.tab()
     expect(screen.getByRole('link', { name: 'Privacy e dati personali' })).toHaveFocus()
     await userEvent.tab()
+    expect(screen.getByRole('button', { name: /Versione/ })).toHaveFocus()
+    await userEvent.tab()
     expect(screen.getByRole('button', { name: 'Outside' })).toHaveFocus()
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })

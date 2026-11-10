@@ -4,9 +4,12 @@ import type { AppUser } from './api'
 import { Icon } from './Icon'
 import { ThemeSelector } from './Theme'
 import { LanguageSelector } from './Language'
+import { WhatsNew } from './WhatsNew'
+import { release, shouldShowRelease } from './release'
 
 export function AccountMenu({ user, children }: { user?: AppUser; children?: ReactNode }) {
-  const { t, privacyHref } = useLanguage()
+  const { t, privacyHref, language } = useLanguage()
+  const [showNews, setShowNews] = useState(() => !!user && shouldShowRelease(user.id))
   const [open, setOpen] = useState(false)
   const id = useId()
   const root = useRef<HTMLDivElement>(null)
@@ -70,8 +73,22 @@ export function AccountMenu({ user, children }: { user?: AppUser; children?: Rea
           <LanguageSelector />
           {children && <div className="account-actions">{children}</div>}
           <a href={privacyHref}>{t('Privacy and personal data')}</a>
+          {user && (
+            <button
+              className="release-menu-button"
+              onClick={() => {
+                setOpen(false)
+                trigger.current?.focus()
+                setShowNews(true)
+              }}
+            >
+              {language === 'it' ? 'Versione' : 'Version'} {release.version} ·{' '}
+              {language === 'it' ? 'Novità' : 'What’s new'}
+            </button>
+          )}
         </div>
       )}
+      {user && showNews && <WhatsNew userId={user.id} onClose={() => setShowNews(false)} />}
     </div>
   )
 }
