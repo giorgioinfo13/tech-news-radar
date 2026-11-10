@@ -29,6 +29,52 @@ const saved = {
 }
 
 describe('shared hourly digest', () => {
+  it.each([
+    {
+      language: 'it',
+      help: 'Come funziona la rassegna AI?',
+      explanation:
+        'La rassegna usa fino a 12 articoli delle ultime 24 ore. Le edizioni restano disponibili per 7 giorni.',
+      refresh: 'Aggiorna elenco',
+    },
+    {
+      language: 'en',
+      help: 'How does the AI digest work?',
+      explanation:
+        'The digest uses up to 12 articles from the last 24 hours. Editions are saved for 7 days.',
+      refresh: 'Refresh list',
+    },
+  ])('keeps help collapsed and refresh read-only in $language', async (copy) => {
+    const { state, calls } = mockServer()
+    state.brief.code = 'cached'
+    state.brief.retry_at = '2026-11-10T04:00:00Z'
+    state.brief.briefs = [structuredClone(saved)]
+    open()
+    await screen.findByText(saved.summary)
+    if (copy.language === 'en') {
+      await userEvent.click(screen.getByRole('button', { name: 'Menu account e tema' }))
+      await userEvent.selectOptions(screen.getByLabelText('Lingua'), 'en')
+      await userEvent.keyboard('{Escape}')
+    }
+    const help = screen.getByText(copy.help)
+    const explanation = screen.getByText(copy.explanation)
+    expect(explanation).not.toBeVisible()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    const initialCalls = calls.length
+    await userEvent.click(help)
+    expect(explanation).toBeVisible()
+    await userEvent.click(help)
+    expect(explanation).not.toBeVisible()
+    expect(calls).toHaveLength(initialCalls)
+    const reads = calls.filter((c) => c.path === '/api/briefs/digest').length
+    await userEvent.click(screen.getByRole('button', { name: copy.refresh }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === '/api/briefs/digest')).toHaveLength(reads + 1),
+    )
+    expect(calls.filter((c) => c.method !== 'GET')).toHaveLength(0)
+    expect(screen.getByText(saved.summary)).toBeVisible()
+  })
+
   it('explains pending operator activation in both languages without generating', async () => {
     const { state, calls } = mockServer()
     state.brief.code = 'activation_required'

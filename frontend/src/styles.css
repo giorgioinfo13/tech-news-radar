@@ -1319,15 +1319,35 @@ textarea {
   font: inherit;
 }
 
+.brief-controls {
+  padding: 1rem 1.25rem;
+}
 .brief-controls p {
   max-width: 75ch;
 }
 .brief-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 1rem;
-  margin-block: 1rem;
+  align-items: start;
+  gap: 0.5rem 1.5rem;
+}
+.brief-help {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+.brief-help summary {
+  width: fit-content;
+  min-height: 44px;
+  padding-block: 10px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.brief-help summary:hover {
+  color: var(--accent-hover);
+}
+.brief-help p {
+  margin-top: 0.5rem;
+  color: var(--muted);
 }
 .brief-actions label {
   flex: 1 1 16rem;

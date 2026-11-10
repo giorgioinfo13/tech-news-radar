@@ -40,7 +40,7 @@ export function Briefs() {
   const code = state?.code
   const status =
     code === 'available' || code === 'cached' || code === 'scheduled_only'
-      ? t('Hourly updates are scheduled. Delays or skipped editions are possible.')
+      ? ''
       : code === 'unchanged'
         ? t('No new material for another edition. The latest digest remains available.')
         : code === 'edition_attempted'
@@ -57,21 +57,29 @@ export function Briefs() {
         </div>
       </header>
       <section className="editor-panel brief-controls" aria-label={t('AI digest')}>
-        <p>{t('Last 24 hours · Up to 12 articles · Saved for 7 days')}</p>
-        <p>
-          {t(
-            'Updated at most once an hour when new material is available. Reading or refreshing this page never generates a digest.',
-          )}
-        </p>
         <div className="brief-actions">
           <button disabled={loading} onClick={() => setRevision((v) => v + 1)}>
             <Icon name="refresh" />
             {t('Refresh list')}
           </button>
+          <details className="brief-help">
+            <summary>{t('How does the AI digest work?')}</summary>
+            <p>
+              {t(
+                'The digest uses up to 12 articles from the last 24 hours. Editions are saved for 7 days.',
+              )}
+            </p>
+            <p>
+              {t(
+                'New editions are scheduled at most once an hour when new material is available. They may be delayed or skipped.',
+              )}
+            </p>
+            <p>{t('“Refresh list” reloads saved editions without generating a new digest.')}</p>
+          </details>
         </div>
-        {state && (
+        {state && (status || (state.last_error_code && state.last_error_code !== code)) && (
           <div role="status" aria-live="polite">
-            <p>{status}</p>
+            {status && <p>{status}</p>}
             {state.retry_at && (
               <p>
                 {t('Next availability check')}:{' '}

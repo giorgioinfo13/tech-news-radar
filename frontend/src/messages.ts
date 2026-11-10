@@ -19,10 +19,13 @@ export const italian = {
   'Last 24 hours digest': 'Rassegna delle ultime 24 ore',
   'One shared digest across the catalog, independent of the sources you follow.':
     'Una rassegna condivisa delle notizie del catalogo, indipendente dalle fonti che segui.',
-  'Updated at most once an hour when new material is available. Reading or refreshing this page never generates a digest.':
-    'Aggiornata al massimo una volta all’ora, quando ci sono nuovi contenuti. Leggere o aggiornare questa pagina non genera una rassegna.',
-  'Hourly updates are scheduled. Delays or skipped editions are possible.':
-    'Sono previsti aggiornamenti ogni ora. Le edizioni possono subire ritardi o essere saltate.',
+  'How does the AI digest work?': 'Come funziona la rassegna AI?',
+  'The digest uses up to 12 articles from the last 24 hours. Editions are saved for 7 days.':
+    'La rassegna usa fino a 12 articoli delle ultime 24 ore. Le edizioni restano disponibili per 7 giorni.',
+  'New editions are scheduled at most once an hour when new material is available. They may be delayed or skipped.':
+    'Sono previste nuove edizioni al massimo una volta all’ora, quando ci sono nuovi contenuti. Possono subire ritardi o essere saltate.',
+  '“Refresh list” reloads saved editions without generating a new digest.':
+    '«Aggiorna elenco» ricarica le edizioni salvate senza generare una nuova rassegna.',
   'No new material for another edition. The latest digest remains available.':
     'Non ci sono nuovi contenuti per un’altra edizione. L’ultima rassegna resta disponibile.',
   'This hour’s attempt is complete. No retry is scheduled for this edition.':
@@ -48,8 +51,6 @@ export const italian = {
     'La generazione usa il budget condiviso del progetto per l’API Gemini a pagamento. Leggere le sintesi salvate non usa l’AI.',
   'Based on RSS titles and descriptions, not full articles. The Italian summary may contain errors: check the sources.':
     'Basata su titoli e descrizioni RSS, non sugli articoli completi. La sintesi in italiano può contenere errori: verifica le fonti.',
-  'Last 24 hours · Up to 12 articles · Saved for 7 days':
-    'Ultime 24 ore · Massimo 12 articoli · Conservazione per 7 giorni',
   'No saved briefs for this category.': 'Nessuna sintesi salvata per questa categoria.',
   'No news in the last 24 hours.': 'Nessuna notizia nelle ultime 24 ore.',
   'Not enough RSS descriptions for a reliable brief. Read the available articles below.':
