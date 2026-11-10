@@ -27,6 +27,7 @@ playwright-report/
 test-results/
 
 # Local data and SQLite sidecars
+personal/
 backend/data/
 *.db
 *.db-*
