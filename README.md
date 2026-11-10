@@ -30,6 +30,10 @@ Rispetta limiti condivisi e aggiorna l’elenco senza cambiare filtri o letture.
 Con **Proponi una fonte** i lettori suggeriscono nuove fonti e l’amministratore
 le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architecture.md#source-proposals).
 
+La sezione **Utilizzo lettori** in **Inviti**, implementata in locale e da rilasciare,
+mostra solo all’amministratore gli ultimi accessi rilevati e i conteggi di fonti e letture.
+Le rilevazioni sono indicative e non raccolgono IP né uno storico della navigazione.
+
 **Rassegna AI** è una funzione sperimentale, sviluppata in locale e non ancora attiva.
 Prevede una rassegna condivisa delle ultime 24 ore, aggiornata al massimo ogni ora
 quando ci sono nuovi contenuti e Gemini 3.1 Flash-Lite è disponibile.

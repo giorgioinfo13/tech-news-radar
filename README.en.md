@@ -30,6 +30,10 @@ It respects shared limits and reloads the list without changing filters or read 
 With **Suggest a source**, readers suggest new sources and the administrator
 approves or rejects them. See [how source proposals work](docs/architecture.md#source-proposals).
 
+The **Reader usage** section in **Invitations**, implemented locally and pending release,
+shows only administrators the latest recorded access and source and read counts.
+These approximate measurements collect no IP addresses or browsing history.
+
 **AI digest** is an experimental feature, implemented locally and not yet active.
 It provides one shared digest of the last 24 hours, updated at most hourly
 when new material and Gemini 3.1 Flash-Lite are available.

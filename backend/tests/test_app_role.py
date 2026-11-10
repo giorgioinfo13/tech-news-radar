@@ -34,6 +34,7 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             created = True
             raw.execute((SQL_ROOT / "enable_source_proposals.sql").read_text())
             raw.execute((SQL_ROOT / "enable_ai_briefs.sql").read_text())
+            raw.execute((SQL_ROOT / "enable_reader_usage.sql").read_text())
             raw.execute((SQL_ROOT / "check_app_role.sql").read_text())
             raw.execute("ALTER ROLE tnr_app PASSWORD 'tnr-role-test-only'")
         runtime = create_database_engine(
@@ -73,6 +74,13 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                 VerifiedGoogleIdentity(),
             )
             assert session.get(AppUser, user_id).role == "reader"
+        with runtime.begin() as connection:
+            assert (
+                connection.exec_driver_sql(
+                    "UPDATE tnr.app_users SET last_seen_at = now() WHERE active"
+                ).rowcount
+                >= 1
+            )
         # Approval must work without UPDATE on app_users or DELETE on proposals.
         with Session(runtime) as session:
             proposal = create_proposal(
@@ -168,6 +176,9 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             session.flush()
         for sql in (
             "UPDATE tnr.app_users SET active = true",
+            "UPDATE tnr.app_users SET role = 'admin'",
+            "UPDATE tnr.app_users SET supabase_subject = gen_random_uuid()",
+            "UPDATE tnr.app_users SET display_name = 'Changed'",
             "DELETE FROM tnr.app_users",
             "SELECT * FROM tnr.alembic_version",
             "CREATE TABLE tnr.forbidden (id integer)",

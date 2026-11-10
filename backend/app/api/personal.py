@@ -1,7 +1,11 @@
 """Personal endpoints always scope writes to the server-resolved user."""
 
+import logging
+from datetime import timedelta
+
 from fastapi import APIRouter, Response
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from app.api.dependencies import (
@@ -12,16 +16,40 @@ from app.api.dependencies import (
     get_or_404,
     paginate,
 )
-from app.db import insert_once
-from app.models import Source, Subscription
+from app.db import insert_once, utc_now
+from app.models import AppUser, Source, Subscription
 from app.schemas import Page, SubscriptionRead, UserRead
 
 router = APIRouter(tags=["personal"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/me", response_model=UserRead)
-def current_user(user: UserDep):
-    return user
+def current_user(user: UserDep, session: SessionDep):
+    result = UserRead.model_validate(user)
+    user_id = user.id
+    now = utc_now()
+    cutoff = now - timedelta(minutes=15)
+    if user.last_seen_at is None or user.last_seen_at <= cutoff:
+        # Release the authentication read snapshot before this independent write.
+        session.rollback()
+        try:
+            session.execute(
+                update(AppUser)
+                .where(
+                    AppUser.id == user_id,
+                    AppUser.active.is_(True),
+                    or_(AppUser.last_seen_at.is_(None), AppUser.last_seen_at <= cutoff),
+                )
+                .values(last_seen_at=now)
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+        except SQLAlchemyError:
+            # Optional telemetry must not prevent an already authorized app opening.
+            session.rollback()
+            logger.warning("Reader usage timestamp could not be saved")
+    return result
 
 
 @router.get("/subscriptions", response_model=Page[SubscriptionRead])

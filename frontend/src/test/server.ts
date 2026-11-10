@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { ReaderUsage } from '../pages/ReaderUsage'
 import type {
   AppUser,
   BriefState,
@@ -64,6 +65,7 @@ export function mockServer() {
     failRead: false,
     invitations: [] as ReaderInvitation[],
     failInvitation: 0,
+    readerUsage: [] as ReaderUsage[],
     proposals: [] as SourceProposal[],
     failProposal: 0,
     brief: {
@@ -174,6 +176,7 @@ export function mockServer() {
             (state.user.role === 'admin' || p.user.id === state.user.id),
         )
       else if (path === '/invitations') items = state.invitations
+      else if (path === '/usage/readers') items = state.readerUsage
       else if (path === '/sources') items = state.sources
       else if (path.endsWith('/runs')) items = state.runs.filter((run) => run.source_id === id)
       else if (path === '/articles') {

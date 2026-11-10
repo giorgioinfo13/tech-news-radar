@@ -31,7 +31,7 @@ from app.models import (
     Subscription,
 )
 
-REVISION = "0011"
+REVISION = "0012"
 TABLES = tuple(
     model.__table__
     for model in (
@@ -182,6 +182,7 @@ def check_seed(connection: Connection) -> None:
             "display_name": "Local owner",
             "role": "admin",
             "active": True,
+            "last_seen_at": None,
         }
         or categories != SEED_CATEGORIES
         or ai_control != [expected_control]

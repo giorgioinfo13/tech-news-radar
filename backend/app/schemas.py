@@ -163,6 +163,16 @@ class UserRead(OutputModel):
     role: Literal["admin", "reader"]
 
 
+class ReaderUsageRead(OutputModel):
+    id: UUID
+    display_name: str
+    created_at: datetime
+    last_seen_at: datetime | None
+    followed_sources: int
+    read_articles: int
+    last_read_at: datetime | None
+
+
 class SubscriptionRead(OutputModel):
     source_id: int
     source: SourceRead

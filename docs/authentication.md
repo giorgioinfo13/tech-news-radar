@@ -150,7 +150,8 @@ Do not paste access tokens or private identity lists into Git, issue reports, or
 Run the following commands from `backend/` against the intended application database.
 Replace the uppercase placeholders with verified UUIDs. These examples are not ready to run.
 The commands use `TNR_MIGRATION_DATABASE_URL` when set, otherwise `TNR_DATABASE_URL`.
-They need privileged write access to `app_users`. The runtime role cannot update or delete profiles.
+They need privileged write access to `app_users`. The runtime role can update only `last_seen_at`, not identity or access fields.
+It cannot delete profiles.
 Its PostgreSQL insert permission is limited by the reader-only RLS policy from migration `0005`.
 An operator command changes its configured database, so remote execution requires explicit authorization.
 

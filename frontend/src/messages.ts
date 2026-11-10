@@ -1,5 +1,18 @@
 // English message keys keep both languages complete at compile time.
 export const italian = {
+  'Reader usage': 'Utilizzo lettori',
+  'Refresh usage': 'Aggiorna utilizzo',
+  'App access checks are approximate and can include automatic session renewals. No history before activation is available. This does not show who is online.':
+    'Gli accessi rilevati sono indicativi e possono includere rinnovi automatici della sessione. Lo storico precedente all’attivazione non è disponibile. Non indicano chi è online.',
+  'Authorized: {total} · Seen in 7 days: {week} · Seen in 30 days: {month} · Not yet recorded: {unknown}':
+    'Autorizzati: {total} · Rilevati in 7 giorni: {week} · Rilevati in 30 giorni: {month} · Non ancora rilevati: {unknown}',
+  'No authorized readers yet.': 'Non ci sono ancora lettori autorizzati.',
+  'Last recorded access': 'Ultimo accesso rilevato',
+  'Not yet recorded': 'Non ancora rilevato',
+  'Profile created': 'Profilo creato',
+  'Followed sources: {sources} · Articles currently marked read: {articles}':
+    'Fonti seguite: {sources} · Articoli attualmente segnati come letti: {articles}',
+  'Latest saved read mark': 'Ultimo contrassegno di lettura conservato',
   'Discussion on Hacker News': 'Discussione su Hacker News',
   'Refresh sources': 'Aggiorna fonti',
   'Refreshing sources…': 'Aggiornamento fonti…',

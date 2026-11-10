@@ -44,7 +44,7 @@ cd backend
 
 With the default configuration, this creates `backend/data/news.db` and eight
 editable categories. No sources or articles are imported. The expected revision is
-`0011 (head)`, with no pending schema changes. Revision `0011` adds a separate article discussion URL. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
+`0012 (head)`, with no pending schema changes. Revision `0012` adds the latest app access check. Revision `0011` adds a separate article discussion URL. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
 It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
 Revision `0004` adds explicit Supabase identity links without changing existing profiles or personal data.
 Revision `0005` adds administrator email invitations. It preserves existing profiles, subscriptions, and read states.

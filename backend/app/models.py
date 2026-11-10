@@ -233,6 +233,8 @@ class CollectionRun(Base):
 class AppUser(Base):
     __tablename__ = "app_users"
 
+    last_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     supabase_subject: Mapped[UUID | None] = mapped_column(Uuid, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(120))

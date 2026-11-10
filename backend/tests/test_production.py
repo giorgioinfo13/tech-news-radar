@@ -64,7 +64,12 @@ async def test_production_health_and_denials_need_no_database_or_cors(monkeypatc
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="https://api.test"
         ) as client:
-            for path, code in (("/api/health", 200), ("/api/me", 401), ("/docs", 404)):
+            for path, code in (
+                ("/api/health", 200),
+                ("/api/me", 401),
+                ("/api/usage/readers", 401),
+                ("/docs", 404),
+            ):
                 response = await client.get(path, headers={"Origin": "https://untrusted.test"})
                 assert response.status_code == code
                 assert response.headers["Cache-Control"] == "private, no-store"

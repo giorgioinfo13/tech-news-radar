@@ -18,6 +18,7 @@ from app.api.invitations import router as invitations_router
 from app.api.personal import router as personal_router
 from app.api.proposals import router as proposals_router
 from app.api.sources import router as sources_router
+from app.api.usage import router as usage_router
 from app.auth import SupabaseVerifier
 from app.collection.scheduler import CollectionScheduler
 from app.collection.service import Collector
@@ -98,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         invitations_router,
         proposals_router,
         briefs_router,
+        usage_router,
     ):
         app.include_router(router, prefix="/api", dependencies=[Depends(get_current_user)])
     return app

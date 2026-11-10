@@ -51,6 +51,7 @@ def snapshot(tmp_path):
                 display_name="Owner",
                 supabase_subject=uuid4(),
                 created_at=STAMP,
+                last_seen_at=STAMP,
             )
         )
         connection.execute(

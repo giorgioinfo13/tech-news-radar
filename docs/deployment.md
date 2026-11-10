@@ -5,6 +5,24 @@ role, service, domain, or account setting is assumed to exist. Use the existing
 Supabase Auth project to retain user UUIDs. Keep the current SQLite database and
 private local `.env` unchanged until the separate data-transfer phase is approved.
 
+## Reader usage release
+
+Reader usage is implemented locally and awaits release. Keep the frontend push pending until the database and backend are ready.
+During the authorized release, use the committed checkout and operator connection to apply Alembic revision `0012`.
+Then run `backend/sql/enable_reader_usage.sql` with the operator connection.
+This grants UPDATE only on `app_users.last_seen_at`. Identity, role and activation fields remain protected.
+Deploy the backend commit manually, then verify `/api/me` and the administrator-only `/api/usage/readers` endpoint.
+If Render requires a remote commit first, disable Vercel builds before the coordinated push.
+Publish the frontend only after backend verification. Keep schema migration commands out of API startup.
+For rollback, restore the previous application versions before removing revision `0012`.
+
+The feature stores one timestamp per profile, without event history or IP addresses.
+`/api/me` updates it at most once per 15 minutes after authorization. Failed telemetry writes do not block access.
+Automatic session renewals can update this value. It does not measure online presence or reading time.
+The summary includes only currently authorized readers, excluding administrators and revoked profiles.
+Read counts describe retained read marks, not lifetime reading totals. Profile creation is not necessarily the first visit.
+Null timestamps mean no access recorded since activation. The private schema and existing database pool remain in use.
+
 ## Architecture and boundaries
 
 The browser loads the Vite build from Vercel. Requests to `/api/*` go through a
@@ -121,7 +139,7 @@ of dropping/recreating it. Run `backend/sql/check_app_role.sql` and verify:
 - Login is true; superuser, database/role creation, replication, bypass-RLS and
   inheritance flags are false. There are no memberships permitting `SET ROLE`.
 - Schema USAGE is true, CREATE is false; the role owns no `tnr` objects.
-- `app_users` permits SELECT and reader-only INSERT, constrained by the migration `0005` RLS policies.
+- `app_users` permits SELECT and reader-only INSERT, plus UPDATE on `last_seen_at` only after revision `0012` and its explicit grant.
   Seven data tables permit SELECT/INSERT/UPDATE/DELETE. `alembic_version` has no runtime access. Sequences permit USAGE only.
 - `anon`, `authenticated` and `service_role` have no `tnr` schema/table access.
 - `tnr` is not in Data API exposed schemas. Disable the Data API if unused by
@@ -665,7 +683,8 @@ Provisioning roles, passwords, grants, and Data API settings remains an explicit
 Do not run the application as the supplied Supabase `postgres` owner in a public deployment.
 
 RLS on `app_users` permits runtime reads and inserts of active readers with a matching consumed invitation.
-The runtime role cannot insert administrators or update/delete profiles. It cannot change these policies.
+The runtime role cannot insert administrators or delete profiles. It can update only `last_seen_at`, not identity or access fields.
+It cannot change these policies.
 These policies do not isolate individual users. API authorization remains the per-user access boundary.
 For an existing runtime role, review `backend/sql/enable_reader_invitations.sql` after migration `0005`.
 Both operations require separate authorization for a remote database.

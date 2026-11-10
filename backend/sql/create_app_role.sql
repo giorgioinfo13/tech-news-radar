@@ -22,6 +22,7 @@ END
 $setup$;
 GRANT USAGE ON SCHEMA tnr TO tnr_app;
 GRANT SELECT, INSERT ON tnr.app_users TO tnr_app;
+GRANT UPDATE (last_seen_at) ON tnr.app_users TO tnr_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     tnr.categories, tnr.sources, tnr.articles, tnr.collection_runs,
     tnr.subscriptions, tnr.article_read_states, tnr.reader_invitations TO tnr_app;

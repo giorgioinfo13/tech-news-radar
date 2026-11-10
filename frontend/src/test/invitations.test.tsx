@@ -10,6 +10,29 @@ function open() {
 }
 
 describe('admin invitations', () => {
+  it('shows reader usage and refreshes the current counts', async () => {
+    const { state } = mockServer()
+    state.readerUsage = [
+      {
+        id: 'reader',
+        display_name: 'Usage reader',
+        created_at: '2026-01-01T00:00:00Z',
+        last_seen_at: new Date().toISOString(),
+        followed_sources: 2,
+        read_articles: 3,
+        last_read_at: null,
+      },
+    ]
+    open()
+    await screen.findByText('Usage reader')
+    expect(screen.getByText(/Autorizzati: 1 · Rilevati in 7 giorni: 1/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Fonti seguite: 2 · Articoli attualmente segnati come letti: 3/),
+    ).toBeInTheDocument()
+    state.readerUsage = []
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Aggiorna utilizzo' }))
+    await screen.findByText('Non ci sono ancora lettori autorizzati.')
+  })
   it('creates and cancels a pending invitation before any sources are selected', async () => {
     const { state, calls } = mockServer()
     state.subscriptions = []
@@ -82,5 +105,6 @@ describe('admin invitations', () => {
       expect(calls.some((call) => call.path.startsWith('/api/articles'))).toBe(true),
     )
     expect(calls.some((call) => call.path.startsWith('/api/invitations'))).toBe(false)
+    expect(calls.some((call) => call.path.startsWith('/api/usage'))).toBe(false)
   })
 })

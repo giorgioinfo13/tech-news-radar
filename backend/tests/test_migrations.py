@@ -2,13 +2,12 @@ from io import StringIO
 from pathlib import Path
 
 from alembic import command
-from sqlalchemy import MetaData, Table, insert, inspect, select
+from sqlalchemy import MetaData, Table, insert, inspect, select, update
 from sqlalchemy.orm import Session
 
 from app.db import resolve_database_url
 from app.models import (
     LOCAL_OWNER_ID,
-    AppUser,
     Article,
     ArticleReadState,
     Category,
@@ -110,7 +109,10 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
 ):
     command.downgrade(migration_config, "0004")
     with Session(database) as session, session.begin():
-        session.get(AppUser, LOCAL_OWNER_ID).display_name = "Existing owner"
+        users = Table("app_users", MetaData(), autoload_with=database)
+        session.execute(
+            update(users).where(users.c.id == LOCAL_OWNER_ID).values(display_name="Existing owner")
+        )
         source_id = session.scalar(
             insert(Source)
             .values(name="Preserved source", feed_url="https://example.org/preserved")

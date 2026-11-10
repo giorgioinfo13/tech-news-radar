@@ -216,6 +216,8 @@ def test_check_is_enforced_read_only_and_preserves_every_target_row(
     "change",
     [
         "GRANT UPDATE ON tnr.app_users TO tnr_app",
+        "GRANT UPDATE (display_name) ON tnr.app_users TO tnr_app",
+        "REVOKE UPDATE (last_seen_at) ON tnr.app_users FROM tnr_app",
         "ALTER TABLE tnr.app_users DISABLE ROW LEVEL SECURITY",
         "DROP POLICY app_users_insert_reader ON tnr.app_users",
         "CREATE POLICY unsafe_insert ON tnr.app_users FOR INSERT WITH CHECK (true)",

@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import transfer
 from app.db import create_database_engine, resolve_database_url
-from app.models import LOCAL_OWNER_ID
+from app.models import LOCAL_OWNER_ID, AppUser
 from app.transfer import TransferError
 
 
@@ -152,8 +152,15 @@ def check_privileges(connection) -> None:
         FROM pg_class c WHERE c.oid='tnr.app_users'::regclass
     """)
     ).one()
-    if not guards[0] or guards[1] == "tnr_app" or guards[2:] != (2, True):
+    if not guards[0] or guards[1] == "tnr_app" or guards[2:] != (3, True):
         raise TransferError("Reader provisioning requires the migrated app_users RLS policies.")
+    for column in AppUser.__table__.columns:
+        actual = connection.execute(
+            text("SELECT has_column_privilege('tnr_app', 'tnr.app_users', :column, 'UPDATE')"),
+            {"column": column.name},
+        ).scalar_one()
+        if actual != (column.name == "last_seen_at"):
+            raise TransferError("Only the usage timestamp may be updated by the runtime role.")
     for name in [*(table.name for table in transfer.TABLES), "alembic_version"]:
         allowed = (
             {"SELECT", "INSERT"}

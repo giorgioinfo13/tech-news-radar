@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError, errorMessage, formatDate, mutate, type ReaderInvitation } from '../api'
 import { Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
+import { ReaderUsagePanel } from './ReaderUsage'
 
 export function Invitations() {
   const { t, locale } = useLanguage()
@@ -70,6 +71,7 @@ export function Invitations() {
           <p>{t('Choose who can join your reading space.')}</p>
         </div>
       </header>
+      <ReaderUsagePanel />
       <section className="editor-panel" aria-labelledby="invitation-title">
         <h2 id="invitation-title">{t('Invite a reader')}</h2>
         <p className="form-hint" id="invitation-hint">

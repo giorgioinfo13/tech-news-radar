@@ -52,7 +52,13 @@ WHERE r.rolname IN ('anon', 'authenticated', 'service_role') AND n.nspname = 'tn
   AND has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER');
 -- The last query must return no rows. Check Data API exposed schemas separately.
 
--- Both policies and relrowsecurity=true are required for runtime reader provisioning.
+-- Only last_seen_at may be updated. All identity/access columns must return false.
+SELECT column_name,
+       has_column_privilege('tnr_app', 'tnr.app_users', column_name, 'UPDATE') AS upd
+FROM information_schema.columns
+WHERE table_schema = 'tnr' AND table_name = 'app_users';
+
+-- Three policies and relrowsecurity=true are required for provisioning and usage.
 SELECT relrowsecurity FROM pg_class WHERE oid='tnr.app_users'::regclass;
 SELECT policyname, cmd, qual, with_check FROM pg_policies
 WHERE schemaname='tnr' AND tablename='app_users';
