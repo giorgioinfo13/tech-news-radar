@@ -5,43 +5,69 @@
 [![Italiano](https://img.shields.io/badge/Lingua-Italiano-475569)](README.md)
 [![English](https://img.shields.io/badge/Language-English-2563eb)](README.en.md)
 
-The news that interests you, gathered in one place.
+A personal reader that brings technology, artificial intelligence, software
+development, and economics news into one place.
 
-Tech News Radar collects news about technology, artificial intelligence,
-software development, and economics from selected sources. It lets you search
-and filter articles, track what you have read, and open the original content.
+Tech News Radar imports RSS/Atom feeds, lets readers search and filter articles,
+manages sources and categories, and keeps per-user preferences and read states.
+It includes a shared AI digest of the previous 24 hours, with links to the
+sources. Gemini generation is active in the published instance; new
+installations keep it disabled until explicitly configured.
 
-The goal is a simple online space, initially designed for a small group of
-friends with restricted access. An administrator curates the source catalog
-and categories; each reader chooses which sources to follow and keeps their
-own reading status.
+The responsive interface is available in Italian and English. Local development
+uses SQLite and requires no cloud account; multiuser authentication and public
+deployment are separate configurations.
 
-**The project is in development.** The reader is published with Google sign-in
-restricted to approved users and personal source selection. Local development
-remains available; new features require a coordinated release.
+## Local quickstart
 
-Italian is the default interface language. In the top-right menu, select
-**Lingua → English**. The browser keeps this preference after sign-out.
-Articles and source names keep their original language.
+Requirements: Python 3.13, Node.js 24, and npm.
 
-**Refresh sources**, implemented locally and pending release, checks permitted sources from **News**, including with a downward pull on mobile.
-It respects shared limits and reloads the list without changing filters or read states. It does not generate AI digests.
+```sh
+git clone https://github.com/giorgioinfo13/tech-news-radar.git
+cd tech-news-radar
+cp .env.example .env
+python3 -m venv backend/.venv
+backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt
+npm ci --prefix frontend
+cd backend
+.venv/bin/alembic upgrade head
+cd ..
+```
 
-With **Suggest a source**, readers suggest new sources and the administrator
-approves or rejects them. See [how source proposals work](docs/architecture.md#source-proposals).
+To access data without cloud services, enable these settings in your local
+`.env`:
 
-The **Reader usage** section in **Invitations**, implemented locally and pending release,
-shows only administrators the latest recorded access and source and read counts.
-These approximate measurements collect no IP addresses or browsing history.
+```dotenv
+TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
+VITE_LOCAL_MODE=true
+```
 
-**AI digest** is an experimental feature, implemented locally and not yet active.
-It provides one shared digest of the last 24 hours, updated at most hourly
-when new material and Gemini 3.1 Flash-Lite are available.
-It is prepared for the direct paid Google Gemini API, with a shared
-prudential local budget of USD 2.00 per month. It limits application reservations
-without guaranteeing the Google invoice total. Generation remains disabled by default.
-See [behavior and limits](docs/ai-briefs.md).
+Then start the backend from the repository root:
 
-Documentation: [Architecture and features](docs/architecture.md) · [Development and tests](docs/development.md) · [Authentication and permissions](docs/authentication.md) · [Deployment and database](docs/deployment.md) · [AI digest and budget](docs/ai-briefs.md)
+```sh
+cd backend
+.venv/bin/python -m uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
 
-Distributed under the [MIT License](LICENSE). Third-party resources retain their respective licenses.
+Start the frontend in a second terminal:
+
+```sh
+npm run dev --prefix frontend
+```
+
+Open <http://127.0.0.1:5173>. The initial database contains no sources; add them
+from the administration interface.
+
+## Forks and deployment
+
+The quickstart also works from a fork. Never commit the `.env` file. Collection
+and release workflows are tied to the upstream repository; in a fork, adapt
+their guards and configure your own variables, secrets, and services. See the
+[deployment guide](docs/deployment.md) for a public installation.
+
+Documentation: [development and tests](docs/development.md) ·
+[architecture](docs/architecture.md) ·
+[AI digest](docs/ai-briefs.md)
+
+Distributed under the [MIT License](LICENSE). Third-party resources retain their
+respective licenses.

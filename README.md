@@ -5,43 +5,70 @@
 [![Italiano](https://img.shields.io/badge/Lingua-Italiano-2563eb)](README.md)
 [![English](https://img.shields.io/badge/Language-English-475569)](README.en.md)
 
-Le notizie che ti interessano, raccolte in un unico posto.
+Un lettore personale per raccogliere in un unico posto notizie su tecnologia,
+intelligenza artificiale, sviluppo software ed economia.
 
-Tech News Radar raccoglie notizie su tecnologia, intelligenza artificiale,
-sviluppo software ed economia dalle fonti selezionate. Permette di cercare e
-filtrare gli articoli, tenere traccia delle letture e aprire i contenuti originali.
+Tech News Radar importa feed RSS/Atom, permette di cercare e filtrare gli
+articoli, gestisce fonti e categorie e conserva preferenze e stato di lettura
+per ogni utente. Include una rassegna AI condivisa delle ultime 24 ore, con
+collegamenti alle fonti. La generazione tramite Gemini è attiva nell’istanza
+pubblicata; nelle nuove installazioni resta disattivata finché non viene
+configurata esplicitamente.
 
-L’obiettivo è uno spazio online semplice, pensato inizialmente per un piccolo
-gruppo di amici con accesso riservato. Un amministratore cura il catalogo delle
-fonti e le categorie; ogni lettore sceglie quali fonti seguire e mantiene il
-proprio stato di lettura.
+L’interfaccia responsive è disponibile in italiano e inglese. In locale usa
+SQLite e non richiede account cloud; autenticazione multiutente e distribuzione
+pubblica sono configurazioni separate.
 
-**Il progetto è in sviluppo.** Il lettore è pubblicato con accesso Google riservato
-agli utenti approvati e scelta delle fonti personali. Rimane disponibile anche
-lo sviluppo locale; le nuove funzioni richiedono un rilascio coordinato.
+## Quickstart locale
 
-L’italiano è la lingua predefinita. Nel menu in alto a destra puoi scegliere
-**Lingua → English**; la preferenza rimane nel browser anche dopo il logout.
-Articoli e nomi delle fonti mantengono la lingua originale.
+Requisiti: Python 3.13, Node.js 24 e npm.
 
-**Aggiorna fonti**, implementato in locale e da rilasciare, controlla le fonti consentite dalla pagina **Notizie**, anche con trascinamento verso il basso su mobile.
-Rispetta limiti condivisi e aggiorna l’elenco senza cambiare filtri o letture. Non genera rassegne AI.
+```sh
+git clone https://github.com/giorgioinfo13/tech-news-radar.git
+cd tech-news-radar
+cp .env.example .env
+python3 -m venv backend/.venv
+backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt
+npm ci --prefix frontend
+cd backend
+.venv/bin/alembic upgrade head
+cd ..
+```
 
-Con **Proponi una fonte** i lettori suggeriscono nuove fonti e l’amministratore
-le approva o rifiuta. Consulta il [funzionamento delle proposte](docs/architecture.md#source-proposals).
+Per accedere ai dati senza servizi cloud, abilita nell’`.env` locale:
 
-La sezione **Utilizzo lettori** in **Inviti**, implementata in locale e da rilasciare,
-mostra solo all’amministratore gli ultimi accessi rilevati e i conteggi di fonti e letture.
-Le rilevazioni sono indicative e non raccolgono IP né uno storico della navigazione.
+```dotenv
+TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
+VITE_LOCAL_MODE=true
+```
 
-**Rassegna AI** è una funzione sperimentale, sviluppata in locale e non ancora attiva.
-Prevede una rassegna condivisa delle ultime 24 ore, aggiornata al massimo ogni ora
-quando ci sono nuovi contenuti e Gemini 3.1 Flash-Lite è disponibile.
-È predisposta per l’API Google Gemini diretta, a pagamento, con budget locale
-prudenziale condiviso di 2,00 USD al mese, che limita le prenotazioni dell’app
-senza garantire il totale della fattura Google. La generazione resta disattivata per impostazione predefinita.
-Consulta [comportamento e limiti](docs/ai-briefs.md).
+Avvia quindi il backend dalla radice del repository:
 
-Documentazione: [Architettura e funzionalità](docs/architecture.md) · [Sviluppo e test](docs/development.md) · [Autenticazione e permessi](docs/authentication.md) · [Distribuzione e database](docs/deployment.md) · [Rassegna AI e budget](docs/ai-briefs.md)
+```sh
+cd backend
+.venv/bin/python -m uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
 
-Distribuito con [licenza MIT](LICENSE). Le risorse di terze parti mantengono le rispettive licenze.
+In un secondo terminale avvia il frontend:
+
+```sh
+npm run dev --prefix frontend
+```
+
+Apri <http://127.0.0.1:5173>. Il database iniziale non contiene fonti: puoi
+aggiungerle dall’interfaccia di amministrazione.
+
+## Fork e distribuzione
+
+Il quickstart funziona anche da una fork. Non committare mai il file `.env`.
+I workflow di raccolta e rilascio sono legati al repository originario: in una
+fork, adatta le guardie e configura variabili, segreti e servizi propri. Per una
+distribuzione pubblica consulta la
+[guida alla distribuzione](docs/deployment.md).
+
+Documentazione: [sviluppo e test](docs/development.md) ·
+[architettura](docs/architecture.md) ·
+[rassegna AI](docs/ai-briefs.md)
+
+Distribuito con [licenza MIT](LICENSE). Le risorse di terze parti mantengono le
+rispettive licenze.
