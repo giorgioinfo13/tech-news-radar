@@ -1,9 +1,7 @@
 # Copy this file verbatim to .github/workflows/release.yml using the GitHub editor.
-name: Release production
+name: Release full
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
