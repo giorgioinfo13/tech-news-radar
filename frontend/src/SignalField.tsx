@@ -40,6 +40,16 @@ export function SignalField() {
     function paint(signal: Signal) {
       let x = signal.baseX + signal.x
       let y = signal.baseY + signal.y
+      if (width <= 440) {
+        // Keep touch waves inside their arc's band, clear of both the logo and the edges.
+        x = Math.max(12, Math.min(width - 12, x))
+        y =
+          signal.baseY < height / 2
+            ? Math.max(12, Math.min((height - logoHeight) / 2 - 16, y))
+            : Math.min(height - 12, Math.max((height + logoHeight) / 2 + 16, y))
+        signal.element.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) translate(-50%, -50%)`
+        return
+      }
       const dx = x - width / 2
       const dy = y - height / 2
       const radiusX = logoWidth / 2 + 24
@@ -83,9 +93,54 @@ export function SignalField() {
       logoWidth = image.offsetWidth
       logoHeight = image.offsetHeight
       signals = []
-      const columns = width < 400 ? 11 : 23
-      const rows = 11
       const fragment = document.createDocumentFragment()
+      function addSignal(
+        baseX: number,
+        baseY: number,
+        index: number,
+        row: number,
+        opacity: number,
+      ) {
+        const element = document.createElement('span')
+        element.className = 'signal-field-glyph'
+        element.textContent = symbols[(index * 7 + row * 5) % symbols.length]
+        element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
+        element.style.opacity = String(opacity)
+        const signal = { element, baseX, baseY, x: 0, y: 0, velocityX: 0, velocityY: 0 }
+        signals.push(signal)
+        fragment.append(element)
+        paint(signal)
+      }
+
+      if (width <= 440) {
+        // Fill the available bands instead of discarding a grid behind the wider mobile logo.
+        const innerTop = Math.max(20, (height - logoHeight) / 2 - 36)
+        const outerTop = Math.max(16, innerTop - 26)
+        const columns = width < 300 ? 7 : 8
+        let index = 0
+        for (let arc = 0; arc < 2; arc++) {
+          for (let row = 0; row < 2; row++) {
+            const count = columns + row
+            for (let column = 0; column < count; column++) {
+              const nx = (2 * column) / (count - 1) - 1
+              const baseX = 20 + (column * (width - 40)) / (count - 1)
+              const top = (row === 0 ? outerTop : innerTop) + 18 * nx * nx
+              addSignal(
+                baseX,
+                arc === 0 ? top : height - top,
+                index++,
+                row,
+                0.8 - 0.16 * Math.abs(nx),
+              )
+            }
+          }
+        }
+        layer.replaceChildren(fragment)
+        return
+      }
+
+      const columns = 23
+      const rows = 11
       for (let row = 0; row < rows; row++) {
         for (let column = 0; column < columns; column++) {
           const nx = (column - (columns - 1) / 2) / ((columns - 1) / 2)
@@ -102,15 +157,13 @@ export function SignalField() {
           )
             continue
           const index = row * columns + column
-          const element = document.createElement('span')
-          element.className = 'signal-field-glyph'
-          element.textContent = symbols[(index * 7 + row * 5) % symbols.length]
-          element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
-          element.style.opacity = String(0.38 + 0.5 * (1 - Math.min(1, (nx * nx + ny * ny) / 2)))
-          const signal = { element, baseX, baseY, x: 0, y: 0, velocityX: 0, velocityY: 0 }
-          signals.push(signal)
-          fragment.append(element)
-          paint(signal)
+          addSignal(
+            baseX,
+            baseY,
+            index,
+            row,
+            0.38 + 0.5 * (1 - Math.min(1, (nx * nx + ny * ny) / 2)),
+          )
         }
       }
       layer.replaceChildren(fragment)

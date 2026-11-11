@@ -8,11 +8,17 @@ let frames: Map<number, FrameRequestCallback>
 let motion: MediaQueryList
 let motionListeners: Set<() => void>
 let fieldWidth: number
+let fieldHeight: number
+let logoWidth: number
+let logoHeight: number
 
 beforeEach(() => {
   frames = new Map()
   motionListeners = new Set()
   fieldWidth = 680
+  fieldHeight = 330
+  logoWidth = 260
+  logoHeight = 111
   let frameId = 0
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     frames.set(++frameId, callback)
@@ -41,10 +47,10 @@ beforeEach(() => {
     },
   )
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-    () => ({ left: 0, top: 0, width: fieldWidth, height: 330 }) as DOMRect,
+    () => ({ left: 0, top: 0, width: fieldWidth, height: fieldHeight }) as DOMRect,
   )
-  vi.spyOn(HTMLImageElement.prototype, 'offsetWidth', 'get').mockReturnValue(260)
-  vi.spyOn(HTMLImageElement.prototype, 'offsetHeight', 'get').mockReturnValue(111)
+  vi.spyOn(HTMLImageElement.prototype, 'offsetWidth', 'get').mockImplementation(() => logoWidth)
+  vi.spyOn(HTMLImageElement.prototype, 'offsetHeight', 'get').mockImplementation(() => logoHeight)
 })
 
 function nextFrame(time: number) {
@@ -73,6 +79,48 @@ function open() {
 }
 
 describe('interactive welcome signals', () => {
+  it.each([265, 350, 390, 440])(
+    'keeps two populated arcs clear of the large logo at %ipx',
+    (width) => {
+      fieldWidth = width
+      fieldHeight = 310
+      logoWidth = Math.min(320, width * 0.88)
+      logoHeight = (logoWidth * 280) / 612
+      const { field } = open()
+      const points = positions(field).map((transform) => {
+        const [, x, y] = transform.match(/translate\(([\d.-]+)px, ([\d.-]+)px\)/)!
+        return { x: Number(x), y: Number(y) }
+      })
+      expect(points.filter(({ y }) => y < fieldHeight / 2).length).toBeGreaterThanOrEqual(15)
+      expect(points.filter(({ y }) => y > fieldHeight / 2).length).toBeGreaterThanOrEqual(15)
+      for (const point of points) {
+        expect(point.x).toBeGreaterThanOrEqual(8)
+        expect(point.x).toBeLessThanOrEqual(width - 8)
+        expect(point.y).toBeGreaterThanOrEqual(8)
+        expect(point.y).toBeLessThanOrEqual(fieldHeight - 8)
+        const outsideLogo =
+          Math.abs(point.x - width / 2) >= logoWidth / 2 + 8 ||
+          Math.abs(point.y - fieldHeight / 2) >= logoHeight / 2 + 8
+        expect(outsideLogo).toBe(true)
+        for (const other of points) {
+          if (point !== other)
+            expect(Math.hypot(point.x - other.x, point.y - other.y)).toBeGreaterThan(18)
+        }
+      }
+    },
+  )
+
+  it('restores the desktop field after resizing through the mobile layout', () => {
+    const { field } = open()
+    const desktop = positions(field)
+    fieldWidth = 350
+    fireEvent(window, new Event('resize'))
+    expect(positions(field)).not.toEqual(desktop)
+    fieldWidth = 680
+    fireEvent(window, new Event('resize'))
+    expect(positions(field)).toEqual(desktop)
+  })
+
   it('stays still until interaction, supports keyboard waves and settles afterwards', async () => {
     const { field } = open()
     const initial = positions(field)
