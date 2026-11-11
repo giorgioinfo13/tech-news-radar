@@ -3,8 +3,8 @@ import { StrictMode } from 'react'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from '../App'
-import { ThemeProvider, ThemeSelector } from '../Theme'
+import App from '../src/App'
+import { ThemeProvider, ThemeSelector } from '../src/Theme'
 import { mockServer } from './server'
 
 const bootstrap = readFileSync('public/theme.js', 'utf8')

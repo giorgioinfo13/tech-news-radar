@@ -3,8 +3,8 @@ import { StrictMode } from 'react'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import App from '../App'
-import { formatDate } from '../api'
+import App from '../src/App'
+import { formatDate } from '../src/api'
 import { mockServer, article } from './server'
 
 async function choose(language: 'it' | 'en') {

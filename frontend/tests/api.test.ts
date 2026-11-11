@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { configureIdentity, mutate, request } from '../api'
+import { configureIdentity, mutate, request } from '../src/api'
 
 beforeEach(() => {
   configureIdentity({ identity: 'reader', token: async () => 'test-token', failure: vi.fn() })

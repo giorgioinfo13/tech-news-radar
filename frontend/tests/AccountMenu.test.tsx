@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { AccountMenu } from '../AccountMenu'
-import { ThemeProvider } from '../Theme'
+import { AccountMenu } from '../src/AccountMenu'
+import { ThemeProvider } from '../src/Theme'
 
 function open() {
   render(

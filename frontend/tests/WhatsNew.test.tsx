@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { AccountMenu } from '../AccountMenu'
-import { release, releaseStorageKey } from '../release'
+import { AccountMenu } from '../src/AccountMenu'
+import { release, releaseStorageKey } from '../src/release'
 
 beforeEach(() => {
   vi.restoreAllMocks()

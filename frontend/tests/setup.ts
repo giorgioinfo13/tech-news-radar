@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { release } from '../release'
+import { release } from '../src/release'
 
 // jsdom does not implement the native modal focus/top-layer behavior.
 HTMLDialogElement.prototype.showModal = function () {

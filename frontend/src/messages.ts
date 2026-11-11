@@ -163,8 +163,11 @@ export const italian = {
   'Add a source': 'Aggiungi una fonte',
   'Add an email address to allow someone to sign in for the first time. Previously approved users are not listed here.':
     'Aggiungi un’email per consentire il primo accesso. Gli utenti già approvati non sono elencati qui.',
-  'On your first visit, the server may take about a minute to start.':
-    'Al primo accesso il server può richiedere circa un minuto per avviarsi.',
+  'Connecting may take about a minute after a period of inactivity.':
+    'La connessione può richiedere circa un minuto dopo un periodo di inattività.',
+  'Your radar is getting ready.': 'Il tuo radar si sta preparando.',
+  'Tech News Radar: interactive signals. Move the pointer or tap; press Enter or Space to create a wave.':
+    'Tech News Radar: segnali interattivi. Muovi il puntatore o tocca; premi Invio o Spazio per creare un’onda.',
   Administrator: 'Amministratore',
   Cancel: 'Annulla',
   'Cancel invitation': 'Annulla invito',

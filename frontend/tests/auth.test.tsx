@@ -3,10 +3,10 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js'
 import { describe, expect, it, vi } from 'vitest'
-import App from '../App'
-import { AuthController } from '../auth'
-import { authConfiguration } from '../auth-client'
-import { request } from '../api'
+import App from '../src/App'
+import { AuthController } from '../src/auth'
+import { authConfiguration } from '../src/auth-client'
+import { request } from '../src/api'
 import { mockServer, source } from './server'
 
 function session(id = 'alice', token = `${id}-token`): Session {
@@ -65,10 +65,40 @@ function open(controller: AuthController) {
 }
 
 describe('session and access', () => {
+  it('shows interactive signals while waiting for the backend and enters as soon as access is ready', async () => {
+    const server = mockServer()
+    let complete!: (response: Response) => void
+    server.fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        }),
+    )
+    const { controller } = sdk(session())
+    open(controller)
+    await waitFor(() => expect(server.fetchMock).toHaveBeenCalled())
+    const field = screen.getByRole('button', { name: /Tech News Radar: segnali interattivi/ })
+    expect(screen.getByRole('status')).toHaveTextContent('Il tuo radar si sta preparando.')
+    expect(
+      screen.getByText(
+        'La connessione può richiedere circa un minuto dopo un periodo di inattività.',
+      ),
+    ).toBeInTheDocument()
+    await userEvent.click(field)
+    expect(server.fetchMock).toHaveBeenCalledOnce()
+    await act(async () => complete(server.response(server.state.user)))
+    await screen.findByRole('heading', { name: 'Notizie' })
+    expect(screen.queryByRole('button', { name: /segnali interattivi/ })).not.toBeInTheDocument()
+  })
   it('waits for login without fetching personal data, then starts Google OAuth', async () => {
     const { calls } = mockServer()
     const { controller, auth } = sdk()
     open(controller)
+    const field = await screen.findByRole('button', {
+      name: /Tech News Radar: segnali interattivi/,
+    })
+    await userEvent.click(field)
+    expect(auth.signInWithOAuth).not.toHaveBeenCalled()
     await userEvent.click(await screen.findByRole('button', { name: 'Accedi con Google' }))
     expect(calls).toHaveLength(0)
     expect(auth.signInWithOAuth).toHaveBeenCalledWith({

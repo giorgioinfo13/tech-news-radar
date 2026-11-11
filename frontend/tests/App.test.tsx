@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from '../App'
+import App from '../src/App'
 import { article, category, mockServer, source } from './server'
 
 function open(page: string) {

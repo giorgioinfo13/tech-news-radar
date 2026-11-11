@@ -1101,6 +1101,9 @@ dialog p {
 }
 
 /* Access and personal source selection share the existing editorial palette. */
+body:has(.access-page) {
+  min-width: 0;
+}
 .access-page {
   min-height: 100dvh;
   display: grid;
@@ -1119,9 +1122,11 @@ dialog p {
   display: grid;
   place-items: center;
   padding: 32px 0;
-  max-width: 960px;
+  width: min(100%, 960px);
+  margin-inline: auto;
 }
 .access-panel {
+  container-type: inline-size;
   width: 100%;
   min-width: 0;
   display: flex;
@@ -1135,6 +1140,79 @@ dialog p {
   height: auto;
   background: var(--logo-surface);
   border-radius: var(--radius);
+}
+.signal-field {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  width: min(100%, 680px);
+  height: 330px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  overflow: hidden;
+  touch-action: pan-y;
+  font-weight: 400;
+}
+.signal-field:hover {
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+.signal-field-symbols {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.signal-field-glyph {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font:
+    400 20px/1 'Source Serif 4',
+    Georgia,
+    serif;
+  user-select: none;
+}
+.signal-field-glyph[data-accent='true'] {
+  color: var(--accent);
+}
+.signal-field .access-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(260px, 64%);
+  display: block;
+  z-index: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+:root[data-theme='dark'] .signal-field .access-logo {
+  padding: 8px;
+}
+.signal-field[data-logo-active='true'] .access-logo {
+  transform: translate(-50%, -50%) scale(1.045);
+}
+@container (max-width: 440px) {
+  .signal-field {
+    height: 310px;
+  }
+  .signal-field .access-logo {
+    width: min(190px, 64%);
+  }
+  .signal-field-glyph {
+    font-size: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .signal-field .access-logo,
+  .signal-field[data-logo-active='true'] .access-logo {
+    transition: none;
+    transform: translate(-50%, -50%);
+  }
 }
 .access-panel h1 {
   font-family: 'Source Serif 4', Georgia, serif;

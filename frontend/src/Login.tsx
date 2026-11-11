@@ -5,8 +5,17 @@ import { Notice } from './components'
 import type { AuthController, AuthState } from './auth'
 import { AccountMenu } from './AccountMenu'
 import { GoogleSignInButton } from './GoogleSignInButton'
+import { SignalField } from './SignalField'
 
-function AccessLayout({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+function AccessLayout({
+  children,
+  actions,
+  interactive = false,
+}: {
+  children: ReactNode
+  actions?: ReactNode
+  interactive?: boolean
+}) {
   const { t, privacyHref } = useLanguage()
   return (
     <div className="access-page">
@@ -15,7 +24,11 @@ function AccessLayout({ children, actions }: { children: ReactNode; actions?: Re
       </header>
       <main className="access-content">
         <div className="access-panel">
-          <img className="access-logo" src={logo} alt="Tech News Radar" />
+          {interactive ? (
+            <SignalField />
+          ) : (
+            <img className="access-logo" src={logo} alt="Tech News Radar" />
+          )}
           {children}
         </div>
       </main>
@@ -37,10 +50,12 @@ export function Login({ controller, state }: { controller: AuthController; state
   const signIn = <GoogleSignInButton onClick={() => void login()} pending={pending} />
   if (state.status === 'loading')
     return (
-      <AccessLayout>
-        <p role="status">{t('Checking access…')}</p>
+      <AccessLayout interactive>
+        <div role="status">
+          <h1>{t('Your radar is getting ready.')}</h1>
+        </div>
         <p className="muted">
-          {t('On your first visit, the server may take about a minute to start.')}
+          {t('Connecting may take about a minute after a period of inactivity.')}
         </p>
       </AccessLayout>
     )
@@ -69,7 +84,10 @@ export function Login({ controller, state }: { controller: AuthController; state
       </AccessLayout>
     )
   return (
-    <AccessLayout actions={controller.configuration.mode === 'supabase' ? signIn : undefined}>
+    <AccessLayout
+      interactive={state.status === 'signed-out'}
+      actions={controller.configuration.mode === 'supabase' ? signIn : undefined}
+    >
       <h1>{t('A place for your news.')}</h1>
       <p>
         {t('Technology, artificial intelligence and economics.')}

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import App from '../App'
+import App from '../src/App'
 import { mockServer } from './server'
 
 function pull(element: Element, distance = 110, x = 150) {

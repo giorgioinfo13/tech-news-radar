@@ -1,13 +1,13 @@
 import { expect, it } from 'vitest'
-import { parseReleaseNotes, release } from '../release'
+import { parseReleaseNotes, release } from '../src/release'
 
 it('loads the bilingual release from the maintained notes', () => {
-  expect(release.version).toBe('0.2.2')
-  expect(release.changes.it).toHaveLength(6)
-  expect(release.changes.en).toHaveLength(6)
-  expect(release.changes.it.join(' ')).toContain('Rassegna AI.')
-  expect(release.changes.it.join(' ')).toContain('Proponi una fonte.')
-  expect(release.changes.it.join(' ')).not.toContain('Le novità del sito ti accolgono')
+  expect(release.version).toBe('0.2.3')
+  expect(release.changes.it).toHaveLength(4)
+  expect(release.changes.en).toHaveLength(4)
+  expect(release.changes.it.join(' ')).toContain('Benvenuto interattivo.')
+  expect(release.changes.en.join(' ')).toContain('Interactive welcome.')
+  expect(release.changes.it.join(' ')).not.toContain('Rassegna AI.')
 })
 
 it('reads only the newest release and removes bold markers', () => {

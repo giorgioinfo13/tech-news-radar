@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { ReaderUsage } from '../pages/ReaderUsage'
+import type { ReaderUsage } from '../src/pages/ReaderUsage'
 import type {
   AppUser,
   BriefState,
@@ -9,7 +9,7 @@ import type {
   ReaderInvitation,
   Source,
   SourceProposal,
-} from '../api'
+} from '../src/api'
 
 export const category: Category = {
   id: 1,

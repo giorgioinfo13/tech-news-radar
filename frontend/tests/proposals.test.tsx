@@ -1,8 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from '../App'
-import type { SourceProposal } from '../api'
+import App from '../src/App'
+import type { SourceProposal } from '../src/api'
 import { mockServer } from './server'
 
 const pending: SourceProposal = {

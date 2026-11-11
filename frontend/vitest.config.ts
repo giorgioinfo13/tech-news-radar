@@ -9,5 +9,10 @@ export default defineConfig({
       readFileSync(new URL('../RELEASES NOTES.md', import.meta.url), 'utf8'),
     ),
   },
-  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.ts'], restoreMocks: true },
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.test.{ts,tsx}'],
+    setupFiles: ['./tests/setup.ts'],
+    restoreMocks: true,
+  },
 })
