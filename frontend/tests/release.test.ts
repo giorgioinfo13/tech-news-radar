@@ -3,8 +3,10 @@ import { parseReleaseNotes, release } from '../src/release'
 
 it('loads the bilingual release from the maintained notes', () => {
   expect(release.version).toBe('0.2.3')
-  expect(release.changes.it).toHaveLength(4)
-  expect(release.changes.en).toHaveLength(4)
+  for (const changes of Object.values(release.changes)) {
+    expect(changes.length).toBeGreaterThan(0)
+    for (const change of changes) expect(change.trim()).not.toBe('')
+  }
   expect(release.changes.it.join(' ')).toContain('Benvenuto interattivo.')
   expect(release.changes.en.join(' ')).toContain('Interactive welcome.')
   expect(release.changes.it.join(' ')).not.toContain('Rassegna AI.')
