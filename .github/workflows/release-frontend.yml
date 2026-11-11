@@ -1,0 +1,68 @@
+# Copy this file verbatim to .github/workflows/release-frontend.yml using the GitHub editor.
+name: Release frontend only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Share the lock with Release full. Never interrupt an accepted deployment.
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'giorgioinfo13/tech-news-radar' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install locked frontend dependencies
+        run: npm ci --prefix frontend
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test
+          npm run format:check
+          npm run build
+      - name: Require frontend release configuration
+        env:
+          TNR_RELEASE_ENABLED: ${{ vars.TNR_RELEASE_ENABLED }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          test "$TNR_RELEASE_ENABLED" = true
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "${!key}" || { echo "Missing release setting: $key"; exit 1; }
+          done
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@65.14.0
+      - name: Build production frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          node -e 'const p = require("./.vercel/project.json"); if (p.settings?.rootDirectory !== "frontend") process.exit(1)'
+          vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Refuse a superseded commit
+        run: |
+          latest=$(git ls-remote origin refs/heads/main | cut -f1)
+          test "$latest" = "$GITHUB_SHA" || { echo "A newer main commit exists; release that commit instead."; exit 1; }
+      - name: Publish production frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
