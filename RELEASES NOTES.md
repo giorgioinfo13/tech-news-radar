@@ -7,12 +7,14 @@
 - **Benvenuto interattivo.** Un campo di simboli circonda il logo, anche durante l’attesa.
 - **Mouse e tocco.** Sposta i simboli con il puntatore o crea un’onda con un tocco. Su desktop il logo si ingrandisce leggermente al passaggio del mouse.
 - **Attesa più chiara.** Il messaggio ricorda che la connessione può richiedere circa un minuto dopo un periodo di inattività.
+- **Grafica rinnovata.** Nuovi logo, banner e simboli editoriali, supporto chiaro/scuro e benvenuto desktop più ampio con menu allineato a destra.
 
 ### English
 
 - **Interactive welcome.** A field of symbols surrounds the logo, including while you wait.
 - **Mouse and touch.** Move the symbols with the pointer or tap to create a wave. On desktop, the logo grows slightly when you hover over it.
 - **Clearer waiting message.** The message explains that connecting may take about a minute after a period of inactivity.
+- **Updated visuals.** New logo, banner and editorial symbols, light/dark support, and a wider desktop welcome with the menu aligned to the right.
 
 ## 0.2.2
 

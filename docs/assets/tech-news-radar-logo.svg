@@ -1,12 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
-<title id="title">Tech News Radar</title><desc id="desc">Radar circolare con tracce di notizie tecnologiche e un circuito AI, accompagnato dal nome Tech News Radar.</desc>
+<title id="title">Tech News Radar — Equilibrato</title>
+<desc id="desc">Logo Tech News Radar con icona radar originale e scritta ricomposta; variante 1.</desc>
 <defs>
  <linearGradient id="sweep" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#12b8a6" stop-opacity=".1"/><stop offset="1" stop-color="#45d7c5" stop-opacity=".55"/></linearGradient>
  <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#44cfca"/><stop offset="1" stop-color="#2a76ae"/></linearGradient>
  <linearGradient id="word" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1a9aaa"/><stop offset="1" stop-color="#447bd6"/></linearGradient>
- <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#1d6577" flood-opacity=".12"/></filter>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="11" result="blur"/><feOffset in="blur" dx="0" dy="9" result="offset"/><feFlood flood-color="#1d6577" flood-opacity=".12" result="color"/><feComposite in="color" in2="offset" operator="in" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
-<g transform="translate(180 173)" filter="url(#shadow)">
+<style>.ink { fill: #182e45; } .accent { fill: url(#word); } @media (prefers-color-scheme: dark) { .ink { fill: #e8f7f8; } .accent { fill: #44cfca; } }</style>
+<g transform="translate(90 0)"><g transform="translate(180 173)" filter="url(#shadow)">
  <circle r="128" fill="#f3fbfb"/>
  <circle r="121" fill="#e8f7f8" stroke="url(#ring)" stroke-width="8"/>
  <circle r="95" fill="none" stroke="#8bcfd2" stroke-width="2" opacity=".76"/>
@@ -33,11 +35,6 @@
   <path d="M-13 7 L-2 -8 L9 4 L15 -11" fill="none" stroke="#a3e5df" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="-13" cy="7" r="3.5" fill="white"/><circle cx="-2" cy="-8" r="3.5" fill="white"/><circle cx="9" cy="4" r="3.5" fill="white"/><circle cx="15" cy="-11" r="3.5" fill="white"/>
  </g>
-</g>
-<g transform="translate(354 131)">
- <text x="0" y="0" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="60" letter-spacing="-2.5" fill="#182e45">Tech News</text>
- <text x="0" y="71" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800" font-size="76" letter-spacing="-2.9" fill="url(#word)">Radar</text>
- <path d="M2 94 H330" stroke="#bbe0e4" stroke-width="3" stroke-linecap="round"/>
- <text x="2" y="128" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="500" font-size="18" letter-spacing="1.6" fill="#698194">YOUR SIGNAL. YOUR NEWS.</text>
-</g>
+</g></g>
+<g transform="translate(90 0)" font-family="Inter, Segoe UI, Arial, sans-serif"><text x="354" y="154" class="ink" font-size="60" font-weight="800" letter-spacing="-2.5">Tech News</text><text x="354" y="233" class="accent" font-size="76" font-weight="800" letter-spacing="-2.9">Radar</text></g>
 </svg>

@@ -12,7 +12,7 @@ type Signal = {
   velocityY: number
 }
 
-const symbols = ['{', '}', '/', '+', '·', '[', ']', '%', '<', '>', '=', '∑', '”', '·', '–']
+const symbols = ['“', '”', '«', '»', '…', '↗', '→', '·', '○', '{', '}', '[', ']', '/', '·']
 
 export function SignalField() {
   const { t } = useLanguage()

@@ -44,7 +44,6 @@
   --dialog-shadow: #202b3726;
   --backdrop: #202b3766;
   --tap-highlight: #2457a71a;
-  --logo-surface: transparent;
   --radius: 8px;
   font-family: 'Source Sans 3', system-ui, sans-serif;
   font-size: 16px;
@@ -86,7 +85,6 @@
   --dialog-shadow: #00000066;
   --backdrop: #080e19b3;
   --tap-highlight: #93bcff26;
-  --logo-surface: #f4f6f8;
 }
 * {
   box-sizing: border-box;
@@ -1115,8 +1113,7 @@ body:has(.access-page) {
 .access-toolbar {
   display: flex;
   justify-content: flex-end;
-  width: min(100%, 1200px);
-  margin: 0 auto;
+  width: 100%;
 }
 .access-content {
   display: grid;
@@ -1138,7 +1135,6 @@ body:has(.access-page) {
 .access-logo {
   width: min(90%, 380px);
   height: auto;
-  background: var(--logo-surface);
   border-radius: var(--radius);
 }
 .signal-field {
@@ -1191,11 +1187,20 @@ body:has(.access-page) {
   transform: translate(-50%, -50%);
   transition: transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-:root[data-theme='dark'] .signal-field .access-logo {
-  padding: 8px;
-}
 .signal-field[data-logo-active='true'] .access-logo {
   transform: translate(-50%, -50%) scale(1.045);
+}
+@media (min-width: 1024px) {
+  .access-content {
+    width: min(100%, 1200px);
+  }
+  .signal-field {
+    width: 100%;
+    height: clamp(330px, 40vh, 420px);
+  }
+  .signal-field .access-logo {
+    width: clamp(340px, 26vw, 480px);
+  }
 }
 @container (max-width: 440px) {
   .signal-field {
