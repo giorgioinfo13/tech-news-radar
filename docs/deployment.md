@@ -7,13 +7,13 @@ private local `.env` unchanged until the separate data-transfer phase is approve
 
 ## Reader usage release
 
-Reader usage is implemented locally and awaits release. The automatic release below includes its migration and permission.
-For a manual release, keep the frontend push pending until the database and backend are ready.
+Reader usage is implemented locally and awaits release. The full release below includes its migration and permission.
+Keep frontend publication pending until the database and backend are ready.
 During the authorized release, use the committed checkout and operator connection to apply Alembic revision `0012`.
 Then run `backend/sql/enable_reader_usage.sql` with the operator connection.
 This grants UPDATE only on `app_users.last_seen_at`. Identity, role and activation fields remain protected.
 Deploy the backend commit, then verify `/api/me` and the administrator-only `/api/usage/readers` endpoint.
-If Render requires a remote commit first, disable Vercel builds before the coordinated push.
+Keep native Vercel Git deployments disabled. A push runs checks only after the workflow transition below.
 Publish the frontend only after backend verification. Keep schema migration commands out of API startup.
 For rollback, restore the previous application versions before removing revision `0012`.
 
@@ -24,28 +24,64 @@ The summary includes only currently authorized readers, excluding administrators
 Read counts describe retained read marks, not lifetime reading totals. Profile creation is not necessarily the first visit.
 Null timestamps mean no access recorded since activation. The private schema and existing database pool remain in use.
 
-## Automatic release from main
+## Checks and manual releases from main
 
-The release template is `deploy/release.yml.example`. Create `.github/workflows/release.yml` through the GitHub web editor to activate it.
-The template itself does not register a workflow. No production release is implied by these local files.
-This procedure replaces the earlier independent Vercel Git deployment and manual Render deployment for the existing installation.
+The repository separates automatic checks from production releases. Each push to `main` starts **CI checks**, without a deployment.
+Use **Run workflow** on `main` to start either manual release. A successful CI run does not start a release.
 
-Each push to `main` starts tests, followed by an ordered release:
+| Workflow | Trigger | Scope | Template → GitHub workflow |
+| --- | --- | --- | --- |
+| **CI checks** | Push to `main` | Backend and frontend checks, with temporary databases and no production secrets | `deploy/ci.yml.example` → `.github/workflows/ci.yml` |
+| **Release frontend only** | Manual | Frontend checks, production build, and Vercel publication | `deploy/release-frontend.yml.example` → `.github/workflows/release-frontend.yml` |
+| **Release full** | Manual | Complete checks, Supabase migrations, Render deployment, and Vercel publication | `deploy/release.yml.example` → `.github/workflows/release.yml` |
 
-1. Run backend lint, formatting, and tests against temporary SQLite and PostgreSQL databases.
-2. Run frontend lint, TypeScript, tests, formatting, and build checks.
-3. Check required configuration and build the production Vercel artifact.
-4. Verify the Render target and reject a commit superseded by a newer `main` commit.
-5. Apply Alembic migrations and the reviewed reader-usage permission on Supabase.
-6. Deploy the same commit to Render and wait for its `live` status and `/api/health` response.
-7. Publish the prebuilt frontend to Vercel Production.
+Templates do not register workflows. Copy each template into its matching GitHub workflow with the web editor.
+Local workflow edits have no effect on GitHub until you save them there.
+The collection and digest workflows remain separate and retain their existing triggers.
 
-The workflow uses standard Ubuntu runners and a temporary PostgreSQL service. It needs no paid preview environments or Render one-off jobs.
-Provider quotas still apply. Vercel Hobby must remain eligible for the project's use.
-Every push starts a run, including documentation changes. GitHub concurrency permits one running release and one pending release.
-A newer pending run can replace an older pending run. Intermediate commits need not deploy individually.
-The workflow never automatically cancels a running release. A new push during deployment waits for that release.
-Do not start manual deployments or migrations while the workflow runs.
+### Choose a release
+
+Use **Release frontend only** for UI changes compatible with the deployed API, such as CSS, text, or animation fixes.
+This workflow installs only frontend dependencies. It does not run backend tests, connect to Supabase, or request a Render deployment.
+It needs only the Vercel credentials and `TNR_RELEASE_ENABLED=true`.
+Public Supabase settings remain part of the frontend build configuration retrieved from Vercel.
+
+Before a frontend-only release, review all frontend changes since the last production deployment, not only the latest commit.
+If any change requires a new API, database migration, or backend configuration, use **Release full**.
+The workflow cannot determine API compatibility automatically. The frontend-only release does not deploy pending backend changes.
+
+Use **Release full** for backend or database changes and for features that span both applications.
+A separate backend-only workflow is not provided. The full release keeps migrations, backend verification, and frontend publication in one ordered procedure.
+A backend-only workflow would add another release path without a current requirement.
+
+### Checks and release order
+
+**CI checks** runs backend lint, formatting, and tests against temporary SQLite and PostgreSQL databases.
+It also runs frontend lint, TypeScript, tests, formatting, and build checks.
+Every push starts checks, including documentation changes. A newer push can cancel an older CI run.
+CI has a separate concurrency group and cannot cancel a production release.
+
+**Release full** repeats the checks for its selected commit, then follows this order:
+
+1. Check required configuration and build the production Vercel artifact.
+2. Verify the Render target and reject a commit superseded by a newer `main` commit.
+3. Apply Alembic migrations and the reviewed reader-usage permission on Supabase.
+4. Deploy the same commit to Render and wait for its `live` status and `/api/health` response.
+5. Publish the prebuilt frontend to Vercel Production.
+
+**Release frontend only** repeats the frontend checks and builds the production Vercel artifact.
+Immediately before publication, it rejects a commit superseded by a newer `main` commit.
+Both release workflows restrict execution to `main` in the production repository.
+Once a release starts production changes, a subsequent push does not cancel it or change its selected commit.
+
+Both releases share the `production-release` concurrency group with `cancel-in-progress: false`.
+Only one release can run at a time. The default queue permits one pending release.
+A newer request can replace a pending request, including a request for the other release workflow.
+Do not queue multiple releases or start provider deployments or migrations while a release runs.
+A push starts only CI and does not join the release queue.
+
+The workflows use standard Ubuntu runners. PostgreSQL services are temporary test databases, separate from Supabase.
+No paid preview environment or Render one-off job is required. Provider quotas and Vercel Hobby eligibility still apply.
 
 ### One-time provider setup
 
@@ -102,22 +138,68 @@ Use Vercel project/account settings for the IDs and token. Use Render service se
 Production Supabase publishable settings remain in Vercel. `vercel pull` retrieves them for the build.
 Secrets are supplied only to the steps that need them. Tests have no production database credentials.
 
-### Create the workflow through GitHub
+### Install or update workflows through GitHub
 
-1. Complete provider setup and GitHub configuration above.
-2. Commit and push the implementation files, including `deploy/release.yml.example`, using the usual token.
-3. Open `giorgioinfo13/tech-news-radar` on GitHub and select `main`.
-4. Select **Add file → Create new file**.
-5. Enter `.github/workflows/release.yml` as the filename.
-6. Copy the entire contents of `deploy/release.yml.example` into the editor. Do not include Markdown code fences.
-7. Select **Commit changes** and commit directly to `main`.
-8. Open **Actions → Release production** and monitor the run triggered by this web commit.
-9. After completion, verify login, `/api/me`, and the administrator reader-usage screen in the application.
-10. Run `git pull --ff-only` locally to receive the workflow commit before further changes.
+The terminal token cannot create or update files under `.github/workflows/`.
+Keep workflow changes out of terminal commits, including the modified `release.yml` and both new workflow files.
+The `deploy/*.yml.example` templates are ordinary repository files and can use the normal commit and push procedure.
 
-No terminal push of a workflow file is needed. For later workflow changes, update the template normally, then copy it into the workflow through GitHub.
-Keep both copies identical. The existing collection and digest workflows remain separate.
-If configuration is incomplete, the run stops before migrations. Set the missing values and use **Run workflow** on `main`.
+For the existing automatic release, complete this transition before the next terminal push:
+
+1. Let any active production release finish. Inspect any uncertain remote deployment before continuing.
+2. Open **Actions → Release production → … → Disable workflow** on GitHub.
+3. Complete or verify the provider setup and GitHub configuration above.
+4. Stage only the templates, documentation, and intended application changes. Do not use `git add .` or `git commit -a`.
+5. Inspect `git diff --cached --name-only`. Confirm that it contains no `.github/workflows/` paths.
+6. Commit the selected files with the normal terminal procedure.
+7. Before web edits, save the local workflow copies with the command below. This keeps them out of the later pull.
+8. Push the local commit with the normal token. The disabled old workflow must not deploy this push.
+9. On GitHub, select `main` and edit the existing `.github/workflows/release.yml` file.
+10. Replace its entire contents with `deploy/release.yml.example`. Commit the web edit directly to `main`.
+11. Create `.github/workflows/ci.yml` from `deploy/ci.yml.example` with **Add file → Create new file**.
+12. Create `.github/workflows/release-frontend.yml` from `deploy/release-frontend.yml.example` in the same way.
+13. In Actions, enable the renamed **Release full** workflow if it remains disabled.
+14. Confirm that **CI checks** passes for the latest `main` commit. Confirm that neither manual release starts automatically.
+15. Run `git pull --ff-only` to receive the web commits. Keep unrelated local changes saved before the pull.
+16. Compare each workflow with its template. Do not apply the saved workflow copies over the web commits.
+
+Save only the three local workflow copies after the terminal commit, before the web edits:
+
+```sh
+git stash push --include-untracked -m "workflow copies before GitHub web installation" -- \
+  .github/workflows/release.yml .github/workflows/ci.yml .github/workflows/release-frontend.yml
+```
+
+The stash is a local backup, not a commit to push. Keep its reported identity until the comparison succeeds.
+After the pull, run these comparisons from the repository root:
+
+```sh
+cmp deploy/ci.yml.example .github/workflows/ci.yml
+cmp deploy/release-frontend.yml.example .github/workflows/release-frontend.yml
+cmp deploy/release.yml.example .github/workflows/release.yml
+```
+
+A successful comparison produces no output and returns exit code zero.
+After all comparisons succeed, remove only that identified backup from the stash list.
+For a new installation, create `release.yml` instead of editing it. The old-workflow disable step does not apply.
+Always replace the existing release file during a transition. Leaving an old automatic release file active would preserve deployment on push.
+
+Copy complete template contents without Markdown code fences. Keep each template and installed workflow identical.
+For later updates, commit templates through the terminal and update the matching workflows through the web editor.
+Use the same local-backup and pull procedure when local workflow edits are present.
+
+### Start a release
+
+1. Open **Actions** after CI succeeds on the intended `main` commit.
+2. Select **Release frontend only** or **Release full**, according to the compatibility rules above.
+3. Select **Run workflow**, choose `main`, and start the workflow.
+4. Monitor that workflow through completion before starting another release.
+5. After publication, verify login and the affected application screens.
+6. For a full release, also verify `/api/me` and the administrator reader-usage screen when applicable.
+
+The **Run workflow** button appears after a manual workflow exists on the default branch.
+Incomplete configuration stops a release before publication or production database changes.
+Correct the configuration before a new manual attempt. A failed CI run never starts either release.
 
 ### Failures and compatibility
 
@@ -137,7 +219,8 @@ Add columns or endpoints first. Remove old columns or endpoints in a later relea
 The pipeline cannot determine whether arbitrary SQL preserves application compatibility.
 To stop future production writes, set `TNR_RELEASE_ENABLED` to `false`. This does not stop an already running release.
 
-References: [Render deployment API](https://api-docs.render.com/reference/create-deploy),
+References: [GitHub manual workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow),
+[Render deployment API](https://api-docs.render.com/reference/create-deploy),
 [Vercel with GitHub Actions](https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel),
 and [GitHub workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
@@ -516,9 +599,10 @@ Record account-specific settings and credential paths outside Git.
 
 #### Ordered deployment from `main`
 
-Use [Automatic release from main](#automatic-release-from-main) for the existing installation.
-Native Vercel Git deployments are disabled in the repository. The release Action publishes Vercel after Supabase and Render succeed.
-The earlier independent frontend deployment is superseded by this coordinated procedure.
+Use [Checks and manual releases from main](#checks-and-manual-releases-from-main) for the existing installation.
+Native Vercel Git deployments are disabled in the repository. **Release full** publishes Vercel after Supabase and Render succeed.
+**Release frontend only** publishes compatible UI changes without those backend stages.
+These manual workflows replace the earlier deployment on push.
 
 References: [Render service creation](https://render.com/docs/web-services)
 and [Vercel project management](https://vercel.com/docs/projects/managing-projects).
@@ -532,7 +616,7 @@ commands in the template. `pip install -r backend/requirements.txt` uses pinned
 requirements. The start command binds `$PORT` on `0.0.0.0`, with one Uvicorn
 worker and access logs disabled. No disk stores application data. Upload the CA
 and set the private environment before deploying. Auto-deploy is off in the
-template, but initial Blueprint creation still deploys. The release Action starts later deployments through the API.
+template, but initial Blueprint creation still deploys. **Release full** starts later backend deployments through the API.
 
 Vercel: set Root Directory to `frontend`, framework Vite, Node 24.x, install
 `npm ci`, build `npm run build`, output `dist`. Enable inclusion of files outside
@@ -798,7 +882,7 @@ See [Supabase Data API security](https://supabase.com/docs/guides/api/securing-y
 ## Source proposal rollout
 
 This manual procedure applies to older installations that lack the source-proposal schema and runtime grants.
-For the configured installation at `0010` or later, use [Automatic release from main](#automatic-release-from-main).
+For the configured installation at `0010` or later, use [Checks and manual releases from main](#checks-and-manual-releases-from-main).
 
 1. Review the local diff and tests. Authorize commit, push, migration, grants, and deployment separately when ready.
 2. Record the remote revision and current grants with a read-only operator check. Confirm the existing target and backups.

@@ -531,6 +531,10 @@ OpenAI's feed exceeded 1,000 entries during verification. Restart the backend af
 
 ## Checks
 
+Each push to `main` runs **CI checks** for the backend and frontend, without production credentials or deployment.
+The manual **Release frontend only** and **Release full** workflows repeat their required checks before publication.
+See [checks and manual releases](deployment.md#checks-and-manual-releases-from-main) for workflow installation, token limitations, and release selection.
+
 Backend, from `backend/`:
 
 ```sh

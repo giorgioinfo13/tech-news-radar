@@ -1154,6 +1154,7 @@ body:has(.access-page) {
   color: var(--muted);
   overflow: hidden;
   touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
   font-weight: 400;
 }
 .signal-field:hover {
