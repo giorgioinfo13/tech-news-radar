@@ -1,8 +1,6 @@
-from pathlib import Path
-
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import URL, event
+from sqlalchemy import event
 
 from app.config import Settings
 from app.main import create_app
@@ -32,11 +30,15 @@ async def test_environment_can_disable_docs_without_disabling_health(monkeypatch
 
 
 @pytest.mark.anyio
-async def test_lifespan_and_health_do_not_create_database(tmp_path: Path) -> None:
-    database_path = tmp_path / "uninitialized.db"
+async def test_lifespan_and_health_do_not_connect_until_database_is_used(monkeypatch) -> None:
+    import psycopg
+
+    monkeypatch.setattr(
+        psycopg, "connect", lambda *args, **kwargs: pytest.fail("unexpected connect")
+    )
     settings = Settings(
         _env_file=None,
-        database_url=URL.create("sqlite", database=str(database_path)).render_as_string(),
+        database_url="postgresql://reader:secret@db.example.org/postgres",
         scheduler_enabled=False,
     )
     app = create_app(settings)
@@ -50,6 +52,4 @@ async def test_lifespan_and_health_do_not_create_database(tmp_path: Path) -> Non
             schema = (await client.get("/openapi.json")).json()
             assert {"get", "post"} <= schema["paths"]["/api/sources"].keys()
             assert "patch" in schema["paths"]["/api/articles/{article_id}"]
-        assert not database_path.exists()
     assert disposed == [True]
-    assert not database_path.exists()

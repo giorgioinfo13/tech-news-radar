@@ -21,9 +21,6 @@ from app.schemas import ProposalApprove, ProposalCreate
 
 @pytest.mark.parametrize("first", ["approval", "revocation"])
 def test_revocation_and_approval_have_one_transaction_order(database, monkeypatch, first):
-    if database.dialect.name != "postgresql":
-        pytest.skip("Run with --postgres to check cross-connection advisory lock ordering")
-
     subject, reader_id = uuid4(), uuid4()
     with Session(database) as session:
         reader = AppUser(id=reader_id, supabase_subject=subject, display_name="Reader", active=True)

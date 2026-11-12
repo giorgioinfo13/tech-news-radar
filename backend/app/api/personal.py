@@ -67,7 +67,7 @@ def list_subscriptions(user: UserDep, session: SessionDep, pagination: Paginatio
 def subscribe(source_id: ResourceId, user: UserDep, session: SessionDep) -> Response:
     user_id = user.id
     get_or_404(session, Source, source_id)
-    # Release preflight read locks before the atomic write (SQLite lock upgrades).
+    # End the preflight read transaction before the atomic write.
     session.rollback()
     insert_once(session, Subscription, {"user_id": user_id, "source_id": source_id})
     session.commit()

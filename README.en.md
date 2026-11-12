@@ -14,13 +14,13 @@ It includes a shared AI digest of the previous 24 hours, with links to the
 sources. Gemini generation is active in the published instance; new
 installations keep it disabled until explicitly configured.
 
-The responsive interface is available in Italian and English. Local development
-uses SQLite and requires no cloud account; multiuser authentication and public
-deployment are separate configurations.
+The responsive interface is available in Italian and English. The backend uses
+Supabase PostgreSQL exclusively, with verified TLS and the private `tnr`
+application schema.
 
 ## Local quickstart
 
-Requirements: Python 3.13, Node.js 24, and npm.
+Requirements: Python 3.13, Node.js 24, npm, and access to the Supabase project.
 
 ```sh
 git clone https://github.com/giorgioinfo13/tech-news-radar.git
@@ -29,18 +29,11 @@ cp .env.example .env
 python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt
 npm ci --prefix frontend
-cd backend
-.venv/bin/alembic upgrade head
-cd ..
 ```
 
-To access data without cloud services, enable these settings in your local
-`.env`:
-
-```dotenv
-TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
-VITE_LOCAL_MODE=true
-```
+Complete `.env` with the Supabase endpoints, publishable key, and PostgreSQL URL
+for the application role. Production migrations run only through the authorized
+release workflow.
 
 Then start the backend from the repository root:
 
@@ -55,8 +48,7 @@ Start the frontend in a second terminal:
 npm run dev --prefix frontend
 ```
 
-Open <http://127.0.0.1:5173>. The initial database contains no sources; add them
-from the administration interface.
+Open <http://127.0.0.1:5173>. Data is read from the configured Supabase database.
 
 ## Forks and deployment
 

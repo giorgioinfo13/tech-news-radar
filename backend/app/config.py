@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     app_name: str = "Tech News Radar"
     environment: Literal["development", "production"] = "development"
     docs_enabled: bool = True
-    database_url: str = Field(default="sqlite:///data/news.db", repr=False)
+    database_url: str = Field(default="", repr=False)
     migration_database_url: str | None = Field(default=None, repr=False)
     # Local development only. No request header/query/body may choose an identity.
     local_user_id: UUID | None = None

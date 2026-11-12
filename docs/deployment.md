@@ -1,9 +1,7 @@
 # Publication preparation
 
-This is a preparation guide, not a record of a deployment. No cloud database,
-role, service, domain, or account setting is assumed to exist. Use the existing
-Supabase Auth project to retain user UUIDs. Keep the current SQLite database and
-private local `.env` unchanged until the separate data-transfer phase is approved.
+This guide describes the existing Supabase PostgreSQL deployment and its release
+boundaries. Keep the private local `.env` and provider credentials out of Git.
 
 ## Reader usage release
 
@@ -31,7 +29,7 @@ Use **Run workflow** on `main` to start either manual release. A successful CI r
 
 | Workflow | Trigger | Scope | Template → GitHub workflow |
 | --- | --- | --- | --- |
-| **CI checks** | Push to `main` | Backend and frontend checks, with temporary databases and no production secrets | `deploy/ci.yml.example` → `.github/workflows/ci.yml` |
+| **CI checks** | Push to `main` | Backend and frontend checks, with disposable local PostgreSQL databases and no production secrets | `deploy/ci.yml.example` → `.github/workflows/ci.yml` |
 | **Release frontend only** | Manual | Frontend checks, production build, and Vercel publication | `deploy/release-frontend.yml.example` → `.github/workflows/release-frontend.yml` |
 | **Release full** | Manual | Complete checks, Supabase migrations, Render deployment, and Vercel publication | `deploy/release.yml.example` → `.github/workflows/release.yml` |
 
@@ -56,7 +54,7 @@ A backend-only workflow would add another release path without a current require
 
 ### Checks and release order
 
-**CI checks** runs backend lint, formatting, and tests against temporary SQLite and PostgreSQL databases.
+**CI checks** runs backend lint, formatting, and tests against disposable local PostgreSQL databases.
 It also runs frontend lint, TypeScript, tests, formatting, and build checks.
 Every push starts checks, including documentation changes. A newer push can cancel an older CI run.
 CI has a separate concurrency group and cannot cancel a production release.
@@ -255,9 +253,6 @@ worker caches API responses or tokens.
 | `frontend/vercel.json` | Vercel configuration for the verified Render hostname; native Git deployments disabled for ordered releases |
 | `backend/sql/create_app_role.sql` | One-time, separately authorized database-role setup after migrations |
 | `backend/sql/check_app_role.sql` | Read-only inspection of role and schema access |
-| `scripts/backup_sqlite.py` | Private, consistent SQLite backup with integrity checks; refuses overwrites |
-| `backend/app/transfer.py` | Local-only SQLite-to-PostgreSQL rehearsal with row verification and transactional rollback |
-| `backend/app/transfer_supabase.py` | Offline transfer plan, read-only remote checks, and explicit execution against a pinned Supabase target |
 | `frontend/public/privacy.html` | Public explanation of authentication, personal data and deletion requests |
 
 The `.example` templates are not active hosting configuration files.
@@ -294,7 +289,7 @@ builds; do not allow wildcard OAuth redirect URLs.
 Omit `TNR_LOCAL_USER_ID`, `VITE_LOCAL_MODE`, and operator credentials from hosting.
 Keep feed limits at their existing defaults unless measured results require a
 change. Use a separate operator shell/environment for migrations and access
-commands; do not point the running local app at the remote database.
+commands. The running application must use only the restricted `tnr_app` URL.
 
 Example application connection, with placeholders only:
 
@@ -350,224 +345,9 @@ Check the grants again after each migration. There are no default grants to new
 tables. RLS does not protect a privileged SQL connection. The backend enforces
 per-user access; `tnr_app` is not a per-user database identity.
 
-### 2. Existing-data transfer, separately authorized
+### 2. Completed data transition
 
-Do not start with an empty online account and discard the local owner's data.
-Prepare a transfer against a **copy** first. Approval must name the source
-snapshot, exact target, expected counts, and rollback plan. The importer itself
-must be reviewed and tested in that phase; this guide does not authorize a copy.
-The rehearsal command still refuses remote targets. The separate Supabase
-command below prepares a plan offline. Its remote operations require explicit
-authorization. Preparing a plan does not connect to Supabase or authorize a copy.
-
-1. Stop local writes and the collector during the final snapshot/cutover. Make
-   the SQLite backup below and record its SHA-256, Alembic head, and counts for
-   all seven application tables. Verify no collection is still `running`.
-2. Apply the real migrations to an isolated temporary PostgreSQL database. It
-   must contain only the reserved owner and the eight default categories created
-   by the migrations. All other application tables must be empty.
-3. Transfer with typed SQLAlchemy values in one transaction: `app_users`,
-   `categories`, `sources`, `articles`, `collection_runs`, `subscriptions`, then
-   `article_read_states`, then `reader_invitations`. Keep UUIDs, Supabase subjects, primary keys, UTC times,
-   active/role flags, source state and personal rows. Update the **same reserved
-   owner row** from the snapshot, rather than creating another administrator.
-   Reconcile the default categories with the snapshot before inserting sources;
-   preserve the snapshot's category IDs and values.
-4. Reject target data other than the unchanged migration seeds. Reset the four
-   integer sequences to their imported maxima (or initial value for empty tables). Do not copy
-   SQLite DDL, internal sequences, or run a `.dump` directly on PostgreSQL.
-5. Compare every normalized row, table count, relationship and identity mapping,
-   including revoked users, subscriptions and read states. Counts alone are not
-   sufficient. Test the next insert, two accounts, permissions and revocation.
-6. Repeat the reviewed operation on the approved remote target, then configure
-   hosting only after verification. Retain the original SQLite and its backup.
-   Prevent simultaneous writes to old and new databases during cutover.
-
-Rollback before online writes can return to the unchanged local database. Once
-new online writes exist, do not switch back blindly: export/reconcile them first.
-Never reset a remote database or overwrite its data as a deployment retry.
-
-#### Local transfer rehearsal
-
-Use an isolated PostgreSQL server on literal `127.0.0.1` or `::1`, with an explicit
-port. An existing local installation is sufficient. Docker is optional.
-Create a new database from `template0` with a name such as
-`tnr_transfer_20261107`. The command also accepts the test suite's `tnr_test_`
-names. Both prefixes require 8–32 lowercase letters or digits after the prefix.
-Use a local database owner that can run migrations and restart sequences.
-
-Create a SQLite copy with `scripts/backup_sqlite.py` as described below. Record
-its SHA-256. Use a closed copy without WAL or journal sidecars. Never supply the
-working database as the rehearsal input. Keep the backup and reports private.
-
-In a dedicated local shell, set `TNR_TRANSFER_DATABASE_URL` privately. Do not
-put passwords in shell history. Its format is:
-
-```text
-postgresql+psycopg://LOCAL_OWNER:ENCODED_LOCAL_PASSWORD@127.0.0.1:LOCAL_PORT/tnr_transfer_20261107?sslmode=disable
-```
-
-This variable is only for the local operator command. Do not set it in hosting
-or the application's `.env`. The command does not use `TNR_DATABASE_URL` or
-`TNR_MIGRATION_DATABASE_URL`. Remove libpq routing/session overrides such as
-`PGHOSTADDR`, `PGSERVICE`, `PGSERVICEFILE`, and `PGOPTIONS` from that shell.
-
-From `backend/`, apply the real migrations to this explicit local target:
-
-```bash
-.venv/bin/python - <<'PY'
-import os
-from alembic import command
-from alembic.config import Config
-from app.transfer import local_target_url
-
-url = local_target_url(os.environ["TNR_TRANSFER_DATABASE_URL"])
-config = Config("alembic.ini")
-config.set_main_option("sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%"))
-command.upgrade(config, "head")
-PY
-```
-
-Run the rehearsal with the recorded checksum and a new private report path:
-
-```bash
-umask 077
-.venv/bin/python -m app.transfer --snapshot /PRIVATE/PATH/snapshot.db --sha256 RECORDED_SHA256 > /PRIVATE/PATH/new-report.json
-```
-
-Choose a nonexistent report filename. Shell redirection can overwrite a file.
-Exit status zero and a complete JSON report indicate success. The report contains
-the snapshot hash, revision, and counts/hashes for all application tables. It contains
-no credentials, account identifiers, or record contents. A failed command can
-leave an empty report. Inspect the disposable target before a retry.
-
-The importer reads the source in read-only mode. It requires revision `0010`,
-valid SQLite integrity/foreign keys, and no unfinished collection. It checks
-the target's unchanged migration seeds under table locks. It copies typed rows
-in batches and compares every column before commit. It reads the snapshot into
-memory, so this procedure targets a small personal database, not bulk archives.
-
-The owner retains the reserved UUID and all imported identity fields. Only
-unused, unchanged category seeds are replaced. Integer sequences restart at
-`max(id) + 1`, or `1` for empty tables. The importer uses transactional
-[`ALTER SEQUENCE RESTART`](https://www.postgresql.org/docs/17/sql-altersequence.html),
-so a failure rolls back both data and sequence changes. A populated target is
-refused. Rehearse again in a new disposable database instead of clearing one.
-
-Run `tests/test_transfer.py` with `--postgres` using the isolated test setup in
-[PostgreSQL](development.md#isolated-postgresql-tests). Tests cover complete
-row preservation, subsequent inserts, rollback, concurrent-write exclusion,
-personal reads/subscriptions, reader permissions, revoked users, and unapproved
-users. These API tests substitute verified identities. They do not repeat Google
-OAuth or establish behavior on hosted services or installed mobile apps.
-
-#### Supabase transfer plan and execution
-
-The operator command has four separate operations:
-
-| Operation | Network and database effects |
-| --- | --- |
-| `prepare` | Local file reads only, plus a new private plan file |
-| `check` | Remote transaction with `REPEATABLE READ READ ONLY`, plus a private preflight report |
-| `execute` | One remote transaction that copies the reviewed snapshot and restarts four sequences |
-| `verify` | Remote read-only comparison after execution, including sequence values |
-
-All commands use an explicit private JSON configuration file (mode 0600).
-Its `TNR_MIGRATION_DATABASE_URL` field contains the operator connection.
-The commands do not inherit application or migration URLs from `.env`.
-Keep this file outside Git, for example under `backend/data/deployment/`.
-Never print it or pass its password through a command-line argument.
-
-The URL must use `postgres.PROJECT_REF`, a Supabase session-pooler hostname,
-port `5432`, database `postgres`, `sslmode=verify-full`, and an absolute CA path.
-The plan pins the exact project reference, host, username, and CA checksum.
-It also pins the snapshot path/checksum, revision `0010`, and every table's
-count and normalized-row checksum. It contains no connection password or
-Auth subject values. Store it privately because it includes local paths.
-
-From `backend/`, prepare a plan with the chosen snapshot:
-
-```bash
-.venv/bin/python -m app.transfer_supabase prepare \
-  --operator-config data/deployment/operator.json \
-  --snapshot data/backups/SNAPSHOT.db --sha256 SNAPSHOT_SHA256 \
-  --project-ref PROJECT_REF --output data/deployment/transfer-plan.json
-```
-
-The command prints the plan's SHA-256. Record it with the reviewed plan.
-Preparation checks local inputs only. It does not establish current remote
-state, TLS connectivity, identity existence, or application grants.
-
-Before the final transfer, stop local API/collector writes and keep hosting
-and external collection inactive. Create and rehearse a final snapshot if the
-working database changed. Prepare a new plan for that snapshot. A plan does
-not detect later writes to the separate working SQLite database.
-
-After authorization for remote inspection, run:
-
-```bash
-.venv/bin/python -m app.transfer_supabase check \
-  --operator-config data/deployment/operator.json \
-  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
-  --output data/deployment/transfer-preflight.json
-```
-
-The check verifies both TLS hops, database/operator identity, the unchanged
-migration seeds, and the restricted `tnr_app` permissions. It rejects PUBLIC
-or Data API role access to the application schema/tables. It checks that each
-active application's Auth subject exists in this project's `auth.users`.
-It does not read profile metadata to assign privileges or modify Auth records.
-Confirm Data API dashboard settings separately. No migration command runs here.
-
-Review the private report and its printed checksum. Before authorizing execution,
-retain a backup of the remote `tnr` schema with the separate backup procedure.
-Record its checksum privately. Keep the original SQLite and its final snapshot.
-Approval must identify the project, snapshot, plan checksum, counts, and rollback
-procedure. The preflight report must be less than 24 hours old.
-
-Only after explicit approval for that exact transfer, run:
-
-```bash
-.venv/bin/python -m app.transfer_supabase execute \
-  --operator-config data/deployment/operator.json \
-  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
-  --preflight data/deployment/transfer-preflight.json --preflight-sha256 PREFLIGHT_SHA256 \
-  --confirm-project-ref PROJECT_REF --output data/deployment/transfer-executed.json
-```
-
-Execution rechecks the pinned files, endpoint, Auth identities, grants, and seeds
-under application-table locks. It rejects changes since preflight. It uses the
-same copy and verification transaction as the local rehearsal. Runtime grants
-are checked again before commit. It does not change Auth records, roles,
-passwords, hosting, the local `.env`, or the original SQLite database.
-
-Before starting application writes, verify the committed data:
-
-```bash
-.venv/bin/python -m app.transfer_supabase verify \
-  --operator-config data/deployment/operator.json \
-  --plan data/deployment/transfer-plan.json --plan-sha256 PLAN_SHA256 \
-  --output data/deployment/transfer-verified.json
-```
-
-Every output must be a new filename. Files use mode 0600 and refuse overwrites.
-A failure can leave an empty or incomplete output file. A connection failure
-during commit can leave the outcome uncertain: do not automatically execute again.
-Use `verify` first. If it fails, inspect the target read-only and compare it with
-the preflight seeds. Do not infer rollback solely from a missing success report.
-
-Before new online writes, rollback can keep the application on unchanged SQLite.
-Leave remote data intact until its state is understood. Restoring a remote backup
-or deleting imported rows requires another explicit, reviewed operation.
-After online writes begin, reconcile those writes before switching databases.
-The command has no destructive reset or automatic rollback-after-commit option.
-
-The local tests use real PostgreSQL migrations and simulate Supabase Auth and
-transport metadata. They verify read-only enforcement, target restrictions,
-grant/identity failures, stale reports, drift, rollback, and post-transfer checks.
-They do not validate a live pooler, the project's CA, or current cloud settings.
-References: [Supabase session pooling and TLS](https://supabase.com/docs/guides/database/connecting-to-postgres)
-and [PostgreSQL read-only transactions](https://www.postgresql.org/docs/17/sql-set-transaction.html).
+Application data now resides in Supabase PostgreSQL. The retired embedded-database transfer utilities are not part of the active codebase. Keep verified PostgreSQL backups and use the standard release path for future migrations.
 
 ### 3. Render and Vercel deployment, separately authorized
 
@@ -663,19 +443,7 @@ establish these mobile or hosted results.
 
 ## Backup, restore and deletion
 
-From the repository root, for a separately chosen backup operation:
-
-```bash
-python3 scripts/backup_sqlite.py --source backend/data/news.db --destination backend/data/backups/CHOOSE_UNIQUE_NAME.db
-```
-
-Create the destination directory first if needed. The tool refuses an existing
-destination and opens the source read-only. It uses SQLite's backup API, including
-committed WAL data, then checks integrity and foreign keys. It writes mode 0600.
-Keep backups outside Git, encrypted off-device as well as locally. Rehearse
-restoration on a disposable copy, not by replacing the working database.
-
-For PostgreSQL, use `pg_dump` of a compatible major version and a private libpq
+Use `pg_dump` of a compatible major version and a private libpq
 connection service/password file. Do not put a credential URL on a command line.
 After explicit backup authorization, from a private backup directory:
 
@@ -763,19 +531,18 @@ The [AI release plan](ai-briefs.md#coordinated-publication-plan--not-executed) c
 No remote migration, grant, key configuration, deployment, or activation is part of the local Gemini phase.
 The backend and workflow stay disabled. `TNR_AI_BUDGET_RISK_ACCEPTED` also defaults to false.
 A later authorized release must verify the remote revision, accepted budget limitations, privacy, and billing state before enabling generation.
-Transfer tools require a `0010` snapshot and preserve the monthly money ledger.
-Do not reset, discard, or restore an older ledger to repeat an uncertain request.
+Backups must preserve the monthly money ledger. Do not reset, discard, or restore
+an older ledger to repeat an uncertain request.
 
 ## PostgreSQL configuration
 
-SQLite remains the default database. PostgreSQL uses the same SQLAlchemy models, services, API routes, collector, and scheduler.
-No cloud account or Docker installation is necessary for SQLite development.
-Changing the database URL does not transfer existing data. Keep the local SQLite database intact.
+Supabase PostgreSQL is the only application database. Tests use disposable local
+PostgreSQL databases and must never connect to Supabase.
 
 Database support includes the [multiuser data model and backend permissions](authentication.md#user-roles-and-personal-data).
 The backend supports [Supabase token verification and access approval](authentication.md).
-Frontend login is implemented. Cloud configuration, deployment, and data transfer require separate work.
-Keep the backend on loopback with one process and one worker. The collector lock is process-local on both databases.
+Frontend login is implemented. Cloud configuration and deployment require separate authorization.
+Keep the backend on loopback with one process and one worker.
 
 ### Connection configuration
 
@@ -816,8 +583,8 @@ PostgreSQL application tables and `alembic_version` live in the fixed `tnr` sche
 Connections set `search_path` to `tnr` and the session timezone to UTC.
 They do not fall back to `public` for application tables.
 Alembic creates the namespace in the migration transaction before it runs the unchanged revision `0001`.
-Revision `0002` adapts PostgreSQL types and constraints. It performs no SQLite table changes.
-Revision `0003` adds application users and personal data on both databases. It preserves the reserved local owner's existing read flags.
+Revision `0002` adapts PostgreSQL types and constraints.
+Revision `0003` adds application users and personal data. It preserves the reserved local owner's existing read flags.
 Revision `0004` adds a unique identity link on the existing private user table. It does not grant new privileges.
 Revision `0005` adds `reader_invitations` and reader-only INSERT policies on `app_users`, without changing existing profiles.
 It revokes inherited Data API grants on the new table. Runtime grants remain a separate operator operation.

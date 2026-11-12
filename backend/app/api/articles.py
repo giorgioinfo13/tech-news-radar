@@ -80,7 +80,7 @@ def article_response(article: Article, is_read: bool) -> dict:
 def update_article(article_id: ResourceId, data: ArticleUpdate, session: SessionDep, user: UserDep):
     user_id = user.id
     article = get_or_404(session, Article, article_id)
-    # Do not upgrade a SQLite read snapshot while concurrent requests also write.
+    # End the preflight read transaction before the atomic state change.
     session.rollback()
     if data.is_read:
         insert_once(session, ArticleReadState, {"user_id": user_id, "article_id": article_id})

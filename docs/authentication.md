@@ -4,7 +4,7 @@ The backend verifies Supabase access tokens and accepts only explicitly approved
 The frontend provides Google sign-in, browser session recovery, logout, and personal source selection.
 Google provider setup and deployment still require separate authorization. Installing the code does not configure cloud accounts.
 
-Use the [local Google login procedure](authentication.md#local-google-login) to configure and verify the first real session with SQLite.
+Use the [local Google login procedure](authentication.md#local-google-login) to configure and verify a real Supabase session.
 
 ## Identity and permission boundary
 
@@ -29,7 +29,7 @@ An unapproved Supabase user receives `403` and creates no application data.
 
 The application database supports one Supabase Auth project.
 Do not change `TNR_SUPABASE_URL` to another project while keeping existing identity links without a separate migration plan.
-SQLite and PostgreSQL use the same authentication and permission code.
+PostgreSQL stores application identities and permissions in the private `tnr` schema.
 No foreign key to the remote `auth.users` table is required.
 
 The optional `POST /api/internal/collect` is a machine-only exception with a separate bearer secret.
@@ -347,7 +347,7 @@ Prefer source deactivation when permanent deletion is unnecessary.
 
 ### Schema and migration
 
-The shared models work on SQLite and PostgreSQL:
+The PostgreSQL models include:
 
 - `app_users`: UUID identity, display name, `admin`/`reader` role, active status, and creation timestamp.
 - `subscriptions`: composite primary key `(user_id, source_id)` and creation timestamp.
@@ -356,7 +356,7 @@ The shared models work on SQLite and PostgreSQL:
 
 Foreign keys cascade personal data cleanup. Indexes on `source_id` and `article_id` support reverse lookups and deletion.
 The application uses conflict-safe inserts for repeated subscription and read requests.
-Preliminary reads finish before personal writes, so concurrent SQLite requests do not attempt competing read-to-write lock upgrades.
+Preliminary reads finish before conflict-safe personal writes.
 
 Revision `0003` leaves shared catalog IDs, article data, category edits, and collection history intact.
 It explicitly creates the reserved local owner `00000000-0000-0000-0000-000000000001` as an active administrator.
@@ -369,21 +369,19 @@ The reserved owner initially has no Google account or Supabase identity attached
 Revision `0004` adds identity links. The operator must explicitly link the owner's verified Supabase UUID to this profile.
 See [authentication and access approval](authentication.md). Do not assign this profile to the first person who signs in.
 
-SQLite requires version 3.35 or later for native `DROP COLUMN`.
-This avoids a table rebuild that could cascade deletion of related data.
 The new PostgreSQL tables remain in `tnr`. The migration revokes their privileges from `PUBLIC` and existing Data API roles.
 No Supabase project or personal database is changed merely by installing the code.
 
 Apply migrations explicitly with the [development commands](development.md#initialize-the-database).
-Back up the local database before upgrading existing data. Do not apply migrations while the backend is running.
+Back up Supabase PostgreSQL before upgrading existing data. Do not apply migrations while the backend is running.
 Downgrading to `0002` is destructive: it discards profiles and subscriptions, and restores only the reserved owner's flags to articles.
 Use downgrade tests only on disposable databases.
 
 ## Local Google login
 
 This procedure connects the existing local application to hosted Supabase Auth.
-Application data stays in SQLite. Google and Supabase hold authentication data.
-It does not deploy the application or transfer its news database.
+Application data and authentication both remain in the configured Supabase project.
+It does not deploy the application.
 
 Complete each checkpoint before the next section. Cloud changes require the owner's authorization.
 See [authentication](authentication.md) for identity checks and operator-command behavior.
@@ -399,7 +397,7 @@ See [authentication](authentication.md) for identity checks and operator-command
 The reserved owner ID is `00000000-0000-0000-0000-000000000001`.
 An existing identity link must match the intended Supabase account. Do not replace a conflicting link.
 The access commands use `TNR_MIGRATION_DATABASE_URL` when present, otherwise `TNR_DATABASE_URL`.
-Both the API and operator commands must target the existing local database for this procedure.
+Both the API and operator commands must target the same Supabase database for this procedure.
 
 **Checkpoint:** The database and owner are identified. No migration or replacement database is necessary.
 
@@ -482,7 +480,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_WITH_PUBLIC_KEY
 | `VITE_SUPABASE_URL` | Browser Supabase SDK | Public project origin |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser Supabase SDK | Public API key, not an access token |
 
-5. Preserve the existing SQLite connection and operator connection settings.
+5. Preserve the existing Supabase application and operator connection settings.
 6. Restart the existing backend and frontend using the [development commands](development.md).
 7. Confirm that only one backend worker and one Vite server use those ports.
 8. Check `http://127.0.0.1:5173/api/health` for `{"status":"ok"}`.
@@ -501,16 +499,15 @@ Do not clear browser storage during an OAuth exchange.
 3. Expect **Accesso riservato** before approval.
 4. Verify that `GET /api/me` returns `403` in the browser Network panel.
 5. In Supabase **Authentication → Users**, verify the account, Google identity, and Supabase user UUID.
-6. Create a consistent SQLite backup with SQLite's backup API before the identity-link operation.
-7. Verify the backup with `PRAGMA integrity_check`.
-8. From `backend/`, run the following command with the verified UUID:
+6. Create and verify a PostgreSQL backup before the identity-link operation.
+7. From `backend/`, run the following command with the verified UUID:
 
 ```sh
 .venv/bin/python -m app.access link-owner --subject OWNER_SUPABASE_USER_UUID
 ```
 
-9. Confirm that the original profile ID, role, active status, subscriptions, and read states remain unchanged.
-10. Select **Verifica di nuovo** in the application.
+8. Confirm that the original profile ID, role, active status, subscriptions, and read states remain unchanged.
+9. Select **Verifica di nuovo** in the application.
 
 **Checkpoint:** `/api/me` returns `200` with the existing administrator profile. The original sources and preferences remain available.
 
@@ -549,5 +546,5 @@ Do not use this bypass after public deployment.
 
 Record the date, code revision, checks, manual settings, owner-link outcome, and remaining real-session tests.
 Keep user UUIDs, keys, tokens, and private database paths out of the committed record.
-Automated tests use mocked identity services and real Alembic migrations on temporary databases.
+Automated tests use mocked identity services and real Alembic migrations on disposable local PostgreSQL databases.
 They do not establish that Google, Supabase, or a real browser session works.

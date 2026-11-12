@@ -31,7 +31,7 @@ PRODUCTION = {
         {"local_user_id": LOCAL_OWNER_ID},
         {"supabase_url": None},
         {"docs_enabled": True},
-        {"database_url": "sqlite:///data/news.db"},
+        {"database_url": "mysql://reader:secret@db.example.org/news"},
         {"database_url": PRODUCTION["database_url"].replace("tnr_app.example", "postgres")},
         {"database_url": PRODUCTION["database_url"].replace("verify-full", "require")},
         {"database_url": "postgresql://tnr_app:private-test-password@127.0.0.1/db?sslmode=disable"},

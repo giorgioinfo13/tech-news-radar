@@ -13,7 +13,6 @@ from sqlalchemy import (
     Index,
     String,
     Text,
-    UniqueConstraint,
     Uuid,
     func,
     text,
@@ -29,23 +28,15 @@ LOCAL_OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 def text_type(length: int | None = None):
-    # PostgreSQL C collation preserves SQLite's byte ordering and ASCII case folding.
-    base = String(length) if length is not None else Text()
-    postgres = String(length, collation="C") if length is not None else Text(collation="C")
-    return base.with_variant(postgres, "postgresql")
+    return String(length, collation="C") if length is not None else Text(collation="C")
 
 
 def exact_key(name: str, *columns: str):
     """Exact uniqueness, including long UTF-8 keys that exceed PostgreSQL B-tree limits."""
     # Composite callers use an integer source_id first, making ':' unambiguous.
     expression = " || ':' || ".join(f"{column}::text" for column in columns)
-    return (
-        UniqueConstraint(*columns, name=name).ddl_if(dialect="sqlite"),
-        # Hash exclusion rechecks original values, so hash collisions are not duplicates.
-        ExcludeConstraint((text(f"({expression})"), "="), name=name, using="hash").ddl_if(
-            dialect="postgresql"
-        ),
-    )
+    # Hash exclusion rechecks original values, so hash collisions are not duplicates.
+    return (ExcludeConstraint((text(f"({expression})"), "="), name=name, using="hash"),)
 
 
 class AIBriefControl(Base):
@@ -119,7 +110,6 @@ class AIBriefJob(Base):
             "category_id",
             "quota_day",
             unique=True,
-            sqlite_where=text("status = 'success'"),
             postgresql_where=text("status = 'success'"),
         ),
     )
@@ -352,7 +342,6 @@ class SourceProposal(Base):
             "user_id",
             "name_key",
             unique=True,
-            sqlite_where=text("status = 'pending'"),
             postgresql_where=text("status = 'pending'"),
         ),
     )

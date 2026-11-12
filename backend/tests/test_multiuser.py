@@ -175,7 +175,7 @@ async def test_reader_refresh_requires_subscription_and_uses_shared_cooldown(peo
         # Identity lookup releases its transaction/connection. PostgreSQL retains
         # only the AUTOCOMMIT advisory-lock connection during HTTP I/O.
         engine = app.state.database_engine
-        assert engine.pool.checkedout() == (1 if engine.dialect.name == "postgresql" else 0)
+        assert engine.pool.checkedout() == 1
         return Download(b"", "https://example.org/feed", not_modified=True)
 
     app.state.collector.downloader.fetch = fetch
@@ -308,16 +308,15 @@ def test_0003_preserves_owner_read_flags_sources_and_history(migration_config):
     engine = create_database_engine(migration_config.get_main_option("sqlalchemy.url"))
     try:
         with engine.begin() as connection:
-            if engine.dialect.name == "postgresql":
-                # New tables can inherit project-wide grants, even in a private schema.
-                roles = connection.exec_driver_sql(
-                    "SELECT rolname FROM pg_roles "
-                    "WHERE rolname IN ('anon', 'authenticated', 'service_role')"
-                ).scalars()
-                for role in ["PUBLIC", *roles]:
-                    connection.exec_driver_sql(
-                        f"ALTER DEFAULT PRIVILEGES IN SCHEMA tnr GRANT ALL ON TABLES TO {role}"
-                    )
+            # New tables can inherit project-wide grants, even in a private schema.
+            roles = connection.exec_driver_sql(
+                "SELECT rolname FROM pg_roles "
+                "WHERE rolname IN ('anon', 'authenticated', 'service_role')"
+            ).scalars()
+            for role in ["PUBLIC", *roles]:
+                connection.exec_driver_sql(
+                    f"ALTER DEFAULT PRIVILEGES IN SCHEMA tnr GRANT ALL ON TABLES TO {role}"
+                )
             connection.exec_driver_sql(
                 "UPDATE categories SET name = 'Existing category' WHERE id = 1"
             )
@@ -336,10 +335,9 @@ def test_0003_preserves_owner_read_flags_sources_and_history(migration_config):
                 "VALUES (50, '2026-01-01 00:00:00')"
             )
         command.upgrade(migration_config, "head")
-        if engine.dialect.name == "postgresql":
-            with engine.connect() as connection:
-                assert (
-                    connection.exec_driver_sql("""
+        with engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql("""
                     SELECT count(*) FROM pg_class c
                     JOIN pg_namespace n ON c.relnamespace = n.oid,
                     aclexplode(c.relacl) a
@@ -350,8 +348,8 @@ def test_0003_preserves_owner_read_flags_sources_and_history(migration_config):
                         WHERE rolname IN ('anon', 'authenticated', 'service_role')
                       ))
                 """).scalar_one()
-                    == 0
-                )
+                == 0
+            )
         with Session(engine) as session:
             assert session.get(AppUser, LOCAL_OWNER_ID).role == "admin"
             assert session.get(Source, 50).enabled is False

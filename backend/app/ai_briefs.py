@@ -30,14 +30,9 @@ RESERVED_TOKENS = 4000
 
 
 def database_now(session: Session) -> datetime:
-    # PostgreSQL CURRENT_TIMESTAMP is frozen at transaction start, before a lock
-    # wait. Admission/cooldowns need the wall clock after acquiring the gate.
-    clock = (
-        func.clock_timestamp(type_=UTCDateTime())
-        if session.bind.dialect.name == "postgresql"
-        else func.current_timestamp(type_=UTCDateTime())
-    )
-    return session.scalar(select(clock))
+    # CURRENT_TIMESTAMP is frozen at transaction start, before a lock wait.
+    # Admission/cooldowns need the wall clock after acquiring the gate.
+    return session.scalar(select(func.clock_timestamp(type_=UTCDateTime())))
 
 
 def reset_at(now: datetime) -> datetime:

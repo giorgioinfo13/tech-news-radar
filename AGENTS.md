@@ -11,8 +11,8 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 - `README.md` and `README.en.md`: equivalent Italian and English introductions.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
-The current implementation provides a scaffold, a health endpoint, the SQLite
-schema, REST APIs, RSS/Atom collection, and a responsive Italian dashboard with
+The current implementation provides a scaffold, a health endpoint, a Supabase
+PostgreSQL schema, REST APIs, RSS/Atom collection, and a responsive Italian dashboard with
 source/category management, manual refresh, and periodic collection in one backend worker.
 See [architecture](docs/architecture.md) for the intended scope.
 
@@ -91,7 +91,7 @@ database tools. Installing a skill does not authorize cloud changes or migration
 
 Use the commands in [the development guide](docs/development.md).
 Backend checks are pytest, Ruff lint, and Ruff format checks. Database tests must
-apply real Alembic migrations to temporary SQLite files. Frontend checks are
+apply real Alembic migrations to disposable local PostgreSQL databases. Frontend checks are
 ESLint, TypeScript, Vitest/Testing Library, Prettier, and a production build.
 Test user-visible behavior with mocked HTTP, not implementation details or snapshots.
 

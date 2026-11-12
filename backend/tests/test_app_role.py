@@ -21,8 +21,6 @@ SQL_ROOT = Path(__file__).resolve().parents[1] / "sql"
 def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate(
     database, monkeypatch
 ):
-    if database.dialect.name != "postgresql":
-        pytest.skip("Run with --postgres to validate role setup on a disposable server")
     created = False
     runtime = None
     try:

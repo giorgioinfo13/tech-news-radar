@@ -274,7 +274,7 @@ async def test_cancellation_during_validation_wins(proposal_app, database, monke
 
 
 def test_proposal_migration_preserves_prior_data(database, migration_config):
-    from app.transfer import TABLES, read_rows
+    from db_assertions import TABLES, read_rows
 
     command.downgrade(migration_config, "0005")
     tables = [

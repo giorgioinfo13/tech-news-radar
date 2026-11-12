@@ -5,7 +5,7 @@ from sqlalchemy import delete, func, inspect, select
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 
-from app.db import BACKEND_ROOT, create_database_engine, resolve_database_url
+from app.db import create_database_engine
 from app.models import LOCAL_OWNER_ID, Article, ArticleReadState, Category, CollectionRun, Source
 
 
@@ -16,37 +16,12 @@ def add_source(session: Session, feed_url: str = "https://example.com/feed") -> 
     return source
 
 
-def test_database_path_is_independent_of_working_directory(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    assert resolve_database_url("sqlite:///data/news.db").database == str(
-        BACKEND_ROOT / "data" / "news.db"
-    )
-    assert resolve_database_url("sqlite:///:memory:").database == ":memory:"
-
-
-def test_nested_database_directory_is_created_only_when_engine_is_requested(tmp_path):
-    path = tmp_path / "nested" / "news.db"
-    url = resolve_database_url(f"sqlite:///{path}")
-    assert not path.parent.exists()
-    engine = create_database_engine(url)
-    try:
-        with engine.connect() as connection:
-            assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
-        assert path.exists()
-    finally:
-        engine.dispose()
-
-
 def test_foreign_keys_enabled_for_each_connection(database):
     with database.connect() as first, database.connect() as second:
         for connection in (first, second):
-            if database.dialect.name == "sqlite":
-                assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
-            else:
-                assert (
-                    connection.exec_driver_sql("SHOW session_replication_role").scalar_one()
-                    == "origin"
-                )
+            assert (
+                connection.exec_driver_sql("SHOW session_replication_role").scalar_one() == "origin"
+            )
 
 
 def test_data_survives_engine_restart_with_dates_and_read_status(database):

@@ -15,13 +15,13 @@ collegamenti alle fonti. La generazione tramite Gemini è attiva nell’istanza
 pubblicata; nelle nuove installazioni resta disattivata finché non viene
 configurata esplicitamente.
 
-L’interfaccia responsive è disponibile in italiano e inglese. In locale usa
-SQLite e non richiede account cloud; autenticazione multiutente e distribuzione
-pubblica sono configurazioni separate.
+L’interfaccia responsive è disponibile in italiano e inglese. Il backend usa
+esclusivamente PostgreSQL su Supabase, con connessione TLS verificata e schema
+applicativo privato `tnr`.
 
 ## Quickstart locale
 
-Requisiti: Python 3.13, Node.js 24 e npm.
+Requisiti: Python 3.13, Node.js 24, npm e accesso al progetto Supabase.
 
 ```sh
 git clone https://github.com/giorgioinfo13/tech-news-radar.git
@@ -30,17 +30,11 @@ cp .env.example .env
 python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt
 npm ci --prefix frontend
-cd backend
-.venv/bin/alembic upgrade head
-cd ..
 ```
 
-Per accedere ai dati senza servizi cloud, abilita nell’`.env` locale:
-
-```dotenv
-TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
-VITE_LOCAL_MODE=true
-```
+Completa `.env` con gli endpoint Supabase, la chiave pubblicabile e la URL
+PostgreSQL del ruolo applicativo. Le migrazioni di produzione passano soltanto
+dal flusso di rilascio autorizzato.
 
 Avvia quindi il backend dalla radice del repository:
 
@@ -55,8 +49,7 @@ In un secondo terminale avvia il frontend:
 npm run dev --prefix frontend
 ```
 
-Apri <http://127.0.0.1:5173>. Il database iniziale non contiene fonti: puoi
-aggiungerle dall’interfaccia di amministrazione.
+Apri <http://127.0.0.1:5173>. I dati sono letti dal database Supabase configurato.
 
 ## Fork e distribuzione
 

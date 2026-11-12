@@ -1,7 +1,7 @@
 from io import StringIO
-from pathlib import Path
 
 from alembic import command
+from db_assertions import TABLES, read_rows
 from sqlalchemy import MetaData, Table, insert, inspect, select, update
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,6 @@ from app.models import (
     Source,
     Subscription,
 )
-from app.transfer import TABLES, read_rows
 
 
 def test_initial_migration_matches_models_and_seeds_categories(database, migration_config):
@@ -164,12 +163,9 @@ def test_offline_sql_does_not_create_a_database(migration_config):
     command.upgrade(migration_config, "head", sql=True)
     assert "CREATE TABLE articles" in output.getvalue()
     assert "INSERT INTO categories" in output.getvalue()
-    database_url = resolve_database_url(migration_config.get_main_option("sqlalchemy.url"))
-    if database_url.get_backend_name() == "sqlite":
-        assert not Path(database_url.database).exists()
-    else:
-        assert "CREATE SCHEMA IF NOT EXISTS tnr" in output.getvalue()
-        assert "TIMESTAMP WITH TIME ZONE" in output.getvalue()
+    resolve_database_url(migration_config.get_main_option("sqlalchemy.url"))
+    assert "CREATE SCHEMA IF NOT EXISTS tnr" in output.getvalue()
+    assert "TIMESTAMP WITH TIME ZONE" in output.getvalue()
 
 
 def test_attempt_migration_preserves_content_and_backfills_interrupted_runs(

@@ -17,18 +17,15 @@ Simplicity and maintainability take priority over scale.
 
 ## Database foundation
 
-SQLite and PostgreSQL use shared models and synchronous SQLAlchemy sessions. Alembic revision `0001` creates the
+PostgreSQL uses synchronous SQLAlchemy sessions. Alembic revision `0001` creates the
 schema and eight editable categories. Schema changes are explicit migration commands,
 not startup side effects. No default sources are inserted yet.
 
-The engine enables foreign keys on every SQLite connection and uses Python's modern
-transaction mode with a five-second lock timeout. Keep transactions short and use
-one backend worker. Models expose timezone-aware UTC timestamps. SQLite stores naive UTC,
-while PostgreSQL uses `timestamptz`. Naive Python datetime inputs are rejected.
-
-SQLite remains the local default. PostgreSQL uses Psycopg 3, verified TLS for remote connections,
-and a bounded SQLAlchemy pool with direct or session-pooler connections.
-Alembic revision `0002` adapts PostgreSQL dates, collations, and long-key constraints without changing SQLite tables.
+Keep transactions short and use one backend worker. Models expose timezone-aware UTC
+timestamps stored as PostgreSQL `timestamptz`; naive Python datetime inputs are rejected.
+The engine uses Psycopg 3, verified TLS for remote connections, and a bounded SQLAlchemy
+pool with direct or session-pooler connections.
+Alembic revision `0002` adapts dates, collations, and long-key constraints for PostgreSQL.
 PostgreSQL tables live in the private `tnr` schema, with Data API role grants revoked.
 See [PostgreSQL configuration and tests](deployment.md#postgresql-configuration) for privilege boundaries and isolated validation.
 No existing data is transferred, and no Supabase configuration is applied automatically.
@@ -51,7 +48,7 @@ category means uncategorized. Category names and slugs, and source feed URLs, ar
 Articles preserve the original URL and publication date separately from acquisition
 time. Missing publication dates stay null. Database constraints on
 `(source_id, guid)` and `(source_id, url)` reject exact duplicates within a source.
-SQLite uses unique constraints. PostgreSQL uses hash exclusion constraints to support long UTF-8 keys with exact comparisons.
+PostgreSQL uses hash exclusion constraints to support long UTF-8 keys with exact comparisons.
 GUIDs can be null. Different sources can reference the same article. The collector
 adds conservative URL matching on top of these database constraints.
 
@@ -88,7 +85,7 @@ The collection service handles the separate download, parsing, and persistence w
 
 Article lists sort by publication time, or acquisition time when publication time
 is absent. Descending IDs break ties. Search matches literal substrings in titles
-and descriptions. Both databases use ASCII case handling, without linguistic or
+and descriptions. PostgreSQL uses ASCII case handling, without linguistic or
 semantic search. Offset pagination can shift when articles arrive between requests.
 Large feeds may eventually need indexed search or cursor pagination.
 Article lists default to personal subscriptions. Browsing the full shared archive is explicit and still uses the caller's own read states.
@@ -110,7 +107,7 @@ and records an error in a separate transaction. Storage outages can prevent that
 last write. Interrupted runs are closed on the next refresh of the same source.
 
 An application gate rejects concurrent collections and source PATCH/DELETE requests.
-A PostgreSQL session advisory lock or SQLite OS file lock also coordinates separate collector instances.
+A PostgreSQL session advisory lock also coordinates separate collector instances.
 Network access holds no database transaction. PostgreSQL reserves one pool connection for the session lock.
 Locks release on process/connection closure and remain held during suspension, without expiring lease overlap.
 Keep one backend process/worker. External SQL edits do not participate in this gate.
@@ -341,7 +338,6 @@ revocation, activation, and profile deletion. The lock is held through commit or
 If approval acquires it first, approval finishes before revocation can commit.
 If revocation acquires it first, approval waits, reads the revoked state, and returns `409`
 without creating a source, decision, or subscription. Network validation holds no such lock.
-SQLite first executes an empty UPDATE to acquire a write reservation before reads in its PEP 249 transaction.
 These gates serialize pending counts and decisions. Constraints independently prevent duplicate feeds and subscriptions.
 Approval stores the source, decision, and optional personal subscription in one transaction.
 HTTP validation runs outside that transaction. Approval also uses the collector's existing source-operation gate.
@@ -436,16 +432,15 @@ Automated tests use local fixtures and mocked HTTP. They do not require these si
 
 ## Database behavior
 
-- Dates use PostgreSQL `timestamptz` or SQLite naive UTC storage. Python and API responses use aware UTC on both databases.
+- Dates use PostgreSQL `timestamptz`. Python and API responses use aware UTC values.
 - Migration `0002` interprets earlier PostgreSQL timestamps as UTC explicitly. Naive Python datetime input remains invalid.
 - Booleans, foreign keys, check constraints, null GUIDs, and cascade behavior retain the existing contract.
-- PostgreSQL `C` collations preserve SQLite's byte ordering and ASCII case behavior for searchable and ordered text.
+- PostgreSQL `C` collations provide deterministic byte ordering and ASCII case behavior for searchable and ordered text.
 - Search remains a literal substring search. Wildcards are escaped. Non-ASCII case variants remain distinct.
 - Article order still uses publication time, then acquisition time when absent, with descending IDs for ties.
 - Existing foreign-key and date indexes remain. Leading-wildcard text search does not gain an index in this step.
 - PostgreSQL uses exact hash exclusion constraints for feed URLs and source-scoped article GUIDs and URLs.
   These constraints recheck original values, including hash collisions. They permit long UTF-8 values without B-tree size failures.
-  SQLite keeps its existing unique constraints. No hash extension or alternate collector implementation is required.
 - Alembic does not automatically compare exclusion constraints. Dedicated tests check their presence and duplicate rejection.
   Review changes to these three constraints manually in future migrations.
 

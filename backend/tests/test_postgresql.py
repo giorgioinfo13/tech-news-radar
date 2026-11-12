@@ -1,4 +1,4 @@
-"""Connection checks run offline; storage checks also run with pytest --postgres."""
+"""PostgreSQL connection, migration, and storage checks."""
 
 from datetime import UTC, datetime
 from io import StringIO
@@ -107,7 +107,7 @@ def test_long_unicode_keys_and_exact_duplicates(database):
 
 
 @pytest.mark.anyio
-async def test_search_and_source_order_preserve_sqlite_semantics(database, client):
+async def test_search_and_source_order_are_stable(database, client):
     with Session(database) as session, session.begin():
         for number, name in enumerate(["ä", "z", "Ä", "A", "a"]):
             source = Source(name=name, feed_url=f"https://example.org/{number}")
@@ -141,34 +141,30 @@ def test_upgrade_from_0001_preserves_existing_data(migration_config):
                 VALUES ('Existing', 'https://example.org/feed', '2026-01-02 03:04:05')
             """)
             )
-            if engine.dialect.name == "postgresql":
-                # Simulate broad grants before upgrading, rather than only testing defaults.
-                connection.exec_driver_sql("GRANT ALL ON SCHEMA tnr TO PUBLIC")
-                connection.exec_driver_sql("GRANT ALL ON ALL TABLES IN SCHEMA tnr TO PUBLIC")
-                connection.exec_driver_sql("GRANT ALL ON ALL SEQUENCES IN SCHEMA tnr TO PUBLIC")
+            # Simulate broad grants before upgrading, rather than only testing defaults.
+            connection.exec_driver_sql("GRANT ALL ON SCHEMA tnr TO PUBLIC")
+            connection.exec_driver_sql("GRANT ALL ON ALL TABLES IN SCHEMA tnr TO PUBLIC")
+            connection.exec_driver_sql("GRANT ALL ON ALL SEQUENCES IN SCHEMA tnr TO PUBLIC")
         command.upgrade(migration_config, "head")
         with Session(engine) as session:
             stored = session.scalar(select(Source))
             assert stored.name == "Existing"
             assert stored.created_at == datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
         command.check(migration_config)
-        if engine.dialect.name == "postgresql":
-            with engine.connect() as connection:
-                assert (
-                    connection.exec_driver_sql("""
+        with engine.connect() as connection:
+            assert (
+                connection.exec_driver_sql("""
                     SELECT count(*) FROM pg_namespace n, aclexplode(n.nspacl) a
                     WHERE n.nspname = 'tnr' AND a.grantee = 0
                 """).scalar_one()
-                    == 0
-                )
+                == 0
+            )
     finally:
         engine.dispose()
 
 
 def test_postgres_exported_sql_applies_to_empty_database(migration_config):
     url = resolve_database_url(migration_config.get_main_option("sqlalchemy.url"))
-    if url.get_backend_name() != "postgresql":
-        pytest.skip("Run with --postgres to apply the exported SQL")
     output = StringIO()
     migration_config.output_buffer = output
     command.upgrade(migration_config, "head", sql=True)
@@ -189,8 +185,6 @@ def test_postgres_exported_sql_applies_to_empty_database(migration_config):
 
 
 def test_postgres_namespace_privileges_and_storage(database):
-    if database.dialect.name != "postgresql":
-        pytest.skip("Run with --postgres to check PostgreSQL storage and privileges")
     with database.connect() as connection:
         assert connection.exec_driver_sql("SHOW search_path").scalar_one() == "tnr"
         assert connection.exec_driver_sql("SHOW TimeZone").scalar_one() == "UTC"

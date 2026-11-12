@@ -1,6 +1,7 @@
 """Apply release migrations with a pinned Supabase target and bounded database locks."""
 
 import os
+import re
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,8 +11,32 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import make_url
 
-from app.db import BACKEND_ROOT, create_database_engine
-from app.transfer_supabase import target_details
+from app.db import BACKEND_ROOT, create_database_engine, resolve_database_url
+
+
+def operator_url(value: str, project_ref: str):
+    """Validate the pinned Supabase operator endpoint without opening a connection."""
+    url = resolve_database_url(value)
+    if (
+        not re.fullmatch(r"[a-z0-9]{20}", project_ref)
+        or not re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com", url.host or "")
+        or url.port != 5432
+        or url.database != "postgres"
+        or url.username != f"postgres.{project_ref}"
+        or not url.password
+        or url.query.get("sslmode") != "verify-full"
+    ):
+        raise ValueError(
+            "Use the named Supabase project's operator session pooler with verified TLS."
+        )
+    if any(
+        os.environ.get(key) for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE", "PGOPTIONS")
+    ):
+        raise ValueError("Remove libpq routing/session overrides before release migrations.")
+    ca = Path(url.query.get("sslrootcert", ""))
+    if not ca.is_absolute() or not ca.is_file():
+        raise ValueError("An existing absolute CA certificate path is required.")
+    return url
 
 
 def migrate(url) -> None:
@@ -64,7 +89,7 @@ def main() -> int:
             url = make_url(os.environ["TNR_MIGRATION_DATABASE_URL"]).update_query_dict(
                 {"sslrootcert": str(ca)}
             )
-            url, _ = target_details(url, os.environ["TNR_SUPABASE_PROJECT_REF"])
+            url = operator_url(url, os.environ["TNR_SUPABASE_PROJECT_REF"])
             migrate(url)
     except Exception:
         # Database exceptions can include URLs, SQL parameters or private schema data.

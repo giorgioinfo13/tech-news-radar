@@ -1,8 +1,9 @@
 # Local development
 
 Run all commands from the repository root unless a step changes the directory.
-The current scaffold requires Python 3.13, Node.js 24, and npm. Version hints are
-in `.python-version` and `.nvmrc`. Docker and paid services are not required.
+The current scaffold requires Python 3.13, Node.js 24, npm, and access to the
+Supabase project. Version hints are in `.python-version` and `.nvmrc`. Docker is
+required only for the isolated local PostgreSQL test service.
 
 ## Setup
 
@@ -31,9 +32,14 @@ npm ci
 Use Python 3.13 when you create the virtual environment. The backend dependency
 range intentionally matches that version until other Python versions are tested.
 
-## Initialize the database
+## Configure the database
 
-From the repository root, apply the migrations:
+Fill the private root `.env` with the Supabase session-pooler URL for `tnr_app`,
+verified TLS settings, authentication origin, and public frontend settings. The
+database URL is required; no file-backed or embedded database is supported.
+
+The production schema is migrated only by the authorized release workflow. For
+an explicitly authorized operator check from the repository root:
 
 ```sh
 cd backend
@@ -42,17 +48,15 @@ cd backend
 .venv/bin/alembic check
 ```
 
-With the default configuration, this creates `backend/data/news.db` and eight
-editable categories. No sources or articles are imported. The expected revision is
+The expected revision is
 `0012 (head)`, with no pending schema changes. Revision `0012` adds the latest app access check. Revision `0011` adds a separate article discussion URL. Revision `0010` persists RSS attempt times before downloads. Revision `0003` adds personal subscriptions and read states.
 It preserves existing sources, categories, articles, and collection history. Existing read flags belong only to the reserved local owner.
 Revision `0004` adds explicit Supabase identity links without changing existing profiles or personal data.
 Revision `0005` adds administrator email invitations. It preserves existing profiles, subscriptions, and read states.
-SQLite must be version 3.35 or later for the native column removal. Check the SQLite library bundled with your Python installation.
 
 Run `alembic upgrade head` after updates that add migrations. Repeating it on an
 up-to-date database preserves category edits and existing data. The API does not
-create tables or apply migrations at startup. The database directory is ignored by Git.
+create tables or apply migrations at startup.
 
 Before deploying the article discussion-link change, apply revision `0011` with the existing migration command.
 It removes the `Comments` placeholder from articles associated with the standard Hacker News feed.
@@ -60,13 +64,10 @@ The next normal collection requests the full feed and restores discussion links 
 Older articles absent from the feed cannot recover their lost discussion link.
 Other descriptions remain unchanged. Downgrading removes the new column but does not restore the removed placeholder.
 
-`TNR_DATABASE_URL` controls the database location. Relative SQLite paths resolve
-from `backend/`, even if the command runs from another directory. Absolute SQLite
-paths are supported. SQLite URI mode (`uri=true`) is not supported.
-
-SQLite remains the default and needs no cloud account. PostgreSQL uses the same models, APIs, collector, and scheduler.
-See [PostgreSQL setup and isolated tests](deployment.md#postgresql-configuration) for TLS, schema isolation, and migration credentials.
-Changing the URL does not copy data between databases.
+`TNR_DATABASE_URL` must identify Supabase PostgreSQL through a direct connection
+or the session pooler on port 5432. Remote connections require `sslmode=verify-full`
+and an absolute `sslrootcert` path. See [PostgreSQL setup and isolated tests](deployment.md#postgresql-configuration)
+for TLS, schema isolation, and migration credentials.
 
 For a command from the repository root, specify the config explicitly:
 
@@ -82,17 +83,9 @@ only with a disposable database. Tests exercise this path in temporary directori
 
 ## Run the backend
 
-For account-free local development, add these lines to your private root `.env` after applying the migrations:
-
-```dotenv
-TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
-VITE_LOCAL_MODE=true
-```
-
-This selects the reserved local administrator. It is not authentication and must not be enabled in a public deployment.
-Omit all Supabase settings in this local mode. Without a local identity or Supabase configuration, data endpoints return `401`.
-Health and API documentation remain available. The frontend local mode works only in a development build on a loopback hostname.
-Google login and operator-approved access require the [authentication configuration](authentication.md).
+Local development uses the configured Supabase project and Google login.
+Without Supabase configuration, data endpoints return `401`. Health and API
+documentation remain available. See the [authentication configuration](authentication.md).
 See [multiuser behavior](authentication.md#user-roles-and-personal-data) for roles and migration details.
 
 In one terminal, start from the repository root:
@@ -112,7 +105,7 @@ database requests to fail, even when the health check succeeds.
 
 ## Use the REST API
 
-Use `/docs` to inspect request schemas and try the endpoints against your local database.
+Use `/docs` to inspect request schemas and try the endpoints against the configured Supabase database.
 These operations change persistent data. The local identity adapter is for loopback development only.
 The backend requires an active application user and checks permissions on each request.
 Only administrators can create, edit, or delete categories and sources.
@@ -143,7 +136,7 @@ Source filters are `category_id` and `enabled`. Article filters are `source_id`,
 Articles default to followed sources. Set `subscribed_only=false` to browse the shared archive.
 Read status and its filters always apply to the current user, including for administrators.
 Search checks titles and descriptions
-for a literal substring. ASCII letters match without case sensitivity on both databases.
+for a literal substring. ASCII letters match without case sensitivity in PostgreSQL.
 Non-ASCII case variants remain distinct. `%` and `_` are literal characters.
 An empty or whitespace-only search applies no text filter. Categories in article responses
 reflect the source's current category. Disabled sources' existing articles remain visible.
@@ -254,7 +247,7 @@ Article pages are never fetched. This path never calls Gemini or changes AI budg
 
 A shared nonblocking gate coordinates all collector instances and source changes.
 PostgreSQL uses a session advisory lock on one connection, with no open transaction during HTTP.
-SQLite uses an OS file lock beside the database. Crash/connection closure releases these locks without an expiring lease or stale lock row.
+PostgreSQL advisory locks release automatically when their owning connection closes.
 Suspension retains a live lock. An HTTP deadline is checked when execution resumes. Keep the supported one-process, one-worker deployment.
 
 ## Automatic collection
@@ -284,7 +277,7 @@ Standard Python logging controls informational scheduler messages.
 To test a shorter interval, use `PATCH /api/sources/{id}` with `{"refresh_interval_minutes":1}` in `/docs`.
 Wait for the shared 15-minute minimum and a subsequent scan, then inspect `/api/sources/{id}/runs`.
 A failed source can take longer because of its cooldown. Restore the desired interval after the test.
-This test downloads the configured feed and writes articles to your local database.
+This test downloads the configured feed and writes articles to the configured Supabase database.
 
 Set `TNR_SCHEDULER_ENABLED=false` in `.env` to disable the internal timer.
 Without an external trigger secret, this leaves manual collection only.
@@ -499,7 +492,8 @@ Browser checks cover layout at 320, 390, and 1440 pixels. This is not a full acc
 ## Configuration
 
 Copy `.env.example` to the repository root as `.env` if no private file exists.
-Enable the local identity explicitly for local data access. Restart the development servers after configuration changes.
+Configure the Supabase database and authentication values before starting the backend.
+Restart the development servers after configuration changes.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -508,7 +502,7 @@ Enable the local identity explicitly for local data access. Restart the developm
 | `TNR_DOCS_ENABLED` | `true` | Enable `/docs` and `/openapi.json` |
 | `TNR_LOCAL_USER_ID` | unset | Explicit local-only identity, incompatible with `TNR_SUPABASE_URL` |
 | `TNR_SUPABASE_URL` | unset | HTTPS project origin for Supabase access-token verification |
-| `TNR_DATABASE_URL` | `sqlite:///data/news.db` | Database URL; relative SQLite paths start from `backend/` |
+| `TNR_DATABASE_URL` | required | Supabase PostgreSQL application URL with verified TLS |
 | `TNR_MIGRATION_DATABASE_URL` | unset | Optional operator connection for Alembic and access provisioning; defaults to the application URL |
 | `TNR_SCHEDULER_ENABLED` | `true` | Enable automatic collection in the backend process |
 | `TNR_SCHEDULER_POLL_SECONDS` | `30` | Wait between scans, range 1–300 seconds |
@@ -567,11 +561,10 @@ and jsdom with mocked HTTP. Run `npm run test:watch` for interactive test develo
 Run `npm run format` to format frontend source files and tests. jsdom is pinned to a version
 compatible with the supported Node 24 environment. Browser checks are still needed
 for responsive layout, native dialog focus, and other behavior jsdom does not reproduce.
-Backend tests use an in-process HTTP client and temporary SQLite databases initialized
-through Alembic. They require no external news services and do not change the local
-development database. Migration tests also check schema/model consistency and repeated upgrades.
-The same database, API, collector, and scheduler tests support an optional isolated PostgreSQL run.
-Use the [PostgreSQL test procedure](development.md#isolated-postgresql-tests). Docker is optional and is not required for normal development.
+Backend tests use an in-process HTTP client and disposable local PostgreSQL databases
+initialized through Alembic. They require no external news services and never connect
+to Supabase. Migration tests also check schema/model consistency and repeated upgrades.
+Use the [PostgreSQL test procedure](development.md#isolated-postgresql-tests).
 
 To inspect the frontend build, run `npm run preview` from `frontend/`.
 Open <http://127.0.0.1:4173>. This previews static assets only; it does not provide
@@ -614,7 +607,7 @@ Keep changes small and scoped. Current maintainer work uses `main` directly.
 External contributors can submit pull requests from their forks. Describe the change
 and its validation in each pull request. Keep the two README versions equivalent.
 
-Do not commit local databases, credentials, environment files, generated assets,
+Do not commit credentials, environment files, generated assets,
 or virtual environments. Preserve the project's [MIT License](../LICENSE) and any
 applicable third-party notices.
 
@@ -627,30 +620,32 @@ See [source proposal behavior and API](architecture.md#source-proposals) and
 
 [AI briefs](ai-briefs.md) require local revision `0009` and remain disabled by default.
 Activation also requires `TNR_AI_BUDGET_RISK_ACCEPTED=true`, which accepts a prudential reservation policy, not a guaranteed provider invoice cap.
-Never migrate the personal SQLite database for a test. Use the suite's real temporary migrations.
+Never use the Supabase database for a test. Use the suite's disposable local PostgreSQL databases.
 Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_digest_trigger_client.py` from `backend/`.
 Run `npm test -- tests/briefs.test.tsx` from `frontend/`.
 Gemini counting and generation use simulated HTTP. The test fixture forbids real HTTP and disables personal dotenv loading.
-No key is required. The [loopback-only PostgreSQL fixture](development.md#isolated-postgresql-tests) verifies the same transactions on PostgreSQL.
+No key is required. The [loopback-only PostgreSQL fixture](development.md#isolated-postgresql-tests) verifies the transactions.
 The old Xing/OpenRouter runtime, trial CLI commands, and tokenizer assets have been removed.
 The BYOK adapter and its tests are removed. Direct Gemini counting and HTTP responses remain simulated in tests.
 Do not reuse historical trial directories or markers.
 See [token evidence and activation blockers](ai-briefs.md#token-and-provider-contract) before any future live test.
 
-Agent work logs and investigation records belong in local `docs/agent-notes/`, excluded through `.git/info/exclude`.
+Agent work logs and investigation records belong in local `docs/agent-notes/`, excluded through `.gitignore`.
 Shared requirements and operating instructions remain in tracked guides. Do not link tracked guides to local notes.
 
-## Local testing without cloud accounts
+## Local authentication
 
 The backend denies data requests unless Supabase authentication or local identity is configured. Health and optional API documentation remain available.
-For local development, set this value in the private root `.env` after migration:
+The application database remains Supabase PostgreSQL in every application mode.
+For a loopback-only identity adapter, set these values in the private root `.env`:
 
 ```dotenv
 TNR_LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
 VITE_LOCAL_MODE=true
 ```
 
-Omit Supabase settings and restart both servers on `127.0.0.1`. All local requests then use this one application profile.
+Omit Supabase authentication settings and restart both servers on `127.0.0.1`.
+`TNR_DATABASE_URL` must still point to Supabase PostgreSQL. All local requests then use this one application profile.
 The frontend local mode is disabled in production builds.
 This setting is a development identity adapter, not a password or login mechanism.
 It rejects non-loopback clients and bearer tokens. It never reads user-selection headers or query parameters.
@@ -675,8 +670,7 @@ Neither subscriptions nor article updates accept a target user ID.
 
 ## Isolated PostgreSQL tests
 
-The default test command still uses temporary SQLite files initialized through real Alembic migrations.
-Add `--postgres` to run the same suite against a disposable local PostgreSQL server.
+All backend tests use disposable local PostgreSQL databases initialized through real Alembic migrations.
 The fixture requires a literal loopback address and refuses remote hosts, including Supabase hosts.
 It creates a unique `tnr_test_*` database for each database test and drops only that generated database afterward.
 The supplied database is used only to create and drop test databases. Use a local test role with `CREATEDB`.
@@ -688,7 +682,7 @@ Run from the repository root:
 
 ```sh
 TNR_TEST_POSTGRES_URL='postgresql+psycopg://postgres:tnr-local-test-only@127.0.0.1:55439/postgres?sslmode=disable' \
-  backend/.venv/bin/pytest backend/tests --postgres
+  backend/.venv/bin/pytest backend/tests
 ```
 
 Docker is an optional way to supply that server. These commands use a disposable container without a persistent volume:

@@ -26,15 +26,9 @@ coverage/
 playwright-report/
 test-results/
 
-# Local data and SQLite sidecars
+# Local deployment data and logs
 personal/
 backend/data/
-*.db
-*.db-*
-*.sqlite
-*.sqlite-*
-*.sqlite3
-*.sqlite3-*
 *.log
 
 # Local tools and operating system files

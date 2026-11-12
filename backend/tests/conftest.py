@@ -9,7 +9,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import URL, Engine, create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.pool import NullPool
 
 from app.config import Settings
@@ -18,45 +18,32 @@ from app.main import create_app
 from app.models import LOCAL_OWNER_ID
 
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--postgres", action="store_true", help="Use isolated local PostgreSQL databases"
-    )
-
-
 @pytest.fixture
-def migration_config(tmp_path: Path, request) -> Iterator[Config]:
+def migration_config() -> Iterator[Config]:
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    # Exercise config escaping as well as paths that contain spaces.
-    url = URL.create("sqlite", database=str(tmp_path / "news 100%.db"))
-    admin = None
-    if request.config.getoption("--postgres"):
-        value = os.environ.get("TNR_TEST_POSTGRES_URL")
-        if not value:
-            pytest.fail("--postgres requires TNR_TEST_POSTGRES_URL (a disposable local server)")
-        url = resolve_database_url(value)
-        if url.get_backend_name() != "postgresql" or url.host not in {"127.0.0.1", "::1"}:
-            pytest.fail(
-                "PostgreSQL tests require a literal loopback host; remote databases forbidden"
-            )
-        admin = create_engine(url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
-        # Never drop or migrate the supplied database. Each test owns a fresh database.
-        name = f"tnr_test_{uuid4().hex}"
-        with admin.connect() as connection:
-            connection.exec_driver_sql(f'CREATE DATABASE "{name}" TEMPLATE template0')
-        url = url.set(database=name)
+    value = os.environ.get("TNR_TEST_POSTGRES_URL")
+    if not value:
+        pytest.fail("Tests require TNR_TEST_POSTGRES_URL for a disposable local PostgreSQL server")
+    url = resolve_database_url(value)
+    if url.host not in {"127.0.0.1", "::1"}:
+        pytest.fail("PostgreSQL tests require a literal loopback host; remote databases forbidden")
+    admin = create_engine(url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
+    # Never drop or migrate the supplied database. Each test owns a fresh database.
+    name = f"tnr_test_{uuid4().hex}"
+    with admin.connect() as connection:
+        connection.exec_driver_sql(f'CREATE DATABASE "{name}" TEMPLATE template0')
+    url = url.set(database=name)
     config.set_main_option(
         "sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%")
     )
     try:
         yield config
     finally:
-        if admin is not None:
-            try:
-                with admin.connect() as connection:
-                    connection.exec_driver_sql(f'DROP DATABASE "{name}" WITH (FORCE)')
-            finally:
-                admin.dispose()
+        try:
+            with admin.connect() as connection:
+                connection.exec_driver_sql(f'DROP DATABASE "{name}" WITH (FORCE)')
+        finally:
+            admin.dispose()
 
 
 @pytest.fixture

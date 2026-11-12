@@ -5,16 +5,40 @@ from pathlib import Path
 
 import pytest
 from alembic import command
-from sqlalchemy import make_url
+from sqlalchemy import URL, make_url
 
 from app.db import create_database_engine
-from app.release_migrate import migrate
+from app.release_migrate import migrate, operator_url
 
 spec = importlib.util.spec_from_file_location(
     "release_render", Path(__file__).resolve().parents[2] / "scripts/release_render.py"
 )
 render = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(render)
+
+
+def test_operator_url_pins_supabase_project_and_verified_tls(tmp_path, monkeypatch):
+    project_ref = "a" * 20
+    ca = tmp_path / "supabase-ca.crt"
+    ca.write_text("test certificate", encoding="utf-8")
+    value = URL.create(
+        "postgresql+psycopg",
+        username=f"postgres.{project_ref}",
+        password="private-test-password",
+        host="aws-0-eu-west-2.pooler.supabase.com",
+        port=5432,
+        database="postgres",
+        query={"sslmode": "verify-full", "sslrootcert": str(ca)},
+    )
+    assert operator_url(value.render_as_string(hide_password=False), project_ref).host == value.host
+    with pytest.raises(ValueError, match="named Supabase project"):
+        operator_url(
+            value.set(username="postgres.other").render_as_string(hide_password=False),
+            project_ref,
+        )
+    monkeypatch.setenv("PGOPTIONS", "-c search_path=public")
+    with pytest.raises(ValueError, match="libpq"):
+        operator_url(value.render_as_string(hide_password=False), project_ref)
 
 
 @pytest.mark.parametrize(
@@ -88,8 +112,6 @@ def test_migration_supplied_connection_rolls_back(migration_config):
 
 def test_release_migration_and_grant_are_repeatable(migration_config):
     url = make_url(migration_config.get_main_option("sqlalchemy.url"))
-    if url.get_backend_name() != "postgresql":
-        pytest.skip("Release command requires --postgres")
     command.upgrade(migration_config, "0010")
     engine = create_database_engine(url)
     with engine.begin() as connection:

@@ -1,7 +1,7 @@
 """Durable shared-digest controls; only simulated Gemini HTTP and temporary databases."""
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import ai_fixtures as fixtures
@@ -166,14 +166,9 @@ def test_database_clock_is_current_after_transaction_wait(database):
     from app.ai_briefs import database_now
 
     with Session(database) as session, session.begin():
-        if database.dialect.name == "postgresql":
-            started = session.scalar(select(func.current_timestamp()))
-            session.execute(select(func.pg_sleep(0.02)))
-            assert database_now(session) > started
-        else:
-            now = database_now(session)
-            assert now.tzinfo is not None
-            assert abs((datetime.now(UTC) - now).total_seconds()) < 2
+        started = session.scalar(select(func.current_timestamp()))
+        session.execute(select(func.pg_sleep(0.02)))
+        assert database_now(session) > started
 
 
 def test_late_accounting_anomaly_stops_new_dispatch_without_stealing_lease(
