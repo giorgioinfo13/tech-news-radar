@@ -11,10 +11,17 @@ and economics. Keep it simple, readable, and suitable for future collaboration.
 - `README.md` and `README.en.md`: equivalent Italian and English introductions.
 - `.agents/skills/`: selected reusable workflows copied with the owner's approval.
 
-The current implementation provides a scaffold, a health endpoint, a Supabase
-PostgreSQL schema, REST APIs, RSS/Atom collection, and a responsive Italian dashboard with
-source/category management, manual refresh, and periodic collection in one backend worker.
-See [architecture](docs/architecture.md) for the intended scope.
+The application uses Supabase PostgreSQL, FastAPI REST APIs, and a responsive dashboard
+in Italian and English. It supports authenticated administrators and readers, invitations,
+source proposals, catalog management, RSS/Atom collection, and manual refresh.
+Personal subscriptions and read states are separate from the shared catalog.
+Readers and administrators can follow all catalog sources or remove all their subscriptions.
+Shared Gemini digests have an administrator-only panel for token usage, estimated costs,
+and prudential budget reservations. Reader usage summaries are also administrator-only.
+
+Implemented features are not necessarily deployed. Check the release status separately.
+See [architecture](docs/architecture.md), [AI digests](docs/ai-briefs.md), and
+[deployment](docs/deployment.md) for behavior and publication requirements.
 
 ## Working conventions
 
@@ -26,15 +33,20 @@ See [architecture](docs/architecture.md) for the intended scope.
 - Keep READMEs focused on the product. Put database revision numbers and release-specific instructions in `docs/`.
 - Distinguish available features from planned features in documentation and UI.
 - Keep agent work logs, investigation notes, trial history, and release-specific reports in `docs/agent-notes/`.
-  This local directory is excluded through `.git/info/exclude`; recreate the exclusion in a new checkout.
+  The versioned `.gitignore` excludes this local directory in every checkout.
   Do not put secrets there. Update existing notes rather than creating a report for each turn.
 - Keep reusable product, architecture, setup, security, and operating requirements in tracked `docs/` files.
   Prefer updating an existing guide. Tracked files must not depend on excluded agent notes.
 - Keep secrets, databases, virtual environments, build artifacts, and personal paths out of Git.
 - Use environment configuration where needed. Never put secrets in `VITE_*` variables.
-- Keep development servers on loopback. Public deployment and authentication need a separate task.
+- Keep development servers on loopback. Public deployments and authentication changes require explicit task authorization.
 - Treat feed URLs and content as untrusted. Never render unsanitized external HTML.
 - Use one backend worker. The collector and source changes share an in-process lock.
+- Keep individual and bulk subscription changes scoped to the authenticated user.
+  Preserve read states when subscriptions change. Serialize competing changes with the existing per-user transaction lock.
+- Read Gemini statistics from stored records. Do not call the provider to display or refresh the panel.
+  Keep unavailable consumption distinct from zero, and estimated costs distinct from reservations and billed charges.
+  Preserve content-free usage history when saved editions expire. Protect administrative statistics in both the UI and API.
 - Keep HTTP fetches in the guarded downloader. Pass only downloaded bytes to feedparser.
 - Add dependencies only for current requirements. Keep dependency definitions and locks consistent.
 - Change database schemas through Alembic revisions. Do not run `create_all()` or migrations at API startup.
@@ -74,7 +86,7 @@ automatic discovery depends on the agent. They do not override user instructions
 - [security-review](.agents/skills/security-review/SKILL.md): review concrete security boundaries, especially external feeds.
 - [ste-documentation](.agents/skills/ste-documentation/SKILL.md): English technical documentation, without claiming certified compliance.
 - [frontend-design](.agents/skills/frontend-design/SKILL.md): visual direction and implementation, following the selected editorial design.
-- [supabase-postgres-best-practices](.agents/skills/supabase-postgres-best-practices/SKILL.md): PostgreSQL schema, migrations, queries, connection management, and RLS guidance for the planned database migration.
+- [supabase-postgres-best-practices](.agents/skills/supabase-postgres-best-practices/SKILL.md): PostgreSQL schema, migrations, queries, connection management, privileges, and RLS guidance.
 - `web-design-guidelines`: optional local UI review skill in `.agents/skills/web-design-guidelines/`; excluded from Git. Installation details are in the provenance document.
 
 For UI work, preserve Italian sentence case and the existing API behavior. Review
@@ -97,13 +109,17 @@ Test user-visible behavior with mocked HTTP, not implementation details or snaps
 
 Run focused checks for the change. Report actual results and any checks not run.
 Do not infer passing tests from source inspection. Keep tests independent of live
-news services. Use fixtures and mocked HTTP for future collection tests.
+news services and Gemini. Use fixtures and mocked HTTP for collection and AI tests.
 
 ## Git workflow
 
 - Work directly on `main` for now, as requested by the owner. Create other branches only when requested.
 - Do not create commits or push without explicit authorization for that action.
 - Do not force-push or overwrite history.
+- A push to `main` runs CI checks, not a deployment. Releases require a separate manual action.
+  Use **Release full** for changes to the backend, database, or frontend API requirements.
+  This workflow applies migrations and reviewed grants, deploys Render, and then publishes the frontend.
+  Use **Release frontend only** only when all pending frontend changes work with the deployed API.
 - Before stopping, report completed scope, checks, deviations, and Git status when relevant.
 - Propose a commit message only when the change is ready for the owner's push, not after every response.
 - Use English commit messages in the form `<type>: <emoji> - <summary>`.
