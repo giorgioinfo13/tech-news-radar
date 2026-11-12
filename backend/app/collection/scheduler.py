@@ -1,17 +1,25 @@
 """One sequential worker, owned by the application's lifespan, with no job queue."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Event, Thread
 from time import monotonic
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.collection.diagnostics import failure_reason
 from app.collection.service import Collector, RefreshRejected
 from app.models import Source
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ScanFailure:
+    source_id: int
+    run_id: int | None
+    reason: str
 
 
 @dataclass
@@ -20,6 +28,7 @@ class ScanResult:
     failed: int = 0
     skipped: int = 0
     deferred: bool = False
+    failures: list[ScanFailure] = field(default_factory=list)
 
 
 class CollectionScheduler:
@@ -78,6 +87,9 @@ class CollectionScheduler:
                     result.skipped += 1
                 elif run.status == "error":
                     result.failed += 1
+                    result.failures.append(
+                        ScanFailure(source_id, run.id, failure_reason(run.error_message))
+                    )
                 else:
                     result.collected += 1
             except RefreshRejected as exc:
@@ -89,6 +101,7 @@ class CollectionScheduler:
                 result.skipped += 1
             except Exception as exc:
                 result.failed += 1
+                result.failures.append(ScanFailure(source_id, None, "unexpected_error"))
                 logger.error(
                     "Scheduled collection source=%s failed (%s)", source_id, type(exc).__name__
                 )

@@ -300,7 +300,8 @@ It accepts only HTTPS `*.onrender.com` origins and refuses redirects. No credent
 A POST timeout leaves completion unknown; the script does not repeat the POST.
 
 The backend reuses the existing collector, downloader, persisted due times, and source lock.
-Each scan permits up to 25 feed attempts and checks a 240-second budget between feeds.
+Each external scan permits up to 100 feed attempts and checks a 240-second budget between feeds.
+The internal timer retains its 25-attempt limit because it starts another pass after its polling interval.
 An active feed finishes within its own network budget. Parsing and database work can extend the scan budget.
 Scans cannot overlap. A 300-second cooldown follows every scan, including empty or failed scans.
 This scan cooldown resets on restart; persisted source intervals and backoff do not.
@@ -309,6 +310,10 @@ No new timer thread runs in external-trigger mode. One backend process per datab
 Hourly triggers do not guarantee hourly feed updates. A source's interval starts when its previous check finishes.
 A 60-minute interval can therefore defer a feed until the following hourly trigger, giving approximately two hours between checks.
 Missed schedules create no backlog. Remaining sources wait for the next scan, with unchecked and oldest sources first.
+
+The 100-attempt limit permits a 60-source catalog to fit in one external scan when downloads finish within the time budget.
+The previous 25-attempt limit required at least three scans when all 60 sources were due.
+Slow feeds can still exhaust the time budget. A larger limit does not guarantee that every source finishes in one scan.
 
 After an explicitly authorized deployment with PostgreSQL, configure these values:
 
@@ -326,7 +331,16 @@ The backend rejects configuration that enables both the internal timer and the e
 
 After activation, run **Actions → Collect feeds → Run workflow** on `main`.
 Check the result counts and the administrator's collection history. Repeat after at least 20 minutes without application traffic to test cold start.
-HTTP `409`/`429` means deferred work, not completed collection. Partial scans or feed errors fail the workflow for operator attention.
+HTTP `409`/`429` and `deferred=true` produce workflow warnings. They do not fail a scan that has no feed errors.
+Feed errors, invalid responses, and unconfirmed completion still fail the workflow.
+Each reported feed error includes `source_id`, `run_id` when available, and a fixed diagnostic code such as `http_503` or `timeout`.
+Use `GET /api/sources` to match source IDs to names and `GET /api/sources/{id}/runs` to inspect collection history.
+The workflow does not print source URLs, names, feed content, or raw exception messages.
+Unknown errors use `unexpected_error`. Backend logs can provide the exception class without its private message.
+
+The script accepts the previous backend response format until the backend deployment completes.
+With that format, errors still fail the workflow, but per-source diagnostics are unavailable.
+Publish the backend changes through **Release full** to enable the 100-attempt limit and diagnostics. This change needs no database migration.
 Check Actions for failures and disabled schedules. To stop requests, set `TNR_COLLECTION_ENABLED=false`.
 To revoke the trigger credential, remove or replace it on Render and update GitHub before reactivation.
 

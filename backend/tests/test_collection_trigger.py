@@ -101,7 +101,13 @@ async def test_scan_cooldown_and_restart_preserve_due_times(trigger, database, m
     add_sources(database)
     response = await client.post(PATH, headers=AUTH)
     assert response.status_code == 200
-    assert response.json() == {"collected": 1, "failed": 0, "skipped": 0, "deferred": False}
+    assert response.json() == {
+        "collected": 1,
+        "failed": 0,
+        "skipped": 0,
+        "deferred": False,
+        "failures": [],
+    }
     assert "no-store" in response.headers["cache-control"].split(", ")
     limited = await client.post(PATH, headers=AUTH)
     assert limited.status_code == 429
@@ -125,13 +131,35 @@ async def test_scan_cooldown_and_restart_preserve_due_times(trigger, database, m
 @pytest.mark.anyio
 async def test_budget_defers_remaining_sources_without_starvation(trigger, database):
     _, client, requests, clock = trigger
-    add_sources(database, 27)
+    add_sources(database, 102)
     first = (await client.post(PATH, headers=AUTH)).json()
-    assert first == {"collected": 25, "failed": 0, "skipped": 0, "deferred": True}
+    assert first == {"collected": 100, "failed": 0, "skipped": 0, "deferred": True, "failures": []}
     clock[0] += 300
     second = (await client.post(PATH, headers=AUTH)).json()
-    assert second == {"collected": 2, "failed": 0, "skipped": 25, "deferred": False}
-    assert len(requests) == 27
+    assert second == {
+        "collected": 2,
+        "failed": 0,
+        "skipped": 100,
+        "deferred": False,
+        "failures": [],
+    }
+    assert len(requests) == 102
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("count", [60, 100])
+async def test_larger_catalog_fits_one_scan(trigger, database, count):
+    _, client, requests, _ = trigger
+    add_sources(database, count)
+    result = (await client.post(PATH, headers=AUTH)).json()
+    assert result == {
+        "collected": count,
+        "failed": 0,
+        "skipped": 0,
+        "deferred": False,
+        "failures": [],
+    }
+    assert len(requests) == count
 
 
 @pytest.mark.anyio
@@ -155,6 +183,7 @@ async def test_failed_feed_is_reported_without_blocking_next_feed(trigger, datab
         "failed": 1,
         "skipped": 0,
         "deferred": False,
+        "failures": [{"source_id": 1, "run_id": 1, "reason": "http_503"}],
     }
     clock[0] += 300
     assert (await client.post(PATH, headers=AUTH)).json()["skipped"] == 2
@@ -179,7 +208,35 @@ async def test_time_budget_finishes_active_feed_then_defers(trigger, database, m
         "failed": 0,
         "skipped": 0,
         "deferred": True,
+        "failures": [],
     }
+    assert len(requests) == 1
+
+
+@pytest.mark.anyio
+async def test_unexpected_failure_has_source_id_without_private_details(
+    trigger, database, monkeypatch
+):
+    app, client, requests, _ = trigger
+    add_sources(database, 2)
+    original = app.state.collector.refresh_if_due
+
+    def refresh(source_id):
+        if source_id == 1:
+            raise RuntimeError("private database URL")
+        return original(source_id)
+
+    monkeypatch.setattr(app.state.collector, "refresh_if_due", refresh)
+    response = await client.post(PATH, headers=AUTH)
+    assert response.status_code == 200
+    assert response.json() == {
+        "collected": 1,
+        "failed": 1,
+        "skipped": 0,
+        "deferred": False,
+        "failures": [{"source_id": 1, "run_id": None, "reason": "unexpected_error"}],
+    }
+    assert "private database URL" not in response.text
     assert len(requests) == 1
 
 

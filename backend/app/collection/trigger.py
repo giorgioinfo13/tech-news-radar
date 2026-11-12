@@ -29,7 +29,7 @@ class CollectionTrigger:
                 )
             try:
                 # The time budget is checked between feeds. An active download must finish.
-                return self.scheduler.run_once(max_sources=25, max_seconds=240)
+                return self.scheduler.run_once(max_sources=100, max_seconds=240)
             finally:
                 # Also throttle empty and failed scans; never keep a DB transaction open here.
                 self._next_allowed = monotonic() + 300
