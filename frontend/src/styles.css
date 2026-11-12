@@ -1553,3 +1553,78 @@ html.news-pull-refresh {
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+.ai-usage-section {
+  margin-block: 1.5rem;
+}
+.ai-usage-section.panel,
+.ai-usage-attempt {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ai-usage-month {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.ai-usage-month input {
+  width: auto;
+  max-width: 100%;
+}
+.ai-usage-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.ai-usage dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.ai-usage dd {
+  margin: 0.25rem 0 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ai-usage-values dd {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.ai-usage-table {
+  overflow-x: auto;
+}
+.ai-usage table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.ai-usage th,
+.ai-usage td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.ai-usage th:first-child {
+  text-align: left;
+}
+.ai-usage-attempt {
+  margin-block: 0.75rem;
+}
+.ai-usage-attempt summary {
+  cursor: pointer;
+}
+.ai-usage-attempt summary span {
+  margin-right: 0.75rem;
+}
+.ai-usage-attempt summary span:last-child {
+  color: var(--muted);
+}
+.ai-usage-metadata {
+  display: grid;
+  gap: 0.75rem;
+}

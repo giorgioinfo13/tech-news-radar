@@ -115,6 +115,44 @@ class AIBriefJob(Base):
     )
 
 
+class AIBriefUsage(Base):
+    """Content-free accounting history, independent of short-lived saved editions."""
+
+    __tablename__ = "ai_brief_usage"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
+    edition_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    dispatched_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    lease_until: Mapped[datetime] = mapped_column(UTCDateTime())
+    model: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20))
+    error_code: Mapped[str | None] = mapped_column(String(40))
+    counted_tokens: Mapped[int | None]
+    input_tokens: Mapped[int | None]
+    output_tokens: Mapped[int | None]
+    thought_tokens: Mapped[int | None]
+    total_tokens: Mapped[int | None]
+    usage_validated: Mapped[bool] = mapped_column(default=False, server_default=sql_false())
+    estimated_nano_usd: Mapped[int | None] = mapped_column(BigInteger)
+    reserved_nano_usd: Mapped[int] = mapped_column(BigInteger)
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'success', 'error', 'interrupted')", name="status"),
+        CheckConstraint("reserved_nano_usd >= 0", name="reservation"),
+        CheckConstraint("estimated_nano_usd >= 0", name="estimate"),
+        *(
+            CheckConstraint(f"{name} BETWEEN 0 AND 10000000", name=name)
+            for name in (
+                "counted_tokens",
+                "input_tokens",
+                "output_tokens",
+                "thought_tokens",
+                "total_tokens",
+            )
+        ),
+    )
+
+
 class Category(Base):
     __tablename__ = "categories"
 

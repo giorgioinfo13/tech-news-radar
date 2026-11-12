@@ -628,7 +628,7 @@ See [source proposal behavior and API](architecture.md#source-proposals) and
 [AI briefs](ai-briefs.md) require local revision `0009` and remain disabled by default.
 Activation also requires `TNR_AI_BUDGET_RISK_ACCEPTED=true`, which accepts a prudential reservation policy, not a guaranteed provider invoice cap.
 Never use the Supabase database for a test. Use the suite's disposable local PostgreSQL databases.
-Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_digest_trigger_client.py` from `backend/`.
+Run `.venv/bin/pytest tests/test_ai_gemini.py tests/test_ai_briefs.py tests/test_ai_digest.py tests/test_ai_diagnostics.py tests/test_ai_usage.py tests/test_digest_trigger_client.py` from `backend/`.
 Run `npm test -- tests/briefs.test.tsx` from `frontend/`.
 Gemini counting and generation use simulated HTTP. The test fixture forbids real HTTP and disables personal dotenv loading.
 No key is required. The [loopback-only PostgreSQL fixture](development.md#isolated-postgresql-tests) verifies the transactions.
@@ -717,3 +717,14 @@ The PostgreSQL suite tests real migrations, schema/model comparison, constraints
 HTTP downloads remain mocked. Offline SQL generation and connection-policy tests run without a PostgreSQL server.
 Local PostgreSQL tests do not verify Supabase pooler connectivity, certificates, hosted role inheritance, or Data API settings.
 Those checks require a later authorized remote validation.
+
+
+### Administrator Gemini statistics checks
+
+The `GET /api/usage/gemini?month=YYYY-MM-01&limit=20&offset=0` endpoint returns a monthly
+summary, daily summaries and a page of attempts. All periods use UTC. The endpoint never calls Gemini.
+Run `tests/test_ai_usage.py` with the disposable PostgreSQL test URL to verify permissions,
+migration backfill, unknown consumption, failure accounting, retention and pagination.
+Run `npm run test -- tests/gemini-usage.test.tsx` in `frontend/` for navigation, month changes,
+refresh failures, stale responses, details and language coverage. HTTP remains mocked.
+Use [Release full](deployment.md#gemini-statistics-release) to publish the new schema and API before the UI.

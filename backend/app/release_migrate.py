@@ -40,7 +40,7 @@ def operator_url(value: str, project_ref: str):
 
 
 def migrate(url) -> None:
-    """Migrate and grant the reviewed usage permission in one transaction."""
+    """Migrate and grant the reviewed usage permissions in one transaction."""
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.set_main_option(
         "sqlalchemy.url", url.render_as_string(hide_password=False).replace("%", "%%")
@@ -71,6 +71,9 @@ def migrate(url) -> None:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
             connection.exec_driver_sql("GRANT UPDATE (last_seen_at) ON tnr.app_users TO tnr_app")
+            connection.exec_driver_sql(
+                "GRANT SELECT, INSERT, UPDATE ON tnr.ai_brief_usage TO tnr_app"
+            )
             if (
                 connection.exec_driver_sql("SELECT version_num FROM tnr.alembic_version").scalar()
                 != head
@@ -98,7 +101,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print("Database migration and reader usage permission verified.")
+    print("Database migration and usage permissions verified.")
     return 0
 
 

@@ -33,6 +33,7 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             created = True
             raw.execute((SQL_ROOT / "enable_source_proposals.sql").read_text())
             raw.execute((SQL_ROOT / "enable_ai_briefs.sql").read_text())
+            raw.execute((SQL_ROOT / "enable_ai_usage.sql").read_text())
             raw.execute((SQL_ROOT / "enable_reader_usage.sql").read_text())
             raw.execute((SQL_ROOT / "check_app_role.sql").read_text())
             raw.execute("ALTER ROLE tnr_app PASSWORD 'tnr-role-test-only'")
@@ -191,6 +192,8 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             "INSERT INTO tnr.ai_brief_control (id) VALUES (2)",
             "TRUNCATE tnr.ai_brief_jobs",
             "DELETE FROM tnr.ai_brief_budget",
+            "DELETE FROM tnr.ai_brief_usage",
+            "TRUNCATE tnr.ai_brief_usage",
             "TRUNCATE tnr.ai_brief_budget",
         ):
             with pytest.raises(DBAPIError):
@@ -219,7 +222,12 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
                     ).scalar_one()
                     is False
                 )
-                for table in ("ai_brief_control", "ai_brief_jobs", "ai_brief_budget"):
+                for table in (
+                    "ai_brief_control",
+                    "ai_brief_jobs",
+                    "ai_brief_budget",
+                    "ai_brief_usage",
+                ):
                     assert (
                         connection.exec_driver_sql(
                             "SELECT has_table_privilege(%s, %s, 'SELECT,INSERT,UPDATE,DELETE')",

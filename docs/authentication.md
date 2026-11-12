@@ -556,3 +556,13 @@ Record the date, code revision, checks, manual settings, owner-link outcome, and
 Keep user UUIDs, keys, tokens, and private database paths out of the committed record.
 Automated tests use mocked identity services and real Alembic migrations on disposable local PostgreSQL databases.
 They do not establish that Google, Supabase, or a real browser session works.
+
+
+## Administrator Gemini statistics
+
+`GET /api/usage/gemini` requires an active administrator through the same backend role check as reader usage.
+The navigation entry is hidden from readers; a direct hash does not mount the statistics page.
+The response contains only attempt metadata, token counts, estimates and local reservations.
+It never returns prompts, summaries, articles, credentials or reader identities.
+The separate `ai_brief_usage` history survives edition cleanup and is not exposed through the Supabase Data API.
+The runtime role can SELECT, INSERT and UPDATE this history, but cannot DELETE or TRUNCATE it.

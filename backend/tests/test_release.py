@@ -122,10 +122,17 @@ def test_release_migration_and_grant_are_repeatable(migration_config):
         with engine.connect() as connection:
             assert (
                 connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar()
-                == "0012"
+                == "0013"
             )
             assert connection.exec_driver_sql(
                 "SELECT has_column_privilege('tnr_app', 'tnr.app_users', 'last_seen_at', 'UPDATE')"
+            ).scalar()
+            assert connection.exec_driver_sql(
+                "SELECT has_table_privilege('tnr_app', 'tnr.ai_brief_usage', "
+                "'SELECT,INSERT,UPDATE')"
+            ).scalar()
+            assert not connection.exec_driver_sql(
+                "SELECT has_table_privilege('tnr_app', 'tnr.ai_brief_usage', 'DELETE')"
             ).scalar()
             assert not connection.exec_driver_sql(
                 "SELECT has_column_privilege('tnr_app', 'tnr.app_users', 'role', 'UPDATE')"

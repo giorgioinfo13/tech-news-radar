@@ -1,5 +1,51 @@
 // English message keys keep both languages complete at compile time.
 export const italian = {
+  'Gemini statistics': 'Statistiche Gemini',
+  'Tokens and estimated costs for shared AI digests.':
+    'Token e costi stimati delle rassegne AI condivise.',
+  'Refresh statistics': 'Aggiorna statistiche',
+  'Month (UTC)': 'Mese (UTC)',
+  'Dates use UTC. Reading a saved digest does not generate tokens. Older usage may be unavailable.':
+    'Le date sono in UTC. Leggere una rassegna salvata non genera token. I consumi precedenti potrebbero non essere disponibili.',
+  'Monthly summary': 'Riepilogo mensile',
+  'Input tokens': 'Token di input',
+  'Output tokens': 'Token di output',
+  'Thinking tokens': 'Token di ragionamento',
+  'Total tokens': 'Token totali',
+  'Estimated cost': 'Costo stimato',
+  'Monthly budget reserved': 'Budget mensile prenotato',
+  'Local monthly budget': 'Budget mensile locale',
+  'Attempts: {attempts} · Saved digests: {successes} · Verified usage: {measured}':
+    'Tentativi: {attempts} · Rassegne salvate: {successes} · Consumi verificati: {measured}',
+  'Totals include verified usage only. Unavailable: {unknown} · Unverified: {unverified}. These are not zero consumption.':
+    'I totali includono solo i consumi verificati. Non disponibili: {unknown} · Non verificati: {unverified}. Non equivalgono a un consumo nullo.',
+  'Costs are estimates in USD, not invoices or credit balances. Reservations are prudential budget allocations, not actual charges.':
+    'I costi sono stime in USD, non fatture o saldi di credito. Le prenotazioni sono accantonamenti prudenziali del budget, non addebiti effettivi.',
+  'Daily summary': 'Riepilogo giornaliero',
+  'Day (UTC)': 'Giorno (UTC)',
+  Attempts: 'Tentativi',
+  'Generation attempts': 'Tentativi di generazione',
+  'No attempts recorded this month.': 'Nessun tentativo registrato in questo mese.',
+  'Statistics will appear after the next scheduled generation. Earlier deleted attempts cannot be recovered.':
+    'Le statistiche compariranno dopo la prossima generazione programmata. I tentativi precedenti già eliminati non sono recuperabili.',
+  'Requested model': 'Modello richiesto',
+  'Verified usage': 'Consumi verificati',
+  'Unverified usage': 'Consumi non verificati',
+  'Usage unavailable': 'Consumo non disponibile',
+  'Excluded from token and cost totals.': 'Escluso dai totali di token e costi.',
+  'Preflight input count': 'Conteggio preventivo di input',
+  'Prudential reservation': 'Prenotazione prudenziale',
+  'Edition (UTC)': 'Edizione (UTC)',
+  'Dispatch authorized (UTC)': 'Invio autorizzato (UTC)',
+  'Finished (UTC)': 'Fine (UTC)',
+  'Attempt ID': 'ID tentativo',
+  'Error code': 'Codice errore',
+  'In progress': 'In corso',
+  'Digest saved': 'Rassegna salvata',
+  'Failed attempt': 'Tentativo fallito',
+  'Interrupted attempt': 'Tentativo interrotto',
+  'Not available': 'Non disponibile',
+  'Not recorded': 'Non registrato',
   'Reader usage': 'Utilizzo lettori',
   'Refresh usage': 'Aggiorna utilizzo',
   'App access checks are approximate and can include automatic session renewals. No history before activation is available. This does not show who is online.':

@@ -116,7 +116,15 @@ def validate_usage(data: dict, counted: int) -> dict:
     cost = prompt * INPUT_NANO_USD + (visible + thoughts) * OUTPUT_NANO_USD
     if cost > RESERVATION_NANO_USD:
         reject("reservation_exceeded")
-    return {"input_tokens": prompt, "output_tokens": visible, "thought_tokens": thoughts}
+    return {
+        "input_tokens": prompt,
+        "output_tokens": visible,
+        "thought_tokens": thoughts,
+        "total_tokens": total,
+        "counted_tokens": counted,
+        "usage_validated": 1,
+        "estimated_nano_usd": cost,
+    }
 
 
 def validate_output(data: dict, articles: list[dict], counted: int) -> dict:
@@ -140,8 +148,14 @@ def validate_output(data: dict, articles: list[dict], counted: int) -> dict:
             raise ValueError
         content = "".join(p["text"] for p in parts)
     except (KeyError, TypeError, ValueError, AttributeError):
-        raise AIUnavailable("invalid_output", 3600, {"output_issue": "response_shape"}) from None
-    return validate_content(content, articles)
+        raise AIUnavailable(
+            "invalid_output", 3600, {**diagnostic, "output_issue": "response_shape"}
+        ) from None
+    try:
+        return {**validate_content(content, articles), "usage": diagnostic}
+    except AIUnavailable as exc:
+        exc.diagnostics = {**diagnostic, **exc.diagnostics}
+        raise
 
 
 class Gemini:
@@ -210,10 +224,19 @@ class Gemini:
                             data = json.loads(raw)
                         except ValueError:
                             data = None
-                        if response.status_code != 200:
+                        if response.status_code != 200 or (
+                            isinstance(data, dict) and "error" in data
+                        ):
                             if isinstance(data, dict) and "usageMetadata" in data:
                                 # Errors must obey the same measured bound as successful output.
-                                validate_usage(data, counted if counted is not None else 0)
+                                diagnostics.update(
+                                    validate_usage(data, counted if counted is not None else 0)
+                                )
+                            if response.status_code == 200:
+                                raise AIUnavailable(
+                                    "safety_stop",
+                                    diagnostics={"contract_issue": "invalid_envelope"},
+                                )
                             if response.status_code == 429:
                                 raise AIUnavailable(
                                     "temporary_limit",
@@ -224,7 +247,8 @@ class Gemini:
                             raise AIUnavailable("provider_unavailable", 3600)
                         if not isinstance(data, dict) or "error" in data:
                             raise AIUnavailable(
-                                "safety_stop", diagnostics={"contract_issue": "invalid_envelope"}
+                                "safety_stop",
+                                diagnostics={"contract_issue": "invalid_envelope"},
                             )
                         return data
         except AIUnavailable as exc:
@@ -234,7 +258,7 @@ class Gemini:
             raise AIUnavailable("uncertain", 3600, diagnostics) from None
 
     async def generate(
-        self, articles: list[dict], *, before_generate: Callable[[], Awaitable[object]]
+        self, articles: list[dict], *, before_generate: Callable[[int], Awaitable[object]]
     ) -> dict:
         body = payload_for(articles)
         # Includes systemInstruction and generationConfig in the same request.
@@ -248,8 +272,12 @@ class Gemini:
                 "safety_stop", diagnostics={"contract_issue": "invalid_token_count"}
             )
         if measured > INPUT_TOKENS:
-            raise AIUnavailable("input_limit", 3600)
+            raise AIUnavailable("input_limit", 3600, {"counted_tokens": measured})
         # Recheck revocation, clock, lease and persistent one-time dispatch after token counting.
-        await before_generate()
-        data = await self._request("generateContent", body, counted=measured)
-        return validate_output(data, articles, measured)
+        try:
+            await before_generate(measured)
+            data = await self._request("generateContent", body, counted=measured)
+            return validate_output(data, articles, measured)
+        except AIUnavailable as exc:
+            exc.diagnostics = {"counted_tokens": measured, **exc.diagnostics}
+            raise

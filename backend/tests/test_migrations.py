@@ -31,6 +31,7 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
         "ai_brief_budget",
         "ai_brief_control",
         "ai_brief_jobs",
+        "ai_brief_usage",
     }
     with Session(database) as session:
         categories = session.scalars(select(Category).order_by(Category.sort_order)).all()
@@ -137,6 +138,7 @@ def test_invitation_migration_preserves_existing_profiles_and_personal_data(
             "source_proposals",
             "ai_brief_control",
             "ai_brief_jobs",
+            "ai_brief_usage",
             "ai_brief_budget",
         }
     ]

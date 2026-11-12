@@ -1,4 +1,5 @@
 import { Proposals } from './pages/Proposals'
+import { GeminiUsage } from './pages/GeminiUsage'
 import { Briefs } from './pages/Briefs'
 import { useLanguage } from './language-context'
 import { useEffect, useState, useSyncExternalStore } from 'react'
@@ -20,9 +21,15 @@ import { AccountMenu } from './AccountMenu'
 import { LanguageProvider } from './Language'
 
 function currentPage() {
-  return ['sources', 'catalog', 'categories', 'invitations', 'proposals', 'briefs'].includes(
-    location.hash.slice(1),
-  )
+  return [
+    'sources',
+    'catalog',
+    'categories',
+    'invitations',
+    'proposals',
+    'briefs',
+    'gemini-usage',
+  ].includes(location.hash.slice(1))
     ? location.hash.slice(1)
     : 'news'
 }
@@ -104,6 +111,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
     },
     { id: 'catalog', label: t('Catalog'), icon: 'sources' },
     { id: 'categories', label: t('Categories'), icon: 'categories' },
+    { id: 'gemini-usage', label: t('Gemini statistics'), icon: 'sparkles' },
     { id: 'invitations', label: t('Invitations'), icon: 'invite' },
   ] as const
   return (
@@ -129,7 +137,11 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
         </a>
         <nav aria-label={t('Main navigation')}>
           {pages
-            .filter((item) => admin || !['catalog', 'categories', 'invitations'].includes(item.id))
+            .filter(
+              (item) =>
+                admin ||
+                !['catalog', 'categories', 'invitations', 'gemini-usage'].includes(item.id),
+            )
             .map((item) => (
               <a
                 key={item.id}
@@ -196,6 +208,7 @@ function Workspace({
     setOnboarding(false)
     location.hash = '#news'
   }
+  if (admin && page === 'gemini-usage') return <GeminiUsage />
   if (admin && page === 'invitations') return <Invitations />
   if (page === 'briefs') return <Briefs />
   if (page === 'proposals')

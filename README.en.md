@@ -21,6 +21,10 @@ The responsive interface is available in Italian and English. The backend uses
 Supabase PostgreSQL exclusively, with verified TLS and the private `tnr`
 application schema.
 
+Administrators have a Gemini statistics panel with tokens per attempt, daily and
+monthly summaries, estimated costs, and reserved budget. Unavailable consumption is
+explicitly marked.
+
 ## Local quickstart
 
 Requirements: Python 3.13, Node.js 24, npm, and access to the Supabase project.

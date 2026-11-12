@@ -203,7 +203,7 @@ def test_database_unique_edition_and_migration_preserves_ledger(
     values["id"] = uuid4()
     with pytest.raises(IntegrityError), database.begin() as connection:
         connection.execute(AIBriefJob.__table__.insert().values(**values))
-    with pytest.raises(RuntimeError, match="monetary reservations"):
+    with pytest.raises(RuntimeError, match="AI usage history"):
         command.downgrade(migration_config, "0007")
     command.upgrade(migration_config, "head")
     command.check(migration_config)
@@ -272,7 +272,7 @@ def test_running_edition_is_busy_and_cannot_downgrade_a_full_ledger(
     with Session(database) as session, session.begin():
         control = session.get(AIBriefControl, 1)
         control.attempts, control.reserved_tokens = 24, 96000
-    with pytest.raises(RuntimeError, match="monetary reservations"):
+    with pytest.raises(RuntimeError, match="AI usage history"):
         command.downgrade(migration_config, "0007")
     with Session(database) as session:
         assert session.get(AIBriefControl, 1).reserved_tokens == 96000

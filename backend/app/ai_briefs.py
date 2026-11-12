@@ -20,6 +20,7 @@ from app.ai_gemini import (
     Gemini,
     messages_for,
 )
+from app.ai_usage import record_usage
 from app.collection.parsing import article_url, plain_text
 from app.config import Settings
 from app.db import UTCDateTime, lock_access_decisions
@@ -195,6 +196,7 @@ class BriefService:
             if job and job.status == "running":
                 job.status, job.error_code = "interrupted", "uncertain"
                 job.finished_at = control.lease_until
+                record_usage(session, job)
             control.lease_id = control.lease_until = None
         if control.quota_day != now.date():
             control.quota_day = now.date()
@@ -342,25 +344,25 @@ class BriefService:
             budget.reserved_nano_usd += self.provider.reservation_nano_usd
             job_id = uuid4()
             until = now + timedelta(seconds=LEASE_SECONDS)
-            session.add(
-                AIBriefJob(
-                    id=job_id,
-                    category_id=category_id,
-                    category_name=state["category_name"],
-                    edition_at=edition_start(now),
-                    material_hash=material_hash(material),
-                    quota_day=now.date(),
-                    started_at=now,
-                    window_start=now - timedelta(hours=24),
-                    window_end=now,
-                    lease_until=until,
-                    status="running",
-                    articles=material,
-                    model=self.provider.model,
-                    budget_month=month,
-                    reserved_nano_usd=self.provider.reservation_nano_usd,
-                )
+            job = AIBriefJob(
+                id=job_id,
+                category_id=category_id,
+                category_name=state["category_name"],
+                edition_at=edition_start(now),
+                material_hash=material_hash(material),
+                quota_day=now.date(),
+                started_at=now,
+                window_start=now - timedelta(hours=24),
+                window_end=now,
+                lease_until=until,
+                status="running",
+                articles=material,
+                model=self.provider.model,
+                budget_month=month,
+                reserved_nano_usd=self.provider.reservation_nano_usd,
             )
+            session.add(job)
+            record_usage(session, job)
             control.attempts += 1
             control.reserved_tokens += RESERVED_TOKENS
             control.lease_id, control.lease_until = job_id, until
@@ -368,7 +370,7 @@ class BriefService:
             return job_id, state
 
     def dispatch_material(
-        self, job_id: UUID, user_id: UUID | None, *, claim: bool = False
+        self, job_id: UUID, user_id: UUID | None, *, claim: bool = False, counted: int | None = None
     ) -> list[dict]:
         with Session(self.engine) as session, session.begin():
             control, now = self._open(session, user_id)
@@ -389,6 +391,7 @@ class BriefService:
                 if job.dispatched_at is not None:
                     raise AIUnavailable("uncertain", 3600)
                 job.dispatched_at = now
+                record_usage(session, job, {"counted_tokens": counted})
             # No automatic replacement with different articles after acquisition.
             ids = [a["id"] for a in job.articles]
             remaining = set(
@@ -421,6 +424,12 @@ class BriefService:
                 or control.lease_id != job_id
                 or job.lease_until <= now
             ):
+                if job and job.status in {"running", "interrupted"}:
+                    # Preserve late accounting without publishing a late digest,
+                    # changing another lease, or refunding its reservation.
+                    record_usage(
+                        session, job, failure.diagnostics if failure else result.get("usage")
+                    )
                 return
             job.finished_at = now
             if failure:
@@ -493,6 +502,7 @@ class BriefService:
                     result["articles"],
                 )
                 control.lease_id = control.lease_until = None
+            record_usage(session, job, failure.diagnostics if failure else result.get("usage"))
 
     async def generate(self, category_id: int | None, user_id: UUID | None) -> dict:
         job_id, state = await to_thread(self.reserve, category_id, user_id)
@@ -513,8 +523,10 @@ class BriefService:
             await self.provider.preflight()
             material = await to_thread(self.dispatch_material, job_id, user_id)
 
-            async def guard():
-                return await to_thread(self.dispatch_material, job_id, user_id, claim=True)
+            async def guard(counted: int):
+                return await to_thread(
+                    self.dispatch_material, job_id, user_id, claim=True, counted=counted
+                )
 
             result = await self.provider.generate(material, before_generate=guard)
         except AIUnavailable as exc:

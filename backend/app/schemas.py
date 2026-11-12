@@ -1,6 +1,6 @@
 """Public API contracts, separate from persistence models."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
@@ -243,3 +243,49 @@ class ProposalRead(OutputModel):
     approved_name: str | None
     approved_feed_url: str | None
     user: UserRead
+
+
+class AIUsageAttempt(OutputModel):
+    id: UUID
+    started_at: datetime
+    edition_at: datetime | None
+    finished_at: datetime | None
+    dispatched_at: datetime | None
+    model: str
+    status: Literal["running", "success", "error", "interrupted"]
+    error_code: str | None
+    counted_tokens: int | None
+    input_tokens: int | None
+    output_tokens: int | None
+    thought_tokens: int | None
+    total_tokens: int | None
+    usage_state: Literal["measured", "unverified", "unavailable"]
+    estimated_nano_usd: int | None
+    reserved_nano_usd: int
+
+
+class AIUsageSummary(OutputModel):
+    attempts: int
+    successes: int
+    measured_attempts: int
+    unverified_attempts: int
+    unavailable_attempts: int
+    input_tokens: int | None
+    output_tokens: int | None
+    thought_tokens: int | None
+    total_tokens: int | None
+    estimated_nano_usd: int | None
+    reserved_nano_usd: int
+
+
+class AIUsageDay(AIUsageSummary):
+    day: date
+
+
+class AIUsageRead(OutputModel):
+    month: date
+    summary: AIUsageSummary
+    days: list[AIUsageDay]
+    attempts: Page[AIUsageAttempt]
+    budget_reserved_nano_usd: int
+    budget_limit_nano_usd: int

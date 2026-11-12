@@ -9,6 +9,42 @@ AI Pro credits can cover eligible consumption. They do not make the API a free m
 There is no automatic model or provider fallback. The former Xing runtime, tokenizer, and trial commands remain removed.
 Other models or providers require a separate integration review.
 
+## Administrator token statistics
+
+The **Gemini statistics** page and `GET /api/usage/gemini` are restricted to active administrators.
+The endpoint accepts `month=YYYY-MM-01` (UTC), `limit` (1–100) and `offset`.
+It reads local records only. Opening or refreshing the page makes no Gemini request.
+
+Each attempt records its ID, requested model, edition, dispatch time, completion status,
+preflight input count, and available input, visible output, thinking and total token counts.
+The adapter uses [countTokens](https://ai.google.dev/api/tokens) before dispatch and
+[usageMetadata](https://ai.google.dev/api/generate-content#UsageMetadata) after generation.
+The input count does not predict output or thinking tokens. The requested model is verified
+against the response before usage is included in totals. A missing thinking count is treated
+as zero only if the reported total reconciles exactly with input and output.
+
+The monthly and daily totals include only validated usage. Errors in the generated text can
+still have valid usage. Timeouts and responses without metadata show unavailable consumption;
+invalid accounting metadata remains visible per attempt as unverified and is excluded from totals.
+Late responses can add accounting data without publishing an expired edition or changing budgets.
+Cached reads create no new attempt. Dates and month boundaries use UTC.
+
+Costs are estimates, not billed charges or available Google credit. Each validated attempt stores
+its estimate in integer nano-USD using the adapter's rates at generation time: $0.25 per million
+input tokens and $1.50 per million output tokens, including thinking. These standard text rates
+were checked on 12 November 2026 against the [Gemini pricing documentation](https://ai.google.dev/gemini-api/docs/pricing).
+Changing rates later does not recalculate stored estimates. The monthly reservation ledger remains
+separate: it includes conservative allocations even for failures and old deleted attempts.
+
+Revision `0013` adds `ai_brief_usage`, with no reader identity, prompts, summaries or article content.
+Its records survive the seven-day edition cleanup and have no automatic deletion.
+The migration copies retained attempts and safe numeric diagnostics. Old successes have no saved
+usage metadata; they remain unavailable. Already deleted attempts cannot be reconstructed.
+Historical monthly reservations remain available even when no individual attempt remains.
+The application role needs SELECT, INSERT and UPDATE on this table, with no DELETE permission.
+The Data API roles receive no access. A downgrade refuses to discard nonempty usage history.
+See [the release procedure](deployment.md#gemini-statistics-release) before publication.
+
 ## User behavior
 
 Approved readers share one saved digest across the catalog, independent of followed sources or reading states.

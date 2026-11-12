@@ -3,6 +3,24 @@
 This guide describes the existing Supabase PostgreSQL deployment and its release
 boundaries. Keep the private local `.env` and provider credentials out of Git.
 
+## Gemini statistics release
+
+The administrator panel requires a **Release full**, after committing and pushing the reviewed changes.
+CI success alone does not deploy it. Publish the database and backend before the frontend.
+The release runner applies additive Alembic revision `0013` and grants SELECT, INSERT and UPDATE
+on `tnr.ai_brief_usage` to `tnr_app` in the same transaction. It then deploys Render and the frontend.
+Existing Gemini flags, credentials, budgets and schedules stay in effect; this release does not activate generation.
+For a separately authorized manual database procedure, apply `alembic upgrade head`, then
+`backend/sql/enable_ai_usage.sql` with the operator connection. Inspect `backend/sql/check_app_role.sql`.
+Do not use a frontend-only release for this change.
+
+Verify `/api/usage/gemini` with an administrator and confirm that readers receive 403.
+Check known tokens, unavailable historical consumption, monthly reservations and a cached read.
+The panel reads the database without calling Gemini. Existing usage cannot be retroactively measured.
+The migration preserves retained attempt metadata; the content-free history survives edition cleanup.
+Rollback means restoring the previous application versions while keeping the additive table and history.
+Downgrading `0013` refuses to delete a nonempty usage table. No production deployment is part of local implementation.
+
 ## Reader usage release
 
 Reader usage is implemented locally and awaits release. The full release below includes its migration and permission.
@@ -207,9 +225,9 @@ The Render client sends one deploy request, then polls its returned ID. It verif
 Process health does not prove authenticated database access. The first release still needs the application checks listed above.
 If Render times out, check its dashboard before retrying: an accepted deployment can continue after the Action stops.
 
-The database stage uses one transaction for migrations and the reviewed column-level grant.
+The database stage uses one transaction for migrations, the reviewed reader usage column grant, and the AI usage table grants.
 It takes an advisory transaction lock, with a ten-second lock timeout and a two-minute timeout per SQL statement.
-An exception rolls back that transaction. Rerunning after success applies no duplicate migration and repeats the idempotent permission grant.
+An exception rolls back that transaction. Rerunning after success applies no duplicate migration and repeats the idempotent permission grants.
 Future migrations must support this transaction model. Migrations that require autocommit need a separate release design.
 
 Keep migrations compatible with the currently deployed backend and active collection/digest jobs.
