@@ -310,6 +310,7 @@ Roles, invitations, approvals, and revocations are unchanged. Generation and bud
 | --- | --- | --- |
 | Browse sources, categories, and shared articles | Yes | Yes |
 | Follow or unfollow a source | Own subscriptions only | Own subscriptions only |
+| Follow the full catalog or unfollow all sources | Own subscriptions only | Own subscriptions only |
 | Set an article's read status | Own state only | Own state only |
 | Create, change, disable, or delete sources | No | Yes |
 | Create, change, assign, or delete categories | No | Yes |
@@ -339,6 +340,13 @@ Marking an article unread deletes only the current user's state row.
 Unfollowing a source leaves article read states intact. Following it again restores the same personal reading history.
 New readers receive no subscriptions or copied read states. The frontend proposes enabled catalog sources and saves only confirmed choices.
 Creating or importing a catalog source does not subscribe other users or the administrator automatically.
+
+`PUT /api/subscriptions` follows the full current catalog, including paused sources.
+`DELETE /api/subscriptions` removes all subscriptions for the authenticated user.
+Each response reports the number of changed subscriptions. Repeating an unchanged choice returns zero.
+These endpoints preserve reading history and run in a single transaction, without triggering collection.
+A per-user transaction advisory lock orders individual and bulk subscription endpoints across browser tabs.
+The server resolves the user from authentication; request fields cannot select another user's subscriptions.
 
 Disabling a source stops collection globally but preserves existing articles, subscriptions, and read states.
 Deleting a category leaves its sources uncategorized. Deleting a source removes its articles, history, subscriptions, and associated read states.

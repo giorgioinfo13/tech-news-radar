@@ -81,6 +81,10 @@ class OutputModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SubscriptionChange(OutputModel):
+    changed: int = Field(ge=0)
+
+
 class CategoryRead(OutputModel):
     id: int
     name: str

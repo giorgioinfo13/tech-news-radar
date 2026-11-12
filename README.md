@@ -15,6 +15,9 @@ collegamenti alle fonti. La generazione tramite Gemini è attiva nell’istanza
 pubblicata; nelle nuove installazioni resta disattivata finché non viene
 configurata esplicitamente.
 
+In **Le mie fonti**, lettori e amministratori possono seguire tutte le fonti del
+catalogo o rimuovere tutte le proprie iscrizioni, conservando lo stato di lettura.
+
 L’interfaccia responsive è disponibile in italiano e inglese. Il backend usa
 esclusivamente PostgreSQL su Supabase, con connessione TLS verificata e schema
 applicativo privato `tnr`.

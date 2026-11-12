@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.api.personal import subscribe_all, unsubscribe_all
 from app.api.proposals import approve_proposal, create_proposal
 from app.collection.service import Collector
 from app.config import Settings
@@ -93,6 +94,8 @@ def test_runtime_role_can_claim_readers_but_cannot_elevate_reactivate_or_migrate
             session.add(source)
             session.commit()
             source_id = source.id
+            assert subscribe_all(session.get(AppUser, user_id), session) == {"changed": 1}
+            assert unsubscribe_all(session.get(AppUser, user_id), session) == {"changed": 1}
             approved = approve_proposal(
                 proposal_id,
                 ProposalApprove(source_id=source_id),

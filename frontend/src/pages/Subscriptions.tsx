@@ -3,19 +3,21 @@ import type { UiMessage } from '../messages'
 import { useLanguage } from '../language-context'
 import { useEffect, useRef, useState } from 'react'
 import { errorMessage, mutate, request, type Source, type Subscription } from '../api'
-import { Empty, Notice } from '../components'
+import { ConfirmDialog, Empty, Notice } from '../components'
 
 export function Subscriptions({
   sources,
   subscriptions,
   onChange,
   initial = false,
+  updating = false,
   onContinue,
 }: {
   sources: Source[]
   subscriptions: Subscription[]
   onChange: () => void
   initial?: boolean
+  updating?: boolean
   onContinue: () => void
 }) {
   const { t } = useLanguage()
@@ -23,7 +25,9 @@ export function Subscriptions({
   const [selected, setSelected] = useState(
     () => new Set(sources.filter((source) => source.enabled).map((source) => source.id)),
   )
-  const [busy, setBusy] = useState(false)
+  const [saving, setBusy] = useState(false)
+  const busy = saving || updating
+  const [confirmUnfollow, setConfirmUnfollow] = useState(false)
   const [error, setError] = useState<UiMessage | ''>('')
   const [notice, setMessage] = useState<UiMessage | ''>('')
   const lifetime = useRef(new AbortController())
@@ -32,6 +36,36 @@ export function Subscriptions({
     lifetime.current = controller
     return () => controller.abort()
   }, [])
+  async function changeAll(method: 'PUT' | 'DELETE') {
+    const operation = lifetime.current
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await request<{ changed: number }>('/subscriptions', {
+        method,
+        signal: operation.signal,
+      })
+      setConfirmUnfollow(false)
+      onChange()
+      setMessage(
+        method === 'PUT'
+          ? message('Sources added to your follows: {count}.', { count: result.changed })
+          : message('Sources unfollowed: {count}. Your reading history is kept.', {
+              count: result.changed,
+            }),
+      )
+    } catch (error) {
+      if (!operation.signal.aborted) {
+        setConfirmUnfollow(false)
+        setError(errorMessage(error))
+        // A lost response does not prove rollback. Reload before another action.
+        onChange()
+      }
+    } finally {
+      if (!operation.signal.aborted) setBusy(false)
+    }
+  }
   async function save() {
     const operation = lifetime.current
     setBusy(true)
@@ -100,12 +134,71 @@ export function Subscriptions({
           {t('Suggest a source')}
         </a>
       </header>
-      {error && (
+      {error && !confirmUnfollow && (
         <Notice error>
           {t(error)} {initial && t('Previously saved choices are kept: you can try again.')}
         </Notice>
       )}
       {notice && <Notice>{t(notice)}</Notice>}
+      <div className="subscription-toolbar" aria-busy={busy}>
+        <p>
+          {t(
+            initial
+              ? 'Selected sources: {count} of {total}'
+              : 'You follow {count} of {total} sources',
+            {
+              count: initial ? selected.size : followed.size,
+              total: sources.length,
+            },
+          )}
+        </p>
+        <div className="actions">
+          <button
+            className="primary-soft"
+            disabled={
+              busy || !sources.some((source) => !(initial ? selected : followed).has(source.id))
+            }
+            onClick={() =>
+              initial
+                ? setSelected(new Set(sources.map((source) => source.id)))
+                : void changeAll('PUT')
+            }
+          >
+            {t(initial ? 'Select all' : 'Follow all')}
+          </button>
+          <button
+            disabled={busy || (initial ? selected.size === 0 : followed.size === 0)}
+            onClick={() => {
+              if (initial) setSelected(new Set())
+              else {
+                setError('')
+                setConfirmUnfollow(true)
+              }
+            }}
+          >
+            {t(initial ? 'Deselect all' : 'Unfollow all')}
+          </button>
+        </div>
+      </div>
+      {saving && !confirmUnfollow && <p role="status">{t('Saving…')}</p>}
+      {confirmUnfollow && (
+        <ConfirmDialog
+          title={t('Unfollow all sources?')}
+          pending={saving}
+          error={error}
+          confirmLabel={t('Unfollow all')}
+          pendingLabel={t('Saving…')}
+          onCancel={() => {
+            setConfirmUnfollow(false)
+            setError('')
+          }}
+          onConfirm={() => void changeAll('DELETE')}
+        >
+          {t('Stop following all {count} sources? Your reading history will be kept.', {
+            count: followed.size,
+          })}
+        </ConfirmDialog>
+      )}
       {!sources.length ? (
         <Empty title={t('The catalog is being prepared')}>
           {t('The administrator will add sources for you to choose from.')}

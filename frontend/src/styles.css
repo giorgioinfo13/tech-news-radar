@@ -1315,6 +1315,19 @@ body:has(.access-page) {
 .account-popover > a {
   font-size: 0.9375rem;
 }
+.subscription-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 24px 0 16px;
+}
+.subscription-toolbar p {
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .subscription-list {
   border-top: 1px solid var(--line);
 }

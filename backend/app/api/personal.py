@@ -4,7 +4,8 @@ import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Response
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import Uuid, delete, func, literal, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
@@ -18,7 +19,7 @@ from app.api.dependencies import (
 )
 from app.db import insert_once, utc_now
 from app.models import AppUser, Source, Subscription
-from app.schemas import Page, SubscriptionRead, UserRead
+from app.schemas import Page, SubscriptionChange, SubscriptionRead, UserRead
 
 router = APIRouter(tags=["personal"])
 logger = logging.getLogger(__name__)
@@ -63,12 +64,53 @@ def list_subscriptions(user: UserDep, session: SessionDep, pagination: Paginatio
     return paginate(session, statement, pagination)
 
 
+def lock_subscriptions(session, user_id):
+    # Order this user's choices across tabs, including bulk add/remove races.
+    # A separate advisory namespace avoids the collection/access decision locks.
+    session.execute(select(func.pg_advisory_xact_lock(746675, func.hashtext(str(user_id)))))
+
+
+@router.put("/subscriptions", response_model=SubscriptionChange)
+def subscribe_all(user: UserDep, session: SessionDep):
+    user_id = user.id
+    session.rollback()
+    lock_subscriptions(session, user_id)
+    # One database snapshot covers the full catalog, including paused sources.
+    # Server defaults supply timestamps; existing subscriptions retain theirs.
+    inserted = (
+        insert(Subscription.__table__)
+        .from_select(
+            ["user_id", "source_id"],
+            select(literal(user_id, type_=Uuid()), Source.id).order_by(Source.id),
+            include_defaults=False,
+        )
+        .on_conflict_do_nothing(index_elements=["user_id", "source_id"])
+        .returning(Subscription.source_id)
+        .cte("inserted_subscriptions")
+    )
+    changed = session.scalar(select(func.count()).select_from(inserted))
+    session.commit()
+    return {"changed": changed}
+
+
+@router.delete("/subscriptions", response_model=SubscriptionChange)
+def unsubscribe_all(user: UserDep, session: SessionDep):
+    user_id = user.id
+    session.rollback()
+    lock_subscriptions(session, user_id)
+    result = session.execute(delete(Subscription).where(Subscription.user_id == user_id))
+    changed = result.rowcount
+    session.commit()
+    return {"changed": changed}
+
+
 @router.put("/subscriptions/{source_id}", status_code=204)
 def subscribe(source_id: ResourceId, user: UserDep, session: SessionDep) -> Response:
     user_id = user.id
     get_or_404(session, Source, source_id)
     # End the preflight read transaction before the atomic write.
     session.rollback()
+    lock_subscriptions(session, user_id)
     insert_once(session, Subscription, {"user_id": user_id, "source_id": source_id})
     session.commit()
     return Response(status_code=204)
@@ -78,6 +120,7 @@ def subscribe(source_id: ResourceId, user: UserDep, session: SessionDep) -> Resp
 def unsubscribe(source_id: ResourceId, user: UserDep, session: SessionDep) -> Response:
     user_id = user.id
     session.rollback()
+    lock_subscriptions(session, user_id)
     session.execute(
         delete(Subscription).where(
             Subscription.user_id == user_id, Subscription.source_id == source_id

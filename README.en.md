@@ -14,6 +14,9 @@ It includes a shared AI digest of the previous 24 hours, with links to the
 sources. Gemini generation is active in the published instance; new
 installations keep it disabled until explicitly configured.
 
+In **My sources**, readers and administrators can follow the entire catalog or
+remove all their subscriptions while preserving read states.
+
 The responsive interface is available in Italian and English. The backend uses
 Supabase PostgreSQL exclusively, with verified TLS and the private `tnr`
 application schema.

@@ -123,6 +123,7 @@ Only administrators can create, edit, or delete categories and sources.
 | `PATCH` | `/api/articles/{id}` | Set read/unread status |
 | `GET` | `/api/me` | Read the current user's identity and role |
 | `GET` | `/api/subscriptions` | List the current user's followed sources |
+| `PUT`, `DELETE` | `/api/subscriptions` | Follow the full catalog or remove all current-user subscriptions; return `changed` count |
 | `PUT`, `DELETE` | `/api/subscriptions/{source_id}` | Follow or unfollow a source for the current user |
 
 All list endpoints return `items`, `total`, `limit`, and `offset`. The default limit
@@ -449,6 +450,12 @@ The privacy link opens `/privacy.html` in Italian or `/privacy.en.html` in Engli
 Profiles without subscriptions first see the current catalog with enabled sources proposed.
 Confirm the desired sources or select **Non ora**. Existing choices are preserved.
 **Le mie fonti** changes only your subscriptions. Unfollowing a source preserves your read states.
+**Segui tutte** follows the entire current catalog, including sources with paused collection.
+**Non seguire più nessuna** asks for confirmation, then removes all your subscriptions.
+Both actions work for readers and administrators. Each uses one request and one database transaction.
+Neither action downloads feeds, changes other users' choices, or subscribes you to future catalog additions.
+The initial source chooser has **Seleziona tutte** and **Deseleziona tutte** controls. They change the selection before saving.
+Controls stay disabled during saving and subscription reload. After a lost response, the page reloads subscriptions without retrying the write.
 Readers can refresh followed sources, but cannot edit the shared catalog or categories.
 In Supabase mode, **Accedi con Google** starts login and **Esci** ends this browser's session.
 An unapproved account sees **Accesso riservato**. Follow the [operator approval procedure](authentication.md#approve-the-administrator-and-friends).

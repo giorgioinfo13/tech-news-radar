@@ -162,6 +162,7 @@ function ReaderApp({ user, controller }: { user: AppUser; controller: AuthContro
             sources={sources.data.items}
             categories={categories.data.items}
             subscriptions={subscriptions.data.items}
+            subscriptionsUpdating={subscriptions.loading || !!subscriptions.error}
             reloadCatalog={reloadCatalog}
             reloadSubscriptions={subscriptions.reload}
           />
@@ -177,6 +178,7 @@ function Workspace({
   sources,
   categories,
   subscriptions,
+  subscriptionsUpdating,
   reloadCatalog,
   reloadSubscriptions,
 }: {
@@ -185,6 +187,7 @@ function Workspace({
   sources: Source[]
   categories: Category[]
   subscriptions: Subscription[]
+  subscriptionsUpdating: boolean
   reloadCatalog: () => void
   reloadSubscriptions: () => void
 }) {
@@ -203,6 +206,7 @@ function Workspace({
     return (
       <Subscriptions
         initial
+        updating={subscriptionsUpdating}
         sources={sources}
         subscriptions={subscriptions}
         onChange={reloadSubscriptions}
@@ -215,6 +219,7 @@ function Workspace({
   if (page === 'sources')
     return (
       <Subscriptions
+        updating={subscriptionsUpdating}
         sources={sources}
         subscriptions={subscriptions}
         onChange={reloadSubscriptions}

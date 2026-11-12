@@ -49,6 +49,7 @@ export function mockServer() {
     accessStatus: 200,
     subscriptions: [1],
     failSubscription: 0,
+    failBulkSubscription: 0,
     categories: [structuredClone(category)],
     sources: [structuredClone(source)],
     articles: [structuredClone(article)],
@@ -201,6 +202,15 @@ export function mockServer() {
         limit,
         offset,
       })
+    }
+    if (path === '/subscriptions' && ['PUT', 'DELETE'].includes(method)) {
+      if (state.failBulkSubscription) return response({}, state.failBulkSubscription)
+      const changed =
+        method === 'PUT'
+          ? state.sources.filter((item) => !state.subscriptions.includes(item.id)).length
+          : state.subscriptions.length
+      state.subscriptions = method === 'PUT' ? state.sources.map((item) => item.id) : []
+      return response({ changed })
     }
     if (path.startsWith('/subscriptions/')) {
       if (id === state.failSubscription) return response({}, 500)

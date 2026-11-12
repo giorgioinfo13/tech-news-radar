@@ -93,6 +93,8 @@ export function ConfirmDialog({
   error,
   onCancel,
   onConfirm,
+  confirmLabel,
+  pendingLabel,
 }: {
   title: string
   children: ReactNode
@@ -100,6 +102,8 @@ export function ConfirmDialog({
   error?: UiMessage | ''
   onCancel: () => void
   onConfirm: () => void
+  confirmLabel?: string
+  pendingLabel?: string
 }) {
   const { t } = useLanguage()
   const ref = useRef<HTMLDialogElement>(null)
@@ -129,7 +133,7 @@ export function ConfirmDialog({
           {t('Cancel')}
         </button>
         <button className="danger" disabled={pending} onClick={onConfirm}>
-          {pending ? t('Deleting…') : t('Delete permanently')}
+          {pending ? (pendingLabel ?? t('Deleting…')) : (confirmLabel ?? t('Delete permanently'))}
         </button>
       </div>
     </dialog>

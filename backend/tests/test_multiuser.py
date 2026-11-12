@@ -7,7 +7,7 @@ from alembic import command
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, func, inspect, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_identity
@@ -112,6 +112,108 @@ async def test_personal_subscriptions_reads_and_filters(people, database):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("actor", ["admin", "alice"])
+async def test_bulk_subscriptions_cover_catalog_and_preserve_personal_data(people, database, actor):
+    clients, ids, source, article, _ = people
+    client = clients[actor]
+    with Session(database) as session, session.begin():
+        session.add_all(
+            Source(
+                name=f"Source {number}",
+                feed_url=f"https://example.org/feed/{number}",
+                enabled=number != 2,
+            )
+            for number in range(2, 122)
+        )
+    for name in (actor, "bob"):
+        await clients[name].put(f"/api/subscriptions/{source}")
+    await client.patch(f"/api/articles/{article}", json={"is_read": True})
+    with Session(database) as session:
+        created_at = session.get(Subscription, (ids[actor], source)).created_at
+
+    # Caller-supplied identities must never select another user's subscriptions.
+    result = await client.put(
+        f"/api/subscriptions?user_id={ids['bob']}", json={"user_id": str(ids["bob"])}
+    )
+    assert result.status_code == 200
+    assert result.json() == {"changed": 120}
+    assert (await client.put("/api/subscriptions")).json() == {"changed": 0}
+    page = (await client.get("/api/subscriptions?limit=100")).json()
+    assert page["total"] == 121 and len(page["items"]) == 100
+    assert (await clients["bob"].get("/api/subscriptions")).json()["total"] == 1
+    with Session(database) as session:
+        assert session.get(Subscription, (ids[actor], source)).created_at == created_at
+        assert session.scalar(select(func.count()).select_from(CollectionRun)) == 0
+        assert session.scalar(select(Source).where(Source.enabled.is_(False))) is not None
+        new_source = Source(name="Later", feed_url="https://example.org/later")
+        session.add(new_source)
+        session.commit()
+    assert (await client.get("/api/subscriptions")).json()["total"] == 121
+    assert (await client.put("/api/subscriptions")).json() == {"changed": 1}
+
+    result = await client.delete(f"/api/subscriptions?user_id={ids['bob']}")
+    assert result.status_code == 200 and result.json() == {"changed": 122}
+    assert (await client.delete("/api/subscriptions")).json() == {"changed": 0}
+    assert (await client.get("/api/subscriptions")).json()["total"] == 0
+    assert (await clients["bob"].get("/api/subscriptions")).json()["total"] == 1
+    assert (await client.get("/api/articles?subscribed_only=false")).json()["items"][0][
+        "is_read"
+    ] is True
+    with Session(database) as session:
+        assert session.scalar(select(func.count()).select_from(Source)) == 122
+        assert session.scalar(select(func.count()).select_from(Article)) == 1
+        assert session.scalar(select(func.count()).select_from(CollectionRun)) == 0
+
+
+@pytest.mark.anyio
+async def test_bulk_subscriptions_with_empty_catalog(people, database):
+    clients, _, _, _, _ = people
+    with Session(database) as session, session.begin():
+        session.execute(delete(Source))
+    for method in ("PUT", "DELETE"):
+        result = await clients["alice"].request(method, "/api/subscriptions")
+        assert result.status_code == 200 and result.json() == {"changed": 0}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["PUT", "DELETE"])
+async def test_bulk_subscriptions_roll_back_on_database_failure(people, database, method):
+    clients, ids, source, _, _ = people
+    with Session(database) as session, session.begin():
+        session.add(Source(name="Second", feed_url="https://example.org/second"))
+    if method == "DELETE":
+        await clients["alice"].put("/api/subscriptions")
+    with database.begin() as connection:
+        connection.exec_driver_sql("""
+            CREATE FUNCTION reject_subscription_change() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                RAISE EXCEPTION 'simulated storage failure';
+            END $$;
+            CREATE TRIGGER reject_subscription_change AFTER INSERT OR DELETE ON subscriptions
+                FOR EACH ROW EXECUTE FUNCTION reject_subscription_change();
+        """)
+    with pytest.raises(DBAPIError, match="simulated storage failure"):
+        await clients["alice"].request(method, "/api/subscriptions")
+    with Session(database) as session:
+        assert session.scalar(
+            select(func.count())
+            .select_from(Subscription)
+            .where(Subscription.user_id == ids["alice"])
+        ) == (2 if method == "DELETE" else 0)
+
+
+@pytest.mark.anyio
+async def test_repeated_parallel_bulk_writes_are_idempotent(people):
+    clients, _, _, _, _ = people
+    for method in ("PUT", "DELETE"):
+        results = await asyncio.gather(
+            *[clients["alice"].request(method, "/api/subscriptions") for _ in range(4)]
+        )
+        assert {result.status_code for result in results} == {200}
+        assert sorted(result.json()["changed"] for result in results) == [0, 0, 0, 1]
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("method", "path", "body"),
     [
@@ -212,6 +314,8 @@ async def test_disabled_or_deleted_user_is_denied_on_next_request(people, databa
             await clients[name].patch(f"/api/articles/{article}", json={"is_read": True})
         ).status_code == 403
         assert (await clients[name].put(f"/api/subscriptions/{source}")).status_code == 403
+        for method in ("PUT", "DELETE"):
+            assert (await clients[name].request(method, "/api/subscriptions")).status_code == 403
 
 
 @pytest.mark.anyio
@@ -264,6 +368,9 @@ async def test_local_adapter_is_explicit_and_cannot_be_overridden(
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get(f"/api/me?user_id={LOCAL_OWNER_ID}", headers=headers)
             assert response.status_code == status
+            for method in ("PUT", "DELETE"):
+                result = await client.request(method, "/api/subscriptions", headers=headers)
+                assert result.status_code == status
             assert (await client.get("/api/health")).status_code == 200
 
 

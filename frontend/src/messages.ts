@@ -328,6 +328,18 @@ export const italian = {
   'Mark as read': 'Segna come letto',
   'Mark as unread': 'Segna da leggere',
   Follow: 'Segui',
+  'Follow all': 'Segui tutte',
+  'Unfollow all': 'Non seguire più nessuna',
+  'Select all': 'Seleziona tutte',
+  'Deselect all': 'Deseleziona tutte',
+  'You follow {count} of {total} sources': 'Fonti seguite: {count} su {total}',
+  'Selected sources: {count} of {total}': 'Fonti selezionate: {count} su {total}',
+  'Sources added to your follows: {count}.': 'Fonti aggiunte alle tue iscrizioni: {count}.',
+  'Sources unfollowed: {count}. Your reading history is kept.':
+    'Iscrizioni rimosse: {count}. La cronologia di lettura è conservata.',
+  'Unfollow all sources?': 'Non seguire più nessuna fonte?',
+  'Stop following all {count} sources? Your reading history will be kept.':
+    'Vuoi smettere di seguire tutte le {count} fonti? La cronologia di lettura verrà conservata.',
   'Follow what interests you.': 'Segui ciò che ti interessa.',
   'You have signed out of this browser. Remote session sign-out could not be confirmed.':
     'Sei uscito da questo browser. La chiusura della sessione remota non è stata confermata.',
