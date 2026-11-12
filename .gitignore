@@ -46,3 +46,6 @@ backend/data/
 
 # Local review skill: no explicit upstream license at the recorded revision.
 .agents/skills/web-design-guidelines/
+
+# Local agent investigation notes and work logs
+docs/agent-notes/
