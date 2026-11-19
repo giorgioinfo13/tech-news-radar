@@ -1180,7 +1180,7 @@ body:has(.access-page) {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: min(380px, 84%);
+  width: min(380px, 68%);
   display: block;
   z-index: 1;
   pointer-events: none;
@@ -1194,11 +1194,13 @@ body:has(.access-page) {
     width: min(100%, 1200px);
   }
   .signal-field {
+    --signal-field-height: clamp(380px, 46vh, 440px);
     width: 100%;
-    height: clamp(380px, 46vh, 440px);
+    height: var(--signal-field-height);
   }
   .signal-field .access-logo {
-    width: clamp(420px, 34vw, 600px);
+    /* Leave room for complete orbits even in wide, short windows. */
+    width: min(clamp(420px, 34vw, 600px), calc((var(--signal-field-height) - 100px) * 1.6));
   }
 }
 @container (max-width: 440px) {
@@ -1206,7 +1208,7 @@ body:has(.access-page) {
     height: 310px;
   }
   .signal-field .access-logo {
-    width: min(320px, 88%);
+    width: min(280px, 64%);
   }
   .signal-field-glyph {
     font-size: 16px;

@@ -4,6 +4,10 @@ import { useLanguage } from './language-context'
 
 type Signal = {
   element: HTMLSpanElement
+  angle: number
+  radiusX: number
+  radiusY: number
+  period: number
   baseX: number
   baseY: number
   x: number
@@ -32,32 +36,32 @@ export function SignalField() {
     let logoWidth = 0
     let logoHeight = 0
     let frame = 0
-    let lastTime = 0
-    let visible = true
+    let lastTime: number | null = null
+    let visible = typeof IntersectionObserver === 'undefined'
+    let innerRadiusX = 0
+    let innerRadiusY = 0
     let pointer: { x: number; y: number } | null = null
     let pulse: { x: number; y: number; time: number } | null = null
 
+    function orbit(signal: Signal) {
+      const cos = Math.cos(signal.angle)
+      const sin = Math.sin(signal.angle)
+      // A rounded orbit leaves space for the wide logo without clipping its corners.
+      const scale = (cos ** 4 + sin ** 4) ** -0.25
+      signal.baseX = width / 2 + signal.radiusX * cos * scale
+      signal.baseY = height / 2 + signal.radiusY * sin * scale
+    }
+
     function paint(signal: Signal) {
-      let x = signal.baseX + signal.x
-      let y = signal.baseY + signal.y
-      if (width <= 440) {
-        // Keep touch waves inside their arc's band, clear of both the logo and the edges.
-        x = Math.max(12, Math.min(width - 12, x))
-        y =
-          signal.baseY < height / 2
-            ? Math.max(12, Math.min((height - logoHeight) / 2 - 16, y))
-            : Math.min(height - 12, Math.max((height + logoHeight) / 2 + 16, y))
-        signal.element.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) translate(-50%, -50%)`
-        return
-      }
+      const inset = width <= 440 ? 14 : 20
+      let x = Math.max(inset, Math.min(width - inset, signal.baseX + signal.x))
+      let y = Math.max(inset, Math.min(height - inset, signal.baseY + signal.y))
       const dx = x - width / 2
       const dy = y - height / 2
-      const radiusX = logoWidth / 2 + 24
-      const radiusY = logoHeight / 2 + 28
-      // Keep moving symbols outside the central logo, including its enlarged state.
-      const boundary = ((Math.abs(dx) / radiusX) ** 4 + (Math.abs(dy) / radiusY) ** 4) ** 0.25
+      const boundary = ((dx / innerRadiusX) ** 4 + (dy / innerRadiusY) ** 4) ** 0.25
+      // Constrain only the wave displacement; the orbit itself already clears the logo.
       if (boundary < 1) {
-        x = width / 2 + (boundary > 0.001 ? dx / boundary : radiusX)
+        x = width / 2 + (boundary > 0.001 ? dx / boundary : innerRadiusX)
         y = height / 2 + (boundary > 0.001 ? dy / boundary : 0)
       }
       signal.element.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) translate(-50%, -50%)`
@@ -66,7 +70,7 @@ export function SignalField() {
     function settle() {
       cancelAnimationFrame(frame)
       frame = 0
-      lastTime = 0
+      lastTime = null
       pointer = null
       pulse = null
       field.dataset.logoActive = 'false'
@@ -93,90 +97,69 @@ export function SignalField() {
       logoWidth = image.offsetWidth
       logoHeight = image.offsetHeight
       signals = []
-      const fragment = document.createDocumentFragment()
-      function addSignal(
-        baseX: number,
-        baseY: number,
-        index: number,
-        row: number,
-        opacity: number,
-      ) {
-        const element = document.createElement('span')
-        element.className = 'signal-field-glyph'
-        element.textContent = symbols[(index * 7 + row * 5) % symbols.length]
-        element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
-        element.style.opacity = String(opacity)
-        const signal = { element, baseX, baseY, x: 0, y: 0, velocityX: 0, velocityY: 0 }
-        signals.push(signal)
-        fragment.append(element)
-        paint(signal)
-      }
-
-      if (width <= 440) {
-        // Fill the available bands instead of discarding a grid behind the wider mobile logo.
-        const innerTop = Math.max(20, (height - logoHeight) / 2 - 36)
-        const outerTop = Math.max(16, innerTop - 26)
-        const columns = width < 300 ? 7 : 8
-        let index = 0
-        for (let arc = 0; arc < 2; arc++) {
-          for (let row = 0; row < 2; row++) {
-            const count = columns + row
-            for (let column = 0; column < count; column++) {
-              const nx = (2 * column) / (count - 1) - 1
-              const baseX = 20 + (column * (width - 40)) / (count - 1)
-              const top = (row === 0 ? outerTop : innerTop) + 18 * nx * nx
-              addSignal(
-                baseX,
-                arc === 0 ? top : height - top,
-                index++,
-                row,
-                0.8 - 0.16 * Math.abs(nx),
-              )
-            }
-          }
-        }
-        layer.replaceChildren(fragment)
+      const mobile = width <= 440
+      const inset = mobile ? 14 : 20
+      const outerRadiusX = width / 2 - inset
+      const outerRadiusY = height / 2 - inset
+      const logoScale = mobile ? 1 : 1.045
+      // 2^(1/4) encloses all four corners of the logo, including the hover enlargement.
+      innerRadiusX = ((logoWidth * logoScale) / 2 + 10) * 2 ** 0.25
+      innerRadiusY = ((logoHeight * logoScale) / 2 + 12) * 2 ** 0.25
+      // Wait for a usable layout rather than placing symbols on top of the logo.
+      if (innerRadiusX > outerRadiusX || innerRadiusY > outerRadiusY) {
+        layer.replaceChildren()
         return
       }
-
-      const columns = 23
-      const rows = 11
-      for (let row = 0; row < rows; row++) {
-        for (let column = 0; column < columns; column++) {
-          const nx = (column - (columns - 1) / 2) / ((columns - 1) / 2)
-          const ny = (row - (rows - 1) / 2) / ((rows - 1) / 2)
-          if (nx * nx + ny * ny > 1.3) continue
-          const baseX =
-            20 + (column * (width - 40)) / (columns - 1) + Math.sin(row * 1.8 + column * 0.7) * 3
-          const baseY =
-            23 + (row * (height - 46)) / (rows - 1) + Math.sin(column * 0.55 + row * 0.8) * 7
-          if (
-            (Math.abs(baseX - width / 2) / (logoWidth / 2 + 32)) ** 4 +
-              (Math.abs(baseY - height / 2) / (logoHeight / 2 + 36)) ** 4 <
-            1
-          )
-            continue
-          const index = row * columns + column
-          addSignal(
-            baseX,
-            baseY,
-            index,
-            row,
-            0.38 + 0.5 * (1 - Math.min(1, (nx * nx + ny * ny) / 2)),
-          )
+      const room = Math.min(outerRadiusX - innerRadiusX, outerRadiusY - innerRadiusY)
+      const rings = Math.min(mobile ? 2 : 4, Math.floor(room / 24) + 1)
+      const fragment = document.createDocumentFragment()
+      for (let ring = 0; ring < rings; ring++) {
+        const fraction = rings === 1 ? 0.5 : ring / (rings - 1)
+        const radiusX = innerRadiusX + (outerRadiusX - innerRadiusX) * fraction
+        const radiusY = innerRadiusY + (outerRadiusY - innerRadiusY) * fraction
+        const count = Math.min(
+          mobile ? 28 : 56,
+          Math.floor((2 * Math.PI * Math.min(radiusX, radiusY)) / 28),
+        )
+        for (let index = 0; index < count; index++) {
+          const element = document.createElement('span')
+          element.className = 'signal-field-glyph'
+          element.textContent = symbols[(index * 7 + ring * 5) % symbols.length]
+          element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
+          element.style.opacity = String(0.78 - fraction * 0.28)
+          const signal = {
+            element,
+            angle: 2 * Math.PI * (index / count + ring * 0.137),
+            radiusX,
+            radiusY,
+            period: (mobile ? 54000 : 42000) + ring * 6000,
+            baseX: 0,
+            baseY: 0,
+            x: 0,
+            y: 0,
+            velocityX: 0,
+            velocityY: 0,
+          }
+          signals.push(signal)
+          fragment.append(element)
+          orbit(signal)
+          paint(signal)
         }
       }
       layer.replaceChildren(fragment)
+      start()
     }
 
     function animate(now: number) {
       frame = 0
       if (reducedMotion?.matches || !visible || document.hidden) return
-      const delta = Math.min(2, lastTime ? (now - lastTime) / (1000 / 60) : 1)
+      const elapsed = lastTime === null ? 0 : Math.min(1000 / 30, now - lastTime)
+      const delta = elapsed / (1000 / 60)
       lastTime = now
       if (pulse && now - pulse.time > 1050) pulse = null
-      let moving = false
       for (const signal of signals) {
+        signal.angle = (signal.angle + (elapsed * 2 * Math.PI) / signal.period) % (2 * Math.PI)
+        orbit(signal)
         let targetX = 0
         let targetY = 0
         if (pointer) {
@@ -203,24 +186,14 @@ export function SignalField() {
         signal.velocityY = (signal.velocityY + (targetY - signal.y) * 0.075 * delta) * 0.72 ** delta
         signal.x += signal.velocityX * delta
         signal.y += signal.velocityY * delta
-        if (
-          Math.abs(targetX - signal.x) +
-            Math.abs(targetY - signal.y) +
-            Math.abs(signal.velocityX) +
-            Math.abs(signal.velocityY) >
-          0.03
-        )
-          moving = true
         paint(signal)
       }
-      // No idle animation: only schedule frames while responding to an interaction.
-      if (moving || pulse) frame = requestAnimationFrame(animate)
-      else lastTime = 0
+      frame = requestAnimationFrame(animate)
     }
 
     function start() {
       if (!frame && signals.length && !reducedMotion?.matches && visible && !document.hidden) {
-        lastTime = 0
+        lastTime = null
         frame = requestAnimationFrame(animate)
       }
     }
@@ -261,7 +234,12 @@ export function SignalField() {
     }
 
     function visibilityChanged() {
-      if (document.hidden) settle()
+      if (document.hidden || !visible || reducedMotion?.matches) settle()
+      else start()
+    }
+
+    function pointerChanged() {
+      leave()
     }
 
     const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(build)
@@ -272,7 +250,7 @@ export function SignalField() {
         ? null
         : new IntersectionObserver(([entry]) => {
             visible = entry.isIntersecting
-            if (!visible) settle()
+            visibilityChanged()
           })
     intersectionObserver?.observe(field)
     image.addEventListener('load', build)
@@ -281,8 +259,8 @@ export function SignalField() {
     field.addEventListener('pointerleave', leave)
     field.addEventListener('pointercancel', leave)
     field.addEventListener('click', activate)
-    reducedMotion?.addEventListener('change', settle)
-    finePointer?.addEventListener('change', settle)
+    reducedMotion?.addEventListener('change', visibilityChanged)
+    finePointer?.addEventListener('change', pointerChanged)
     document.addEventListener('visibilitychange', visibilityChanged)
     build()
 
@@ -296,8 +274,8 @@ export function SignalField() {
       field.removeEventListener('pointerleave', leave)
       field.removeEventListener('pointercancel', leave)
       field.removeEventListener('click', activate)
-      reducedMotion?.removeEventListener('change', settle)
-      finePointer?.removeEventListener('change', settle)
+      reducedMotion?.removeEventListener('change', visibilityChanged)
+      finePointer?.removeEventListener('change', pointerChanged)
       document.removeEventListener('visibilitychange', visibilityChanged)
       layer.replaceChildren()
     }
