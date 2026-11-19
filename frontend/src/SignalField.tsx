@@ -1,15 +1,10 @@
 import { useEffect, useRef } from 'react'
 import logo from '../../docs/assets/tech-news-radar-logo.svg'
 import { useLanguage } from './language-context'
+import { advanceSignalOrbit, createSignalLayout, type SignalOrbit } from './signal-orbits'
 
-type Signal = {
+type Signal = SignalOrbit & {
   element: HTMLSpanElement
-  angle: number
-  radiusX: number
-  radiusY: number
-  period: number
-  baseX: number
-  baseY: number
   x: number
   y: number
   velocityX: number
@@ -42,15 +37,6 @@ export function SignalField() {
     let innerRadiusY = 0
     let pointer: { x: number; y: number } | null = null
     let pulse: { x: number; y: number; time: number } | null = null
-
-    function orbit(signal: Signal) {
-      const cos = Math.cos(signal.angle)
-      const sin = Math.sin(signal.angle)
-      // A rounded orbit leaves space for the wide logo without clipping its corners.
-      const scale = (cos ** 4 + sin ** 4) ** -0.25
-      signal.baseX = width / 2 + signal.radiusX * cos * scale
-      signal.baseY = height / 2 + signal.radiusY * sin * scale
-    }
 
     function paint(signal: Signal) {
       const inset = width <= 440 ? 14 : 20
@@ -97,54 +83,21 @@ export function SignalField() {
       logoWidth = image.offsetWidth
       logoHeight = image.offsetHeight
       signals = []
-      const mobile = width <= 440
-      const inset = mobile ? 14 : 20
-      const outerRadiusX = width / 2 - inset
-      const outerRadiusY = height / 2 - inset
-      const logoScale = mobile ? 1 : 1.045
-      // 2^(1/4) encloses all four corners of the logo, including the hover enlargement.
-      innerRadiusX = ((logoWidth * logoScale) / 2 + 10) * 2 ** 0.25
-      innerRadiusY = ((logoHeight * logoScale) / 2 + 12) * 2 ** 0.25
-      // Wait for a usable layout rather than placing symbols on top of the logo.
-      if (innerRadiusX > outerRadiusX || innerRadiusY > outerRadiusY) {
-        layer.replaceChildren()
-        return
-      }
-      const room = Math.min(outerRadiusX - innerRadiusX, outerRadiusY - innerRadiusY)
-      const rings = Math.min(mobile ? 2 : 4, Math.floor(room / 24) + 1)
+      const layout = createSignalLayout(width, height, logoWidth, logoHeight)
+      innerRadiusX = layout.innerRadiusX
+      innerRadiusY = layout.innerRadiusY
       const fragment = document.createDocumentFragment()
-      for (let ring = 0; ring < rings; ring++) {
-        const fraction = rings === 1 ? 0.5 : ring / (rings - 1)
-        const radiusX = innerRadiusX + (outerRadiusX - innerRadiusX) * fraction
-        const radiusY = innerRadiusY + (outerRadiusY - innerRadiusY) * fraction
-        const count = Math.min(
-          mobile ? 28 : 56,
-          Math.floor((2 * Math.PI * Math.min(radiusX, radiusY)) / 28),
-        )
-        for (let index = 0; index < count; index++) {
-          const element = document.createElement('span')
-          element.className = 'signal-field-glyph'
-          element.textContent = symbols[(index * 7 + ring * 5) % symbols.length]
-          element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
-          element.style.opacity = String(0.78 - fraction * 0.28)
-          const signal = {
-            element,
-            angle: 2 * Math.PI * (index / count + ring * 0.137),
-            radiusX,
-            radiusY,
-            period: (mobile ? 54000 : 42000) + ring * 6000,
-            baseX: 0,
-            baseY: 0,
-            x: 0,
-            y: 0,
-            velocityX: 0,
-            velocityY: 0,
-          }
-          signals.push(signal)
-          fragment.append(element)
-          orbit(signal)
-          paint(signal)
-        }
+      for (const orbit of layout.orbits) {
+        const { index, ring, opacity } = orbit
+        const element = document.createElement('span')
+        element.className = 'signal-field-glyph'
+        element.textContent = symbols[(index * 7 + ring * 5) % symbols.length]
+        element.dataset.accent = String(index % 5 === 0 || index % 11 === 0)
+        element.style.opacity = String(opacity)
+        const signal = { ...orbit, element, x: 0, y: 0, velocityX: 0, velocityY: 0 }
+        signals.push(signal)
+        fragment.append(element)
+        paint(signal)
       }
       layer.replaceChildren(fragment)
       start()
@@ -158,8 +111,7 @@ export function SignalField() {
       lastTime = now
       if (pulse && now - pulse.time > 1050) pulse = null
       for (const signal of signals) {
-        signal.angle = (signal.angle + (elapsed * 2 * Math.PI) / signal.period) % (2 * Math.PI)
-        orbit(signal)
+        advanceSignalOrbit(signal, elapsed, width, height)
         let targetX = 0
         let targetY = 0
         if (pointer) {

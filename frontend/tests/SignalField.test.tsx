@@ -87,8 +87,6 @@ function trackPath(field: HTMLElement) {
   const glyphs = Array.from(field.querySelectorAll<HTMLElement>('.signal-field-glyph'))
   expect(glyphs.length).toBeGreaterThanOrEqual(20)
   const violations: { time: number; index: number; x: number; y: number }[] = []
-  const previousAngles: number[] = []
-  const angularTravel = glyphs.map(() => 0)
   const sample = (time: number) => {
     glyphs.forEach((glyph, index) => {
       const [, rawX, rawY] = glyph.style.transform.match(/translate\(([\d.-]+)px, ([\d.-]+)px\)/)!
@@ -107,17 +105,9 @@ function trackPath(field: HTMLElement) {
         !outsideLogo
       )
         violations.push({ time, index, x, y })
-
-      // Measure the rendered path, independently of the animation's orbit formula.
-      const angle = Math.atan2(y - fieldHeight / 2, x - fieldWidth / 2)
-      if (previousAngles[index] !== undefined) {
-        const change = angle - previousAngles[index]
-        angularTravel[index] += Math.atan2(Math.sin(change), Math.cos(change))
-      }
-      previousAngles[index] = angle
     })
   }
-  return { sample, violations, angularTravel }
+  return { sample, violations }
 }
 
 describe('interactive welcome signals', () => {
@@ -141,7 +131,8 @@ describe('interactive welcome signals', () => {
       const { field } = open()
       const path = trackPath(field)
       // Cover the entire edge-triggered wave at every size, without repeating a
-      // minute of DOM animation for each breakpoint. Full turns are checked below.
+      // minute of DOM animation for each breakpoint. Full turns use the same orbit
+      // calculations in signal-orbits.test.ts, without DOM rendering.
       act(() => {
         for (let step = 0; step <= 120; step++) {
           const time = (step * 100) / 6
@@ -157,35 +148,6 @@ describe('interactive welcome signals', () => {
       expect(frames.size).toBe(1)
     },
   )
-
-  it.each([
-    { layout: 'mobile', width: 335, height: 310, imageWidth: 214 },
-    { layout: 'desktop with multiple rings', width: 980, height: 380, imageWidth: 420 },
-  ])('completes a full clockwise turn on $layout', ({ width, height, imageWidth, layout }) => {
-    fieldWidth = width
-    fieldHeight = height
-    logoWidth = imageWidth
-    logoHeight = (logoWidth * 280) / 612
-    const { field } = open()
-    const path = trackPath(field)
-    path.sample(0)
-    // Run the real animation at 30 fps for 60 seconds, including the slowest ring.
-    // Batch React work; keep the DOM writes and observe the rendered positions.
-    act(() => {
-      for (let step = 0; step <= 1800; step++) {
-        const time = (step * 100) / 3
-        runFrame(time)
-        if (step % 30 === 0) path.sample(time)
-      }
-    })
-    expect(path.violations).toEqual([])
-    // A static field would pass clearance checks, but must fail this assertion.
-    expect(Math.min(...path.angularTravel)).toBeGreaterThanOrEqual(2 * Math.PI - 0.01)
-    if (layout === 'desktop with multiple rings') {
-      expect(Math.max(...path.angularTravel) - Math.min(...path.angularTravel)).toBeGreaterThan(0.5)
-    }
-    expect(frames.size).toBe(1)
-  })
 
   it('rebuilds the orbits when resizing between desktop and mobile without duplicating the loop', () => {
     const { field } = open()
