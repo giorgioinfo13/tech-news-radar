@@ -53,12 +53,14 @@ beforeEach(() => {
   vi.spyOn(HTMLImageElement.prototype, 'offsetHeight', 'get').mockImplementation(() => logoHeight)
 })
 
+function runFrame(time: number) {
+  const pending = [...frames.values()]
+  frames.clear()
+  pending.forEach((callback) => callback(time))
+}
+
 function nextFrame(time: number) {
-  act(() => {
-    const pending = [...frames.values()]
-    frames.clear()
-    pending.forEach((callback) => callback(time))
-  })
+  act(() => runFrame(time))
 }
 
 function positions(field: HTMLElement) {
@@ -80,6 +82,44 @@ function open() {
   return { ...view, field }
 }
 
+function trackPath(field: HTMLElement) {
+  const scale = fieldWidth <= 440 ? 1 : 1.045
+  const glyphs = Array.from(field.querySelectorAll<HTMLElement>('.signal-field-glyph'))
+  expect(glyphs.length).toBeGreaterThanOrEqual(20)
+  const violations: { time: number; index: number; x: number; y: number }[] = []
+  const previousAngles: number[] = []
+  const angularTravel = glyphs.map(() => 0)
+  const sample = (time: number) => {
+    glyphs.forEach((glyph, index) => {
+      const [, rawX, rawY] = glyph.style.transform.match(/translate\(([\d.-]+)px, ([\d.-]+)px\)/)!
+      const x = Number(rawX)
+      const y = Number(rawY)
+      const outsideLogo =
+        Math.abs(x - fieldWidth / 2) >= (logoWidth * scale) / 2 + 8 ||
+        Math.abs(y - fieldHeight / 2) >= (logoHeight * scale) / 2 + 8
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        x < 12 ||
+        x > fieldWidth - 12 ||
+        y < 12 ||
+        y > fieldHeight - 12 ||
+        !outsideLogo
+      )
+        violations.push({ time, index, x, y })
+
+      // Measure the rendered path, independently of the animation's orbit formula.
+      const angle = Math.atan2(y - fieldHeight / 2, x - fieldWidth / 2)
+      if (previousAngles[index] !== undefined) {
+        const change = angle - previousAngles[index]
+        angularTravel[index] += Math.atan2(Math.sin(change), Math.cos(change))
+      }
+      previousAngles[index] = angle
+    })
+  }
+  return { sample, violations, angularTravel }
+}
+
 describe('interactive welcome signals', () => {
   it.each([
     { width: 265, height: 310, imageWidth: 170 },
@@ -99,36 +139,53 @@ describe('interactive welcome signals', () => {
       logoWidth = imageWidth
       logoHeight = (logoWidth * 280) / 612
       const { field } = open()
-      const scale = width <= 440 ? 1 : 1.045
-      const checkClearance = () => {
-        const points = positions(field).map((transform) => {
-          const [, x, y] = transform.match(/translate\(([\d.-]+)px, ([\d.-]+)px\)/)!
-          return { x: Number(x), y: Number(y) }
-        })
-        expect(points.length).toBeGreaterThanOrEqual(20)
-        for (const point of points) {
-          expect(point.x).toBeGreaterThanOrEqual(12)
-          expect(point.x).toBeLessThanOrEqual(width - 12)
-          expect(point.y).toBeGreaterThanOrEqual(12)
-          expect(point.y).toBeLessThanOrEqual(fieldHeight - 12)
-          expect(
-            Math.abs(point.x - width / 2) >= (logoWidth * scale) / 2 + 8 ||
-              Math.abs(point.y - fieldHeight / 2) >= (logoHeight * scale) / 2 + 8,
-          ).toBe(true)
+      const path = trackPath(field)
+      // Cover the entire edge-triggered wave at every size, without repeating a
+      // minute of DOM animation for each breakpoint. Full turns are checked below.
+      act(() => {
+        for (let step = 0; step <= 120; step++) {
+          const time = (step * 100) / 6
+          if (step === 30) {
+            vi.mocked(performance.now).mockReturnValue(time)
+            fireEvent.click(field, { detail: 1, clientX: width - 20, clientY: fieldHeight / 2 })
+          }
+          runFrame(time)
+          path.sample(time)
         }
-      }
-      checkClearance()
-      // Exercise a complete turn, including a wave near the field's edge.
-      for (let step = 0; step <= 1800; step++) {
-        if (step === 30) {
-          vi.spyOn(performance, 'now').mockReturnValue((step * 100) / 3)
-          fireEvent.click(field, { detail: 1, clientX: width - 20, clientY: fieldHeight / 2 })
-        }
-        nextFrame((step * 100) / 3)
-        if (step % 30 === 0 || (step > 30 && step < 65)) checkClearance()
-      }
+      })
+      expect(path.violations).toEqual([])
+      expect(frames.size).toBe(1)
     },
   )
+
+  it.each([
+    { layout: 'mobile', width: 335, height: 310, imageWidth: 214 },
+    { layout: 'desktop with multiple rings', width: 980, height: 380, imageWidth: 420 },
+  ])('completes a full clockwise turn on $layout', ({ width, height, imageWidth, layout }) => {
+    fieldWidth = width
+    fieldHeight = height
+    logoWidth = imageWidth
+    logoHeight = (logoWidth * 280) / 612
+    const { field } = open()
+    const path = trackPath(field)
+    path.sample(0)
+    // Run the real animation at 30 fps for 60 seconds, including the slowest ring.
+    // Batch React work; keep the DOM writes and observe the rendered positions.
+    act(() => {
+      for (let step = 0; step <= 1800; step++) {
+        const time = (step * 100) / 3
+        runFrame(time)
+        if (step % 30 === 0) path.sample(time)
+      }
+    })
+    expect(path.violations).toEqual([])
+    // A static field would pass clearance checks, but must fail this assertion.
+    expect(Math.min(...path.angularTravel)).toBeGreaterThanOrEqual(2 * Math.PI - 0.01)
+    if (layout === 'desktop with multiple rings') {
+      expect(Math.max(...path.angularTravel) - Math.min(...path.angularTravel)).toBeGreaterThan(0.5)
+    }
+    expect(frames.size).toBe(1)
+  })
 
   it('rebuilds the orbits when resizing between desktop and mobile without duplicating the loop', () => {
     const { field } = open()
