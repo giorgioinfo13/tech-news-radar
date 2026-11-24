@@ -138,6 +138,7 @@ class ArticleRead(OutputModel):
     title: str
     description: str | None
     discussion_url: str | None
+    thumbnail_url: str | None
     published_at: datetime | None
     fetched_at: datetime
     is_read: bool

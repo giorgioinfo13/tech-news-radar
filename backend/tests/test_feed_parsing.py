@@ -93,3 +93,71 @@ def test_hacker_news_discussion_is_separate_and_validated(comments, expected):
     other = parse_feed(body, "https://example.org/rss", 10).entries[0]
     assert other.discussion_url is None
     assert other.description == "Comments"
+
+
+@pytest.mark.parametrize(
+    "source, fields, expected",
+    [
+        (
+            "https://research.google/blog/rss/",
+            '<media:thumbnail url="https://storage.googleapis.com/test/preview.jpg"/>'
+            '<media:content medium="image" url="https://storage.googleapis.com/test/full.jpg"/>',
+            "https://storage.googleapis.com/test/preview.jpg",
+        ),
+        (
+            "https://research.google/blog/rss/",
+            '<media:thumbnail url="https://elsewhere.example/tracker"/>'
+            '<media:content type="image/png" url="https://storage.googleapis.com/test/full.png"/>',
+            "https://storage.googleapis.com/test/full.png",
+        ),
+        (
+            "https://www.hdblog.it/feed/",
+            "<thumb>https://hd2.tudocdn.net/image?w=180</thumb>",
+            "https://hd2.tudocdn.net/image?w=180",
+        ),
+        (
+            "https://andreagaleazzi.com/feed/",
+            "<image>https://andreagaleazzi.com/article.jpg</image>",
+            "https://andreagaleazzi.com/article.jpg",
+        ),
+        (
+            "https://blog.cloudflare.com/rss/",
+            '<enclosure type="image/jpeg" url="https://blog.cloudflare.com/thumbnail.jpg"/>',
+            "https://blog.cloudflare.com/thumbnail.jpg",
+        ),
+        (
+            "https://blog.cloudflare.com/rss/",
+            '<enclosure type="video/mp4" url="https://blog.cloudflare.com/movie.mp4"/>',
+            None,
+        ),
+        (
+            "https://research.google/blog/rss/",
+            '<media:thumbnail url="https://user@storage.googleapis.com/a"/>'
+            '<media:thumbnail url="http://storage.googleapis.com/a"/>'
+            '<media:thumbnail url="https://storage.googleapis.com:8000/a"/>',
+            None,
+        ),
+        (
+            "https://github.com/openai/codex/releases.atom",
+            '<media:thumbnail url="https://avatars.githubusercontent.com/u/1"/>',
+            None,
+        ),
+        (
+            "https://www.youtube.com/feeds/videos.xml?channel_id=other",
+            '<media:thumbnail url="https://i1.ytimg.com/thumb.jpg"/>',
+            None,
+        ),
+        (
+            "https://importai.substack.com/feed",
+            '<enclosure type="image/png" url="https://substackcdn.com/resized/logo.png"/>',
+            None,
+        ),
+    ],
+)
+def test_thumbnails_use_only_supported_item_fields(source, fields, expected):
+    body = f"""<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <image><url>https://substackcdn.com/original/logo.png</url></image>
+    <item><title>Article</title><link>https://example.org/post</link>
+    <description><![CDATA[<img src="https://storage.googleapis.com/inline.png">]]></description>
+    {fields}</item></channel></rss>""".encode()
+    assert parse_feed(body, source, 5).entries[0].thumbnail_url == expected

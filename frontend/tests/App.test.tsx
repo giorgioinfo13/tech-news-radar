@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
 import { article, category, mockServer, source } from './server'
 
@@ -10,6 +10,68 @@ function open(page: string) {
 }
 
 describe('news dashboard', () => {
+  it('expands only the clipped preview and preserves the article read state', async () => {
+    const { state, calls } = mockServer()
+    const long = 'A longer RSS description. '.repeat(30).trim()
+    state.articles = [
+      { ...article, description: long },
+      { ...article, id: 2, title: 'Short preview' },
+      { ...article, id: 3, title: 'No preview', description: null },
+    ]
+    // jsdom has no line layout. Supply the measured height for the overflowing paragraph.
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+      return this.textContent === long ? 160 : 0
+    })
+    localStorage.setItem('tnr-language', 'en')
+    open('news')
+    const button = await screen.findByRole('button', { name: 'Show more' })
+    const preview = screen.getByText(long)
+    preview.style.lineHeight = '20px'
+    preview.style.webkitLineClamp = '3'
+    expect(button).toHaveAttribute('aria-controls', preview.id)
+    const requests = calls.length
+    button.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Show less', expanded: true })).toHaveFocus()
+    await userEvent.keyboard(' ')
+    expect(screen.getByRole('button', { name: 'Show more', expanded: false })).toHaveFocus()
+    expect(calls).toHaveLength(requests)
+    expect(state.articles[0].is_read).toBe(false)
+  })
+
+  it('loads a declared image when its card is visible and removes a broken thumbnail', async () => {
+    const { state } = mockServer()
+    const image = 'https://images.dday.it/preview.jpg'
+    state.articles = [
+      { ...article, thumbnail_url: image },
+      { ...article, id: 2, thumbnail_url: 'https://unapproved.example/image.jpg' },
+      { ...article, id: 3, thumbnail_url: null },
+    ]
+    let intersect!: (entries: { isIntersecting: boolean }[]) => void
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: typeof intersect) {
+          intersect = callback
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    open('news')
+    const cards = await screen.findAllByRole('article')
+    expect(cards[0].querySelector('img')).toBeNull()
+    act(() => intersect([{ isIntersecting: true }]))
+    const thumbnail = cards[0].querySelector('img')!
+    expect(thumbnail).toHaveAttribute('src', image)
+    expect(thumbnail).toHaveAttribute('referrerpolicy', 'no-referrer')
+    expect(cards[1].querySelector('img')).toBeNull()
+    expect(cards[2].querySelector('img')).toBeNull()
+    fireEvent.error(thumbnail)
+    expect(cards[0].querySelector('img')).toBeNull()
+    expect(within(cards[0]).getByRole('link')).toHaveAttribute('href', article.url)
+  })
+
   it('shows a separate safe Hacker News discussion link', async () => {
     const { state } = mockServer()
     state.articles = [

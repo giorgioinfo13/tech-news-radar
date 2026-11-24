@@ -3,6 +3,13 @@
 This guide describes the existing Supabase PostgreSQL deployment and its release
 boundaries. Keep the private local `.env` and provider credentials out of Git.
 
+## Article thumbnails
+
+Use **Release full** to apply revision `0014` before deploying the API and frontend.
+The migration adds the nullable `articles.thumbnail_url` column. Existing table grants cover this column.
+A normal collection can populate thumbnails for existing articles that appear in the feed again.
+An HTTP 304 keeps the stored values. Older articles can remain text-only.
+
 ## Gemini statistics release
 
 The administrator panel requires a **Release full**, after committing and pushing the reviewed changes.
@@ -620,7 +627,7 @@ For an authorized target, run these commands from `backend/`:
 .venv/bin/alembic check
 ```
 
-The expected revision is `0012 (head)`. Use the release Action for the configured production target, or obtain authorization for a manual operation.
+The expected revision is `0014 (head)`. Use the release Action for the configured production target, or obtain authorization for a manual operation.
 This implementation does not move application tables from an existing PostgreSQL `public` schema.
 Do not use it to stamp or adopt an unrelated database. Review that case separately.
 

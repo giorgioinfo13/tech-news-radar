@@ -65,6 +65,7 @@ export interface Article {
   title: string
   description: string | null
   discussion_url?: string | null
+  thumbnail_url?: string | null
   url: string
   published_at: string | null
   fetched_at: string

@@ -240,6 +240,11 @@ dialogs explain deletion effects and restore focus on cancellation.
 
 Titles, descriptions, source errors, and history render as text. Article links
 accept only HTTP/HTTPS without credentials and open with `noopener noreferrer`.
+The collector accepts item-level image metadata from the 18 [supported feeds](../backend/app/collection/thumbnail_sources.json).
+It stores an optional HTTPS URL from an approved image host. It ignores images embedded in article HTML.
+The browser requests the thumbnail directly when the card enters the viewport and omits the referrer.
+If the request fails, the card displays the article text. The image host receives the reader's IP address.
+
 Opening an original article does not automatically mark it read. Read state changes
 only through the explicit control. The frontend does not fetch feed URLs directly.
 

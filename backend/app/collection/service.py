@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.collection.download import FeedDownloader, FeedError
 from app.collection.gate import database_gate
 from app.collection.parsing import parse_feed, url_key
+from app.collection.thumbnails import DDAY, IMAGE_HOSTS
 from app.config import Settings
 from app.db import utc_now
 from app.models import AppUser, Article, CollectionRun, Source, Subscription
@@ -186,7 +187,9 @@ class Collector:
             parsed = (
                 None
                 if download.not_modified
-                else parse_feed(download.body, download.url, self.settings.feed_max_entries)
+                else parse_feed(
+                    download.body, download.url, self.settings.feed_max_entries, source_url=url
+                )
             )
             if deadline is not None and monotonic() >= deadline:
                 raise FeedError("Feed download exceeded its time budget")
@@ -198,12 +201,8 @@ class Collector:
                         select(Article).where(Article.source_id == source_id)
                     ).all()
                     by_url = {url_key(article.url): article for article in existing}
-                    guids, urls = set(), set()
-                    for article in existing:
-                        guid, stored_url = article.guid, article.url
-                        if guid:
-                            guids.add(guid)
-                        urls.add(url_key(stored_url))
+                    by_guid = {article.guid: article for article in existing if article.guid}
+                    guids, urls = set(by_guid), set(by_url)
                     run.articles_seen = parsed.seen
                     for entry in parsed.entries:
                         key = url_key(entry.url)
@@ -213,6 +212,21 @@ class Collector:
                                 stored.discussion_url = entry.discussion_url
                                 if stored.description == "Comments":
                                     stored.description = None
+                            if stored is None and entry.guid:
+                                stored = by_guid.get(entry.guid)
+                                # Old DDay rows may point to their image instead of the article.
+                                if (
+                                    url == DDAY
+                                    and stored is not None
+                                    and key not in urls
+                                    and stored.url == entry.thumbnail_url
+                                ):
+                                    by_url.pop(url_key(stored.url), None)
+                                    stored.url = entry.url
+                                    by_url[key] = stored
+                                    urls.add(key)
+                            if stored is not None and url in IMAGE_HOSTS:
+                                stored.thumbnail_url = entry.thumbnail_url
                             continue
                         session.add(Article(source_id=source_id, **asdict(entry)))
                         if entry.guid:

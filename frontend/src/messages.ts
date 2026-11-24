@@ -406,6 +406,8 @@ export const italian = {
   'AI generation is suspended after a service anomaly. An administrator must review it. Saved briefs remain available.':
     'Generazione AI sospesa per un’anomalia del servizio. Serve una verifica dell’amministratore. Le sintesi salvate restano disponibili.',
   'Latest news': 'Ultime notizie',
+  'Show more': 'Mostra altro',
+  'Show less': 'Mostra meno',
   'Last refresh failed:': 'Ultimo aggiornamento non riuscito:',
   'Last checked': 'Ultimo controllo',
   'Last successful refresh': 'Ultimo esito positivo',

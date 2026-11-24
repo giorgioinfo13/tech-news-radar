@@ -208,6 +208,7 @@ class Article(Base):
     title: Mapped[str] = mapped_column(text_type())
     description: Mapped[str | None] = mapped_column(text_type())
     discussion_url: Mapped[str | None] = mapped_column(Text)
+    thumbnail_url: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
 

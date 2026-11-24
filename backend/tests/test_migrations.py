@@ -48,6 +48,27 @@ def test_initial_migration_matches_models_and_seeds_categories(database, migrati
     command.check(migration_config)
 
 
+def test_thumbnail_migration_preserves_existing_articles(database, migration_config):
+    command.downgrade(migration_config, "0013")
+    with Session(database) as session, session.begin():
+        source = Source(name="Existing", feed_url="https://example.org/rss")
+        session.add(source)
+        session.flush()
+        article_id = session.scalar(
+            insert(Article)
+            .values(source_id=source.id, title="Existing", url="https://example.org/post")
+            .returning(Article.id)
+        )
+        session.add(ArticleReadState(user_id=LOCAL_OWNER_ID, article_id=article_id))
+    command.upgrade(migration_config, "head")
+    with Session(database) as session:
+        article = session.get(Article, article_id)
+        assert (article.title, article.thumbnail_url) == ("Existing", None)
+        assert session.get(ArticleReadState, (LOCAL_OWNER_ID, article_id)) is not None
+    command.downgrade(migration_config, "0013")
+    assert "thumbnail_url" not in {c["name"] for c in inspect(database).get_columns("articles")}
+
+
 def test_discussion_migration_cleans_only_hacker_news_placeholder(database, migration_config):
     from datetime import UTC, datetime
 

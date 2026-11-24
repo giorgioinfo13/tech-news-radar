@@ -320,3 +320,31 @@ async def test_partial_insert_failure_rolls_back_and_releases_lock(setup, databa
     clock[0] += timedelta(seconds=901)
     replies.append(reply())
     assert (await client.post(f"/api/sources/{source_id}/refresh")).json()["articles_added"] == 2
+
+
+async def test_dday_enriches_old_rows_and_keeps_enclosures_separate(setup, database):
+    client, _, source_id, replies, requests, clock = setup
+    article_url = "https://www.dday.it/redazione/123"
+    image = "https://images.dday.it/123.jpg"
+    with Session(database) as session, session.begin():
+        session.get(Source, source_id).feed_url = "https://www.dday.it/rss"
+        old = Article(source_id=source_id, title="Original", guid=article_url, url=image)
+        session.add(old)
+        session.flush()
+        article_id = old.id
+    await client.patch(f"/api/articles/{article_id}", json={"is_read": True})
+    enclosure = f'<link rel="enclosure" type="image/jpeg">{image}</link>'
+    body = f'''<feed xmlns="http://www.w3.org/2005/Atom"><title>News</title>
+        <entry><id>{article_url}</id><title>Current</title>
+        <link rel="alternate" href="{article_url}"/>{enclosure}</entry></feed>'''
+    for expected, document in [(image, body), (None, body.replace(enclosure, ""))]:
+        replies.append(reply(document.encode()))
+        result = await client.post(f"/api/sources/{source_id}/refresh")
+        assert result.json()["status"] == "success"
+        assert result.json()["articles_added"] == 0
+        [item] = (await client.get("/api/articles")).json()["items"]
+        assert (item["id"], item["title"], item["url"]) == (article_id, "Original", article_url)
+        assert item["is_read"]
+        assert item["thumbnail_url"] == expected
+        clock[0] += timedelta(seconds=901)
+    assert len(requests) == 2

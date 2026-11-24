@@ -15,8 +15,59 @@ import {
 import { Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
 import { Icon } from '../Icon'
+import { ArticleThumbnail } from '../ArticleThumbnail'
 import { usePullToRefresh } from '../usePullToRefresh'
 import { formatWaitDuration, message } from '../messages'
+
+function ArticlePreview({ articleId, description }: { articleId: number; description: string }) {
+  const { t } = useLanguage()
+  const paragraph = useRef<HTMLParagraphElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [canExpand, setCanExpand] = useState(false)
+  const id = `article-preview-${articleId}`
+
+  useEffect(() => {
+    const element = paragraph.current
+    if (!element) return
+    const measure = () => {
+      let collapsedHeight = element.clientHeight
+      if (expanded) {
+        const style = getComputedStyle(element)
+        collapsedHeight = Math.round(parseFloat(style.lineHeight) * parseInt(style.webkitLineClamp))
+      }
+      const clipped = element.scrollHeight > collapsedHeight
+      setCanExpand(clipped)
+      if (!clipped) setExpanded(false)
+    }
+    measure()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    observer?.observe(element)
+    document.fonts?.addEventListener('loadingdone', measure)
+    return () => {
+      observer?.disconnect()
+      document.fonts?.removeEventListener('loadingdone', measure)
+    }
+  }, [description, expanded])
+
+  return (
+    <>
+      <p ref={paragraph} id={id} className={`article-description${expanded ? ' expanded' : ''}`}>
+        {description}
+      </p>
+      {canExpand && (
+        <button
+          type="button"
+          className="text-button"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? t('Show less') : t('Show more')}
+        </button>
+      )}
+    </>
+  )
+}
 
 export function Dashboard({ categories, sources }: { categories: Category[]; sources: Source[] }) {
   const { t, locale } = useLanguage()
@@ -302,28 +353,35 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
                       )}
                     </span>
                   </div>
-                  <h3>
-                    {href ? (
-                      <a href={href} target="_blank" rel="noopener noreferrer">
-                        {article.title}
-                        <span className="external-arrow">
-                          <Icon name="external" />
-                        </span>
-                      </a>
-                    ) : (
-                      article.title
+                  <div className="article-body">
+                    <div className="article-text">
+                      <h3>
+                        {href ? (
+                          <a href={href} target="_blank" rel="noopener noreferrer">
+                            {article.title}
+                            <span className="external-arrow">
+                              <Icon name="external" />
+                            </span>
+                          </a>
+                        ) : (
+                          article.title
+                        )}
+                      </h3>
+                      {article.description && (
+                        <ArticlePreview articleId={article.id} description={article.description} />
+                      )}
+                      {discussion && (
+                        <p>
+                          <a href={discussion} target="_blank" rel="noopener noreferrer">
+                            {t('Discussion on Hacker News')}
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                    {article.thumbnail_url && (
+                      <ArticleThumbnail key={article.thumbnail_url} url={article.thumbnail_url} />
                     )}
-                  </h3>
-                  {article.description && (
-                    <p className="article-description">{article.description}</p>
-                  )}
-                  {discussion && (
-                    <p>
-                      <a href={discussion} target="_blank" rel="noopener noreferrer">
-                        {t('Discussion on Hacker News')}
-                      </a>
-                    </p>
-                  )}
+                  </div>
                   <div className="article-footer">
                     <span className="category-tag">
                       {article.source.category?.name ?? t('Uncategorized')}

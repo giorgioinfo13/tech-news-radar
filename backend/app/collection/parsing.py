@@ -15,6 +15,7 @@ from defusedxml.common import DefusedXmlException
 from defusedxml.ElementTree import iterparse
 
 from app.collection.download import FeedError
+from app.collection.thumbnails import DDAY, GALEAZZI, thumbnail_url
 
 
 class PlainText(HTMLParser):
@@ -77,6 +78,7 @@ class Entry:
     description: str | None
     published_at: datetime | None
     discussion_url: str | None = None
+    thumbnail_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,7 +87,11 @@ class ParsedFeed:
     seen: int
 
 
-def parse_feed(body: bytes, base_url: str, max_entries: int) -> ParsedFeed:
+def parse_feed(
+    body: bytes, base_url: str, max_entries: int, *, source_url: str | None = None
+) -> ParsedFeed:
+    source_url = source_url or base_url
+    publisher_images = {}
     try:
         depth = 0
         for event, element in iterparse(
@@ -99,6 +105,15 @@ def parse_feed(body: bytes, base_url: str, max_entries: int) -> ParsedFeed:
             if depth > 64:
                 raise FeedError("Feed XML exceeds the nesting limit")
             if event == "end":
+                # Feedparser discards the bare <item><image> field from this publisher.
+                if source_url == GALEAZZI:
+                    if depth == 3 and element.tag in {"link", "image"}:
+                        continue
+                    if depth == 2 and element.tag == "item":
+                        link = element.findtext("link")
+                        image = element.findtext("image")
+                        if link and image:
+                            publisher_images[article_url(link, base_url)] = image
                 element.clear()
     except (ParseError, DefusedXmlException, ValueError) as exc:
         raise FeedError("Feed is not valid XML or contains prohibited XML declarations") from exc
@@ -108,9 +123,21 @@ def parse_feed(body: bytes, base_url: str, max_entries: int) -> ParsedFeed:
     if len(parsed.entries) > max_entries:
         raise FeedError("Feed exceeds the entry limit")
     entries = []
+    feed_image = parsed.feed.get("image")
+    channel_image = feed_image.get("href", "") if isinstance(feed_image, dict) else ""
     for item in parsed.entries:
         title = plain_text(item.get("title", ""), 1000)
         link = item.get("link", "")
+        if source_url == DDAY:
+            # A text-valued Atom enclosure can overwrite feedparser's primary link.
+            link = next(
+                (
+                    v["href"]
+                    for v in item.get("links", ())
+                    if v.get("rel") == "alternate" and v.get("href")
+                ),
+                item.get("id", ""),
+            )
         url = article_url(link, base_url) if link else None
         guid = item.get("id", "").strip() or None
         if not title or not url or (guid and len(guid) > 1024):
@@ -133,7 +160,8 @@ def parse_feed(body: bytes, base_url: str, max_entries: int) -> ParsedFeed:
                 discussion = comments
             if description == "Comments":
                 description = None
-        entries.append(Entry(guid, url, title, description, published, discussion))
+        image = thumbnail_url(item, source_url, url, publisher_images.get(url, ""), channel_image)
+        entries.append(Entry(guid, url, title, description, published, discussion, image))
     if parsed.entries and not entries:
         raise FeedError("Feed contains no usable entries with a title and HTTP/HTTPS link")
     return ParsedFeed(entries, len(parsed.entries))
