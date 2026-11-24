@@ -1,4 +1,4 @@
-import { message, translate, type UiMessage } from './messages'
+import { formatWaitDuration, message, translate, type UiMessage } from './messages'
 export interface ReaderInvitation {
   id: string
   email: string
@@ -176,8 +176,8 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new ApiError(
       response.status === 429
         ? delay && /^\d{1,6}$/.test(delay)
-          ? message('Too many refresh requests. Try again in {seconds} seconds.', {
-              seconds: delay,
+          ? message('Too many refresh requests. Try again in {duration}.', {
+              duration: formatWaitDuration(Number(delay)),
             })
           : message('Too many refresh requests. Try again later.')
         : (messages[response.status] ??

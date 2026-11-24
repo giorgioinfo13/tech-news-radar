@@ -6,6 +6,7 @@ import { errorMessage, mutate, request, type Source, type Subscription } from '.
 import { ConfirmDialog, Empty, Notice } from '../components'
 
 export function Subscriptions({
+  admin,
   sources,
   subscriptions,
   onChange,
@@ -13,6 +14,7 @@ export function Subscriptions({
   updating = false,
   onContinue,
 }: {
+  admin: boolean
   sources: Source[]
   subscriptions: Subscription[]
   onChange: () => void
@@ -130,9 +132,11 @@ export function Subscriptions({
               : t('Follow what interests you.')}
           </p>
         </div>
-        <a className="text-button" href="#proposals">
-          {t('Suggest a source')}
-        </a>
+        {!admin && (
+          <a className="text-button" href="#proposals">
+            {t('Suggest a source')}
+          </a>
+        )}
       </header>
       {error && !confirmUnfollow && (
         <Notice error>

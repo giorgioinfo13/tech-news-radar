@@ -16,7 +16,7 @@ import { Empty, Notice, Pagination, QueryState } from '../components'
 import { useQuery } from '../useQuery'
 import { Icon } from '../Icon'
 import { usePullToRefresh } from '../usePullToRefresh'
-import { message } from '../messages'
+import { formatWaitDuration, message } from '../messages'
 
 export function Dashboard({ categories, sources }: { categories: Category[]; sources: Source[] }) {
   const { t, locale } = useLanguage()
@@ -154,8 +154,8 @@ export function Dashboard({ categories, sources }: { categories: Category[]; sou
               {' '}
               {refreshResult.retry_after
                 ? t(
-                    'Sources were checked recently or are waiting after errors. Next check in at least {seconds} seconds.',
-                    { seconds: refreshResult.retry_after },
+                    'Sources were checked recently or are waiting after errors. Next check in at least {duration}.',
+                    { duration: formatWaitDuration(refreshResult.retry_after) },
                   )
                 : t('No enabled sources are available to refresh.')}
             </>

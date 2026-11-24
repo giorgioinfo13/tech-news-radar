@@ -72,8 +72,8 @@ export const italian = {
     'Nuovi articoli: {added} · Fonti controllate: {checked} · Saltate: {skipped} · Non riuscite: {failed}.',
   'Partial update: {count} sources remain. No automatic retry.':
     'Aggiornamento parziale: restano {count} fonti. Nessun nuovo tentativo automatico.',
-  'Sources were checked recently or are waiting after errors. Next check in at least {seconds} seconds.':
-    'Le fonti sono state controllate di recente o sono in attesa dopo errori. Prossimo controllo tra almeno {seconds} secondi.',
+  'Sources were checked recently or are waiting after errors. Next check in at least {duration}.':
+    'Le fonti sono state controllate di recente o sono in attesa dopo errori. Prossimo controllo tra almeno {duration}.',
   'No enabled sources are available to refresh.': 'Non ci sono fonti abilitate da aggiornare.',
   'AI digest': 'Rassegna AI',
   'Last 24 hours digest': 'Rassegna delle ultime 24 ore',
@@ -443,8 +443,8 @@ export const italian = {
   '{added} new articles out of {seen} items checked.':
     '{added} nuovi articoli su {seen} elementi esaminati.',
   '{start}–{end} of {total}': '{start}–{end} di {total}',
-  'Too many refresh requests. Try again in {seconds} seconds.':
-    'Aggiornamento troppo ravvicinato. Riprova tra {seconds} secondi.',
+  'Too many refresh requests. Try again in {duration}.':
+    'Aggiornamento troppo ravvicinato. Riprova tra {duration}.',
   'Too many refresh requests. Try again later.':
     'Aggiornamento troppo ravvicinato. Riprova più tardi.',
 } as const
@@ -453,6 +453,13 @@ export type Language = 'it' | 'en'
 export type MessageKey = keyof typeof italian
 export type MessageValues = Record<string, string | number>
 export type UiMessage = { messageKey: MessageKey; values?: MessageValues }
+
+export function formatWaitDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds} s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return seconds === 0 ? `${minutes} min` : `${minutes} min ${seconds} s`
+}
 
 export function message(messageKey: MessageKey, values?: MessageValues): UiMessage {
   return { messageKey, values }

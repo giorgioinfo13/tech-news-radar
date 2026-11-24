@@ -140,7 +140,7 @@ describe('RSS refresh from news', () => {
         status === 409
           ? 'Una raccolta è già in corso'
           : status === 429
-            ? '900 secondi'
+            ? 'Riprova tra 15 min.'
             : 'Il server non ha completato',
       )
       await waitFor(() => expect(calls.at(-1)?.path).toContain('/articles?'))
@@ -148,9 +148,14 @@ describe('RSS refresh from news', () => {
     },
   )
 
-  it.each(['it', 'en'])(
-    'reports recent sources in %s and reloads without resetting filters',
-    async (language) => {
+  it.each([
+    ['it', 59, 'Prossimo controllo tra almeno 59 s.'],
+    ['it', 60, 'Prossimo controllo tra almeno 1 min.'],
+    ['it', 607, 'Prossimo controllo tra almeno 10 min 7 s.'],
+    ['en', 607, 'Next check in at least 10 min 7 s.'],
+  ] as const)(
+    'reports recent sources in %s with a wait of %i seconds and reloads articles',
+    async (language, seconds, expected) => {
       const { state, calls } = mockServer()
       localStorage.setItem('tnr-language', language)
       state.newsRefresh = {
@@ -159,7 +164,7 @@ describe('RSS refresh from news', () => {
         failed: 0,
         skipped: 3,
         deferred: 0,
-        retry_after: 840,
+        retry_after: seconds,
       }
       await open()
       fireEvent.click(
@@ -167,7 +172,7 @@ describe('RSS refresh from news', () => {
           name: language === 'it' ? 'Aggiorna fonti' : 'Refresh sources',
         }),
       )
-      await screen.findByText(language === 'it' ? /controllate di recente/ : /checked recently/)
+      await screen.findByText(expected, { exact: false })
       await waitFor(() => expect(calls.at(-1)?.path).toContain('/articles?'))
     },
   )

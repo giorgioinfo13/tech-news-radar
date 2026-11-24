@@ -219,6 +219,7 @@ function Workspace({
     return (
       <Subscriptions
         initial
+        admin={admin}
         updating={subscriptionsUpdating}
         sources={sources}
         subscriptions={subscriptions}
@@ -232,6 +233,7 @@ function Workspace({
   if (page === 'sources')
     return (
       <Subscriptions
+        admin={admin}
         updating={subscriptionsUpdating}
         sources={sources}
         subscriptions={subscriptions}

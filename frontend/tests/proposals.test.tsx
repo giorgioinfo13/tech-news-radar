@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from '../src/App'
@@ -27,6 +27,37 @@ function open() {
 }
 
 describe('source proposals', () => {
+  it.each([
+    ['admin', true],
+    ['admin', false],
+    ['reader', true],
+    ['reader', false],
+  ] as const)(
+    'shows the appropriate proposal links for %s (initial selection: %s)',
+    async (role, initial) => {
+      const { state } = mockServer()
+      state.user.role = role
+      if (initial) state.subscriptions = []
+      history.replaceState(null, '', '#sources')
+      render(<App />)
+      await screen.findByRole('heading', {
+        name: initial ? 'Scegli da dove iniziare' : 'Le mie fonti',
+      })
+      const link = within(screen.getByRole('main')).queryByRole('link', {
+        name: 'Proponi una fonte',
+      })
+      if (role === 'admin') {
+        expect(link).not.toBeInTheDocument()
+        expect(await screen.findByRole('link', { name: 'Proposte (0)' })).toHaveAttribute(
+          'href',
+          '#proposals',
+        )
+      } else {
+        expect(link).toHaveAttribute('href', '#proposals')
+      }
+    },
+  )
+
   it('submits just a name with explicit follow consent and cancels the pending proposal', async () => {
     const { state, calls } = mockServer()
     state.user.role = 'reader'

@@ -223,7 +223,7 @@ describe('source management', () => {
     const user = userEvent.setup()
     open('sources')
     await user.click(await screen.findByRole('button', { name: 'Aggiorna Example News' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('42 secondi')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Riprova tra 42 s.')
     await user.click(screen.getByRole('button', { name: 'Modifica Example News' }))
     await user.clear(screen.getByLabelText('Nome della fonte'))
     await user.type(screen.getByLabelText('Nome della fonte'), 'Nome modificato')
